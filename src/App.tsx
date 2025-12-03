@@ -27,7 +27,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/landing" replace />} />
             <Route path="/landing" element={<Landing />} />
-            <Route path="/webresult" element={<WebResult />} />
+            <Route path="/webresult/:page" element={<WebResult />} />
             <Route path="/prelanding/:id" element={<Prelanding />} />
             <Route path="/lid" element={<LinkRedirect />} />
             

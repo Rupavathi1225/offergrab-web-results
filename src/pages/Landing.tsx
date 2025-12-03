@@ -46,7 +46,7 @@ const Landing = () => {
 
   const handleSearchClick = (search: RelatedSearch) => {
     trackClick('related_search', search.id, search.title, '/landing');
-    window.location.href = `/webresult?wr=${search.target_wr}`;
+    navigate(`/webresult/${search.target_wr}`);
   };
 
   if (loading) {
