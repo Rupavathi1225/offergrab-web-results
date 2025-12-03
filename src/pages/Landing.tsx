@@ -44,9 +44,9 @@ const Landing = () => {
     }
   };
 
-  const handleSearchClick = async (search: RelatedSearch) => {
+  const handleSearchClick = (search: RelatedSearch) => {
     trackClick('related_search', search.id, search.title, '/landing');
-    navigate(`/webresult?wr=${search.target_wr}`, { replace: false });
+    window.location.href = `/webresult?wr=${search.target_wr}`;
   };
 
   if (loading) {
