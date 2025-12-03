@@ -8,7 +8,6 @@ import WebResult from "./pages/WebResult";
 import Prelanding from "./pages/Prelanding";
 import LinkRedirect from "./pages/LinkRedirect";
 import AdminLayout from "./pages/admin/AdminLayout";
-import Dashboard from "./pages/admin/Dashboard";
 import LandingContent from "./pages/admin/LandingContent";
 import SearchButtons from "./pages/admin/SearchButtons";
 import WebResults from "./pages/admin/WebResults";
@@ -33,7 +32,7 @@ const App = () => (
           
           {/* Admin Routes */}
           <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<Dashboard />} />
+            <Route index element={<LandingContent />} />
             <Route path="landing" element={<LandingContent />} />
             <Route path="searches" element={<SearchButtons />} />
             <Route path="results" element={<WebResults />} />
