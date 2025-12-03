@@ -168,14 +168,10 @@ const Analytics = () => {
   const uniqueSources = [...new Set(sessions.map(s => s.source))];
 
   const statCards = [
-    { icon: MousePointer, label: 'Total Clicks', value: stats.totalClicks },
     { icon: Users, label: 'Sessions', value: stats.totalSessions },
     { icon: Eye, label: 'Page Views', value: stats.totalPageViews },
-    { icon: Smartphone, label: 'Mobile', value: stats.mobileUsers },
-    { icon: Monitor, label: 'Desktop', value: stats.desktopUsers },
-    { icon: Globe, label: 'Countries', value: stats.uniqueCountries },
-    { icon: Search, label: 'Related Searches', value: stats.relatedSearchClicks },
-    { icon: Link, label: 'Result Clicks', value: stats.resultClicks },
+    { icon: Globe, label: 'Unique Countries', value: stats.uniqueCountries },
+    { icon: MousePointer, label: 'Total Clicks', value: stats.totalClicks },
   ];
 
   if (loading) {
