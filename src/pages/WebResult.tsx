@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { Search, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { initSession, trackClick, getOrCreateSessionId } from "@/lib/tracking";
@@ -25,9 +25,9 @@ interface Prelanding {
 }
 
 const WebResult = () => {
-  const [searchParams] = useSearchParams();
+  const { page } = useParams();
   const navigate = useNavigate();
-  const wrPage = parseInt(searchParams.get('wr') || '1');
+  const wrPage = parseInt(page || '1');
   
   const [results, setResults] = useState<WebResultItem[]>([]);
   const [content, setContent] = useState<LandingContent | null>(null);
@@ -74,7 +74,7 @@ const WebResult = () => {
 
   const handleResultClick = async (result: WebResultItem, index: number) => {
     const lid = index + 1;
-    await trackClick('web_result', result.id, result.title, `/webresult?wr=${wrPage}`, lid, result.link);
+    await trackClick('web_result', result.id, result.title, `/webresult/${wrPage}`, lid, result.link);
     
     // Check if prelanding exists and is active
     const prelanding = prelandings[result.id];
