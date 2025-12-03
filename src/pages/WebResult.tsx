@@ -35,6 +35,7 @@ const WebResult = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    document.title = `Web Results - Page ${wrPage}`;
     initSession();
     fetchData();
   }, [wrPage]);
