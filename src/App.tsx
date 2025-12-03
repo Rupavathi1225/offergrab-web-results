@@ -17,34 +17,36 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Navigate to="/landing" replace />} />
-          <Route path="/landing" element={<Landing />} />
-          <Route path="/webresult" element={<WebResult />} />
-          <Route path="/prelanding/:id" element={<Prelanding />} />
-          <Route path="/lid" element={<LinkRedirect />} />
-          
-          {/* Admin Routes */}
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route index element={<LandingContent />} />
-            <Route path="landing" element={<LandingContent />} />
-            <Route path="searches" element={<SearchButtons />} />
-            <Route path="results" element={<WebResults />} />
-            <Route path="prelandings" element={<PreLandings />} />
-            <Route path="analytics" element={<Analytics />} />
-          </Route>
-          
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Navigate to="/landing" replace />} />
+            <Route path="/landing" element={<Landing />} />
+            <Route path="/webresult" element={<WebResult />} />
+            <Route path="/prelanding/:id" element={<Prelanding />} />
+            <Route path="/lid" element={<LinkRedirect />} />
+            
+            {/* Admin Routes */}
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route index element={<LandingContent />} />
+              <Route path="landing" element={<LandingContent />} />
+              <Route path="searches" element={<SearchButtons />} />
+              <Route path="results" element={<WebResults />} />
+              <Route path="prelandings" element={<PreLandings />} />
+              <Route path="analytics" element={<Analytics />} />
+            </Route>
+            
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+}
 
 export default App;
