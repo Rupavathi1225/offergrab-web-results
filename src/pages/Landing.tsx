@@ -45,8 +45,8 @@ const Landing = () => {
   };
 
   const handleSearchClick = async (search: RelatedSearch) => {
-    await trackClick('related_search', search.id, search.title, '/landing');
-    navigate(`/webresult?wr=${search.target_wr}`);
+    trackClick('related_search', search.id, search.title, '/landing');
+    navigate(`/webresult?wr=${search.target_wr}`, { replace: false });
   };
 
   if (loading) {
