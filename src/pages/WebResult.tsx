@@ -205,9 +205,9 @@ const WebResult = () => {
                 className="animate-fade-in"
                 style={{ animationDelay: `${index * 0.05}s` }}
               >
-                <div className="flex items-start gap-3 mb-1">
+                <div className="flex items-center gap-2 mb-1">
                   {/* Logo */}
-                  <div className="flex-shrink-0 w-7 h-7 rounded-full bg-secondary flex items-center justify-center overflow-hidden">
+                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-secondary flex items-center justify-center overflow-hidden">
                     {result.logo_url ? (
                       <img 
                         src={result.logo_url} 
@@ -231,11 +231,9 @@ const WebResult = () => {
                       </span>
                     )}
                   </div>
-                  <div className="flex-1">
-                    <p className="text-foreground text-sm">{result.name}</p>
-                    <p className="text-muted-foreground text-xs">{getMaskedUrl(sponsoredResults.length + index + 1)}</p>
-                  </div>
+                  <span className="text-foreground text-sm">{result.name}</span>
                 </div>
+                <p className="text-muted-foreground text-xs mb-1">{getMaskedUrl(sponsoredResults.length + index + 1)}</p>
                 <h3 
                   className="text-primary hover:underline cursor-pointer text-lg mb-1"
                   onClick={() => handleResultClick(result, sponsoredResults.length + index)}
