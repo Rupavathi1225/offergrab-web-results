@@ -164,12 +164,7 @@ const WebResult = () => {
                   <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                     <span className="text-xs">Sponsored</span>
                     <span>·</span>
-                    <span 
-                      className="cursor-pointer hover:underline hover:text-primary"
-                      onClick={() => handleResultClick(result, index)}
-                    >
-                      {getMaskedUrl(index + 1)}
-                    </span>
+                    <span>{result.name}</span>
                     <span className="cursor-pointer">⋮</span>
                   </div>
                   <h3 
@@ -178,6 +173,12 @@ const WebResult = () => {
                   >
                     {result.title}
                   </h3>
+                  <p 
+                    className="text-muted-foreground text-xs mb-2 cursor-pointer hover:underline hover:text-primary"
+                    onClick={() => handleResultClick(result, index)}
+                  >
+                    {getMaskedUrl(index + 1)}
+                  </p>
                   {result.description && (
                     <p className="text-muted-foreground/80 text-sm italic mb-3">
                       {result.description}
