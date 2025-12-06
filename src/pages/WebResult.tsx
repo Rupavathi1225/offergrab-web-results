@@ -38,10 +38,9 @@ const WebResult = () => {
   const sponsoredResults = results.filter(r => r.is_sponsored);
   const organicResults = results.filter(r => !r.is_sponsored);
 
-  // Generate masked URL from name
-  const getMaskedUrl = (name: string) => {
-    const cleanName = name.toLowerCase().replace(/[^a-z0-9]/g, '');
-    return `https://www.${cleanName}.com/`;
+  // Generate masked URL with lid format
+  const getMaskedUrl = (lid: number) => {
+    return `https://offergrabzone.lid${lid}/`;
   };
 
   useEffect(() => {
@@ -171,7 +170,7 @@ const WebResult = () => {
                   <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                     <span className="text-xs">Sponsored</span>
                     <span>·</span>
-                    <span>{getMaskedUrl(result.name)}</span>
+                    <span>{getMaskedUrl(index + 1)}</span>
                     <span className="cursor-pointer">⋮</span>
                   </div>
                   {result.description && (
@@ -234,7 +233,7 @@ const WebResult = () => {
                   </div>
                   <div className="flex-1">
                     <p className="text-foreground text-sm">{result.name}</p>
-                    <p className="text-muted-foreground text-xs">{getMaskedUrl(result.name)}</p>
+                    <p className="text-muted-foreground text-xs">{getMaskedUrl(sponsoredResults.length + index + 1)}</p>
                   </div>
                 </div>
                 <h3 
