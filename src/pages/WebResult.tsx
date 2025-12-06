@@ -161,11 +161,8 @@ const WebResult = () => {
                   className="animate-fade-in"
                   style={{ animationDelay: `${index * 0.05}s` }}
                 >
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                  <div className="text-sm text-muted-foreground mb-1">
                     <span className="text-xs">Sponsored</span>
-                    <span>·</span>
-                    <span>{result.name}</span>
-                    <span className="cursor-pointer">⋮</span>
                   </div>
                   <h3 
                     className="text-primary hover:underline cursor-pointer font-serif text-lg mb-1 tracking-wide underline"
