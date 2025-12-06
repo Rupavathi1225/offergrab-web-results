@@ -162,7 +162,7 @@ const WebResult = () => {
                   style={{ animationDelay: `${index * 0.05}s` }}
                 >
                   <h3 
-                    className="text-primary hover:underline cursor-pointer font-serif text-lg mb-1 tracking-wide"
+                    className="text-primary hover:underline cursor-pointer font-serif text-lg mb-1 tracking-wide underline"
                     onClick={() => handleResultClick(result, index)}
                   >
                     {result.title}
@@ -171,7 +171,7 @@ const WebResult = () => {
                     <span className="text-xs">Sponsored</span>
                     <span>·</span>
                     <span 
-                      className="cursor-pointer hover:underline"
+                      className="cursor-pointer hover:underline hover:text-primary"
                       onClick={() => handleResultClick(result, index)}
                     >
                       {getMaskedUrl(index + 1)}
