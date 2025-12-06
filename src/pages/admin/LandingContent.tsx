@@ -96,16 +96,6 @@ const LandingContent = () => {
 
       <div className="glass-card p-6 space-y-6">
         <div>
-          <label className="block text-sm font-medium text-foreground mb-2">Site Name</label>
-          <Input
-            value={content.site_name}
-            onChange={(e) => setContent({ ...content, site_name: e.target.value })}
-            className="admin-input"
-            placeholder="OfferGrab"
-          />
-        </div>
-
-        <div>
           <label className="block text-sm font-medium text-foreground mb-2">Headline</label>
           <Input
             value={content.headline}

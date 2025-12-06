@@ -34,6 +34,16 @@ const WebResult = () => {
   const [prelandings, setPrelandings] = useState<Record<string, Prelanding>>({});
   const [loading, setLoading] = useState(true);
 
+  // Separate sponsored and organic results, with sponsored first
+  const sponsoredResults = results.filter(r => r.is_sponsored);
+  const organicResults = results.filter(r => !r.is_sponsored);
+
+  // Generate masked URL from name
+  const getMaskedUrl = (name: string) => {
+    const cleanName = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return `https://www.${cleanName}.com/`;
+  };
+
   useEffect(() => {
     document.title = `Web Results - Page ${wrPage}`;
     initSession();
@@ -141,72 +151,103 @@ const WebResult = () => {
         </div>
       </header>
 
-      {/* Results */}
+      {/* Sponsored Results Section */}
+      {sponsoredResults.length > 0 && (
+        <section className="bg-[#1a1f35] border-b border-border/30">
+          <div className="container mx-auto px-4 py-6">
+            <div className="max-w-3xl mx-auto space-y-6">
+              {sponsoredResults.map((result, index) => (
+                <div
+                  key={result.id}
+                  className="animate-fade-in"
+                  style={{ animationDelay: `${index * 0.05}s` }}
+                >
+                  <h3 
+                    className="text-primary hover:underline cursor-pointer font-serif text-lg mb-1 tracking-wide"
+                    onClick={() => handleResultClick(result, index)}
+                  >
+                    {result.title}
+                  </h3>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                    <span className="text-xs">Sponsored</span>
+                    <span>·</span>
+                    <span>{getMaskedUrl(result.name)}</span>
+                    <span className="cursor-pointer">⋮</span>
+                  </div>
+                  {result.description && (
+                    <p className="text-muted-foreground/80 text-sm italic mb-3">
+                      {result.description}
+                    </p>
+                  )}
+                  <button
+                    onClick={() => handleResultClick(result, index)}
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-2.5 rounded font-medium text-sm flex items-center gap-2 transition-colors"
+                  >
+                    <span>➤</span> Visit Website
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Organic Results Section */}
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-3xl mx-auto">
-          <p className="text-muted-foreground text-sm mb-6">
-            Web Results - Page {wrPage}
-          </p>
+          {organicResults.length > 0 && (
+            <p className="text-muted-foreground text-sm mb-6">Web Results</p>
+          )}
 
-          <div className="space-y-1">
-            {results.map((result, index) => (
+          <div className="space-y-6">
+            {organicResults.map((result, index) => (
               <div
                 key={result.id}
-                className="result-item animate-fade-in"
+                className="animate-fade-in"
                 style={{ animationDelay: `${index * 0.05}s` }}
               >
-                <div className="flex items-start gap-4">
+                <div className="flex items-start gap-3 mb-1">
                   {/* Logo */}
-                  <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-secondary flex items-center justify-center overflow-hidden">
+                  <div className="flex-shrink-0 w-7 h-7 rounded-full bg-secondary flex items-center justify-center overflow-hidden">
                     {result.logo_url ? (
-                      <>
-                        <img 
-                          src={result.logo_url} 
-                          alt={result.name} 
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
-                            const parent = target.parentElement;
-                            if (parent) {
-                              const span = document.createElement('span');
-                              span.className = 'text-lg font-bold text-primary';
-                              span.textContent = getInitial(result.name);
-                              parent.appendChild(span);
-                            }
-                          }}
-                        />
-                      </>
+                      <img 
+                        src={result.logo_url} 
+                        alt={result.name} 
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          const parent = target.parentElement;
+                          if (parent) {
+                            const span = document.createElement('span');
+                            span.className = 'text-xs font-bold text-primary';
+                            span.textContent = getInitial(result.name);
+                            parent.appendChild(span);
+                          }
+                        }}
+                      />
                     ) : (
-                      <span className="text-lg font-bold text-primary">
+                      <span className="text-xs font-bold text-primary">
                         {getInitial(result.name)}
                       </span>
                     )}
                   </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-muted-foreground text-sm truncate">
-                        {result.name}
-                      </span>
-                      {result.is_sponsored && (
-                        <span className="badge-warning text-[10px]">Sponsored</span>
-                      )}
-                    </div>
-                    <h3 
-                      className="text-primary hover:underline cursor-pointer font-medium text-lg mb-1"
-                      onClick={() => handleResultClick(result, index)}
-                    >
-                      {result.title}
-                    </h3>
-                    {result.description && (
-                      <p className="text-muted-foreground text-sm line-clamp-2">
-                        {result.description}
-                      </p>
-                    )}
+                  <div className="flex-1">
+                    <p className="text-foreground text-sm">{result.name}</p>
+                    <p className="text-muted-foreground text-xs">{getMaskedUrl(result.name)}</p>
                   </div>
                 </div>
+                <h3 
+                  className="text-primary hover:underline cursor-pointer text-lg mb-1"
+                  onClick={() => handleResultClick(result, sponsoredResults.length + index)}
+                >
+                  {result.title}
+                </h3>
+                {result.description && (
+                  <p className="text-muted-foreground text-sm line-clamp-2">
+                    {result.description}
+                  </p>
+                )}
               </div>
             ))}
 
