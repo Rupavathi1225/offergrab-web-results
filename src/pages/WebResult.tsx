@@ -161,13 +161,7 @@ const WebResult = () => {
                   className="animate-fade-in"
                   style={{ animationDelay: `${index * 0.05}s` }}
                 >
-                  <h3 
-                    className="text-primary hover:underline cursor-pointer font-serif text-lg mb-1 tracking-wide underline"
-                    onClick={() => handleResultClick(result, index)}
-                  >
-                    {result.title}
-                  </h3>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                     <span className="text-xs">Sponsored</span>
                     <span>·</span>
                     <span 
@@ -178,6 +172,12 @@ const WebResult = () => {
                     </span>
                     <span className="cursor-pointer">⋮</span>
                   </div>
+                  <h3 
+                    className="text-primary hover:underline cursor-pointer font-serif text-lg mb-1 tracking-wide underline"
+                    onClick={() => handleResultClick(result, index)}
+                  >
+                    {result.title}
+                  </h3>
                   {result.description && (
                     <p className="text-muted-foreground/80 text-sm italic mb-3">
                       {result.description}
