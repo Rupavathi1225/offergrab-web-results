@@ -8,6 +8,7 @@ const tabs = [
   { label: 'Search Buttons', path: '/admin/searches' },
   { label: 'Web Results', path: '/admin/results' },
   { label: 'Pre-Landings', path: '/admin/prelandings' },
+  { label: 'Blogs', path: '/admin/blogs' },
   { label: 'Analytics', path: '/admin/analytics' },
 ];
 

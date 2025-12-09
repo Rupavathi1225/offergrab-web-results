@@ -7,11 +7,13 @@ import Landing from "./pages/Landing";
 import WebResult from "./pages/WebResult";
 import Prelanding from "./pages/Prelanding";
 import LinkRedirect from "./pages/LinkRedirect";
+import BlogPage from "./pages/BlogPage";
 import AdminLayout from "./pages/admin/AdminLayout";
 import LandingContent from "./pages/admin/LandingContent";
 import SearchButtons from "./pages/admin/SearchButtons";
 import WebResults from "./pages/admin/WebResults";
 import PreLandings from "./pages/admin/PreLandings";
+import Blogs from "./pages/admin/Blogs";
 import Analytics from "./pages/admin/Analytics";
 import NotFound from "./pages/NotFound";
 
@@ -30,6 +32,7 @@ function App() {
             <Route path="/webresult/:page" element={<WebResult />} />
             <Route path="/prelanding/:id" element={<Prelanding />} />
             <Route path="/lid" element={<LinkRedirect />} />
+            <Route path="/blog/:slug" element={<BlogPage />} />
             
             {/* Admin Routes */}
             <Route path="/admin" element={<AdminLayout />}>
@@ -38,6 +41,7 @@ function App() {
               <Route path="searches" element={<SearchButtons />} />
               <Route path="results" element={<WebResults />} />
               <Route path="prelandings" element={<PreLandings />} />
+              <Route path="blogs" element={<Blogs />} />
               <Route path="analytics" element={<Analytics />} />
             </Route>
             
