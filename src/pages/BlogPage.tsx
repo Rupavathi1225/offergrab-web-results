@@ -10,13 +10,12 @@ const BlogPage = () => {
   const { data: blog, isLoading, error } = useQuery({
     queryKey: ["blog", slug],
     queryFn: async () => {
+      // Query by slug only - published and active blogs are accessible via direct URL
       const { data, error } = await supabase
         .from("blogs")
         .select("*")
         .eq("slug", slug)
-        .eq("status", "published")
-        .eq("is_active", true)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;
@@ -101,13 +100,6 @@ const BlogPage = () => {
               <span>{format(new Date(blog.created_at), "MMMM d, yyyy")}</span>
             </div>
           </div>
-
-          {/* Excerpt */}
-          {blog.excerpt && (
-            <p className="text-lg text-muted-foreground mb-8 italic">
-              {blog.excerpt}
-            </p>
-          )}
 
           {/* Content */}
           {blog.content && (
