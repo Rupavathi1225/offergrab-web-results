@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -74,11 +75,10 @@ const Blogs = () => {
     title: "",
     slug: "",
     content: "",
-    excerpt: "",
     featured_image_url: "",
     author: "",
     category: "",
-    status: "draft",
+    status: "published",
   });
 
   const { data: blogs, isLoading } = useQuery({
@@ -95,8 +95,10 @@ const Blogs = () => {
   });
 
   const createMutation = useMutation({
-    mutationFn: async (data: Omit<Blog, "id" | "created_at" | "updated_at" | "is_active">) => {
-      const { error } = await supabase.from("blogs").insert([{ ...data, is_active: false }]);
+    mutationFn: async (data: Omit<Blog, "id" | "created_at" | "updated_at" | "is_active" | "excerpt">) => {
+      // Auto-set is_active to true when status is published
+      const isActive = data.status === "published";
+      const { error } = await supabase.from("blogs").insert([{ ...data, is_active: isActive, excerpt: null }]);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -112,7 +114,12 @@ const Blogs = () => {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, ...data }: Partial<Blog> & { id: string }) => {
-      const { error } = await supabase.from("blogs").update(data).eq("id", id);
+      // Auto-set is_active when status changes to published
+      const updateData = { ...data };
+      if (data.status === "published") {
+        updateData.is_active = true;
+      }
+      const { error } = await supabase.from("blogs").update(updateData).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -159,11 +166,10 @@ const Blogs = () => {
       title: "",
       slug: "",
       content: "",
-      excerpt: "",
       featured_image_url: "",
       author: "",
       category: "",
-      status: "draft",
+      status: "published",
     });
     setEditingBlog(null);
   };
@@ -225,7 +231,6 @@ const Blogs = () => {
       title: blog.title,
       slug: blog.slug,
       content: blog.content || "",
-      excerpt: blog.excerpt || "",
       featured_image_url: blog.featured_image_url || "",
       author: blog.author || "",
       category: blog.category || "",
@@ -269,6 +274,9 @@ const Blogs = () => {
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingBlog ? "Edit Blog" : "Create New Blog"}</DialogTitle>
+              <DialogDescription>
+                {editingBlog ? "Update your blog post details below." : "Fill in the details to create a new blog post."}
+              </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
@@ -353,23 +361,12 @@ const Blogs = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="excerpt">Excerpt</Label>
-                <Textarea
-                  id="excerpt"
-                  value={formData.excerpt}
-                  onChange={(e) => setFormData(prev => ({ ...prev, excerpt: e.target.value }))}
-                  placeholder="Brief description of the blog"
-                  rows={2}
-                />
-              </div>
-
-              <div className="space-y-2">
                 <Label htmlFor="content">Content</Label>
                 <Textarea
                   id="content"
                   value={formData.content}
                   onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-                  placeholder="Blog content (supports markdown)"
+                  placeholder="Blog content..."
                   rows={6}
                 />
               </div>
