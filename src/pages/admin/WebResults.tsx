@@ -9,6 +9,8 @@ import { toast } from "@/hooks/use-toast";
 import { Plus, Save, Trash2, Edit2, X, Globe } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { countries } from "@/lib/countries";
+import BulkActionToolbar from "@/components/admin/BulkActionToolbar";
+import { convertToCSV, downloadCSV } from "@/lib/csvExport";
 
 interface WebResult {
   id: string;
@@ -31,6 +33,7 @@ const WebResults = () => {
   const [editingResult, setEditingResult] = useState<WebResult | null>(null);
   const [showDialog, setShowDialog] = useState(false);
   const [selectedWr, setSelectedWr] = useState<number>(0);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const emptyResult: Omit<WebResult, 'id'> = {
     name: '',
@@ -129,6 +132,7 @@ const WebResults = () => {
       if (error) throw error;
 
       setResults(results.filter(r => r.id !== id));
+      setSelectedIds(prev => { const n = new Set(prev); n.delete(id); return n; });
       toast({ title: "Deleted!", description: "Result removed." });
     } catch (error) {
       console.error('Error deleting:', error);
@@ -148,6 +152,98 @@ const WebResults = () => {
   const filteredResults = selectedWr === 0 
     ? results 
     : results.filter(r => r.wr_page === selectedWr);
+
+  // Bulk actions
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) newSet.delete(id);
+      else newSet.add(id);
+      return newSet;
+    });
+  };
+
+  const selectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(new Set(filteredResults.map(r => r.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const csvColumns = [
+    { key: 'serial_number' as const, header: 'Serial #' },
+    { key: 'name' as const, header: 'Name' },
+    { key: 'title' as const, header: 'Title' },
+    { key: 'link' as const, header: 'Link' },
+    { key: 'wr_page' as const, header: 'WR Page' },
+    { key: 'is_sponsored' as const, header: 'Sponsored' },
+    { key: 'is_active' as const, header: 'Active' },
+  ];
+
+  const exportAll = () => {
+    const csv = convertToCSV(filteredResults, csvColumns);
+    downloadCSV(csv, 'web-results.csv');
+    toast({ title: "Exported!", description: "All results exported to CSV." });
+  };
+
+  const exportSelected = () => {
+    const selected = filteredResults.filter(r => selectedIds.has(r.id));
+    const csv = convertToCSV(selected, csvColumns);
+    downloadCSV(csv, 'web-results-selected.csv');
+    toast({ title: "Exported!", description: `${selected.length} results exported to CSV.` });
+  };
+
+  const copySelected = () => {
+    const selected = filteredResults.filter(r => selectedIds.has(r.id));
+    const text = selected.map(r => `${r.name}: ${r.title} - ${r.link}`).join('\n');
+    navigator.clipboard.writeText(text);
+    toast({ title: "Copied!", description: `${selected.length} results copied to clipboard.` });
+  };
+
+  const bulkActivate = async () => {
+    try {
+      const { error } = await supabase
+        .from('web_results')
+        .update({ is_active: true })
+        .in('id', Array.from(selectedIds));
+      if (error) throw error;
+      fetchResults();
+      toast({ title: "Activated!", description: `${selectedIds.size} results activated.` });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to activate.", variant: "destructive" });
+    }
+  };
+
+  const bulkDeactivate = async () => {
+    try {
+      const { error } = await supabase
+        .from('web_results')
+        .update({ is_active: false })
+        .in('id', Array.from(selectedIds));
+      if (error) throw error;
+      fetchResults();
+      toast({ title: "Deactivated!", description: `${selectedIds.size} results deactivated.` });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to deactivate.", variant: "destructive" });
+    }
+  };
+
+  const bulkDelete = async () => {
+    if (!confirm(`Delete ${selectedIds.size} selected results?`)) return;
+    try {
+      const { error } = await supabase
+        .from('web_results')
+        .delete()
+        .in('id', Array.from(selectedIds));
+      if (error) throw error;
+      setSelectedIds(new Set());
+      fetchResults();
+      toast({ title: "Deleted!", description: `${selectedIds.size} results deleted.` });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to delete.", variant: "destructive" });
+    }
+  };
 
   if (loading) {
     return (
@@ -268,6 +364,20 @@ const WebResults = () => {
         </Select>
       </div>
 
+      {/* Bulk Action Toolbar */}
+      <BulkActionToolbar
+        totalCount={filteredResults.length}
+        selectedCount={selectedIds.size}
+        allSelected={selectedIds.size === filteredResults.length && filteredResults.length > 0}
+        onSelectAll={selectAll}
+        onExportAll={exportAll}
+        onExportSelected={exportSelected}
+        onCopy={copySelected}
+        onActivate={bulkActivate}
+        onDeactivate={bulkDeactivate}
+        onDelete={bulkDelete}
+      />
+
       {/* Existing Results */}
       <div className="glass-card p-6">
         <h3 className="font-semibold text-foreground mb-4">Existing Results ({filteredResults.length})</h3>
@@ -275,6 +385,7 @@ const WebResults = () => {
           <table className="data-table">
             <thead>
               <tr>
+                <th className="w-10"></th>
                 <th>#</th>
                 <th>Name</th>
                 <th>Title</th>
@@ -286,6 +397,12 @@ const WebResults = () => {
             <tbody>
               {filteredResults.map((result) => (
                 <tr key={result.id}>
+                  <td>
+                    <Checkbox
+                      checked={selectedIds.has(result.id)}
+                      onCheckedChange={() => toggleSelect(result.id)}
+                    />
+                  </td>
                   <td className="text-muted-foreground">{result.serial_number}</td>
                   <td>
                     <div className="flex items-center gap-2">
@@ -449,14 +566,16 @@ const WebResults = () => {
                         checked={editingResult.allowed_countries?.includes(country.code)}
                         onCheckedChange={() => toggleCountry(country.code, editingResult, setEditingResult)}
                       />
-                      <span className="truncate">{country.name}</span>
+                      {country.name}
                     </label>
                   ))}
                 </div>
               </div>
 
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setShowDialog(false)}>Cancel</Button>
+              <div className="flex justify-end gap-2 pt-4">
+                <Button variant="outline" onClick={() => setShowDialog(false)}>
+                  <X className="w-4 h-4 mr-2" /> Cancel
+                </Button>
                 <Button onClick={handleUpdate}>
                   <Save className="w-4 h-4 mr-2" /> Save Changes
                 </Button>
