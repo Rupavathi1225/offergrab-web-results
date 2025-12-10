@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -31,6 +32,8 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Plus, Pencil, Trash2, Copy, ExternalLink, Loader2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
+import BulkActionToolbar from "@/components/admin/BulkActionToolbar";
+import { convertToCSV, downloadCSV } from "@/lib/csvExport";
 
 interface Blog {
   id: string;
@@ -70,6 +73,7 @@ const Blogs = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingBlog, setEditingBlog] = useState<Blog | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   
   const [formData, setFormData] = useState({
     title: "",
@@ -96,7 +100,6 @@ const Blogs = () => {
 
   const createMutation = useMutation({
     mutationFn: async (data: Omit<Blog, "id" | "created_at" | "updated_at" | "is_active" | "excerpt">) => {
-      // Auto-set is_active to true when status is published
       const isActive = data.status === "published";
       const { error } = await supabase.from("blogs").insert([{ ...data, is_active: isActive, excerpt: null }]);
       if (error) throw error;
@@ -114,7 +117,6 @@ const Blogs = () => {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, ...data }: Partial<Blog> & { id: string }) => {
-      // Auto-set is_active when status changes to published
       const updateData = { ...data };
       if (data.status === "published") {
         updateData.is_active = true;
@@ -247,6 +249,100 @@ const Blogs = () => {
 
   const openBlog = (slug: string) => {
     window.open(`/blog/${slug}`, "_blank");
+  };
+
+  // Bulk actions
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) newSet.delete(id);
+      else newSet.add(id);
+      return newSet;
+    });
+  };
+
+  const selectAll = (checked: boolean) => {
+    if (checked && blogs) {
+      setSelectedIds(new Set(blogs.map(b => b.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const csvColumns = [
+    { key: 'title' as const, header: 'Title' },
+    { key: 'slug' as const, header: 'Slug' },
+    { key: 'author' as const, header: 'Author' },
+    { key: 'category' as const, header: 'Category' },
+    { key: 'status' as const, header: 'Status' },
+    { key: 'is_active' as const, header: 'Active' },
+  ];
+
+  const exportAll = () => {
+    if (!blogs) return;
+    const csv = convertToCSV(blogs, csvColumns);
+    downloadCSV(csv, 'blogs.csv');
+    toast.success("All blogs exported to CSV.");
+  };
+
+  const exportSelected = () => {
+    if (!blogs) return;
+    const selected = blogs.filter(b => selectedIds.has(b.id));
+    const csv = convertToCSV(selected, csvColumns);
+    downloadCSV(csv, 'blogs-selected.csv');
+    toast.success(`${selected.length} blogs exported to CSV.`);
+  };
+
+  const copySelected = () => {
+    if (!blogs) return;
+    const selected = blogs.filter(b => selectedIds.has(b.id));
+    const text = selected.map(b => `${b.title}: ${window.location.origin}/blog/${b.slug}`).join('\n');
+    navigator.clipboard.writeText(text);
+    toast.success(`${selected.length} blogs copied to clipboard.`);
+  };
+
+  const bulkActivate = async () => {
+    try {
+      const { error } = await supabase
+        .from('blogs')
+        .update({ is_active: true })
+        .in('id', Array.from(selectedIds));
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["blogs"] });
+      toast.success(`${selectedIds.size} blogs activated.`);
+    } catch (error) {
+      toast.error("Failed to activate.");
+    }
+  };
+
+  const bulkDeactivate = async () => {
+    try {
+      const { error } = await supabase
+        .from('blogs')
+        .update({ is_active: false })
+        .in('id', Array.from(selectedIds));
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["blogs"] });
+      toast.success(`${selectedIds.size} blogs deactivated.`);
+    } catch (error) {
+      toast.error("Failed to deactivate.");
+    }
+  };
+
+  const bulkDelete = async () => {
+    if (!confirm(`Delete ${selectedIds.size} selected blogs?`)) return;
+    try {
+      const { error } = await supabase
+        .from('blogs')
+        .delete()
+        .in('id', Array.from(selectedIds));
+      if (error) throw error;
+      setSelectedIds(new Set());
+      queryClient.invalidateQueries({ queryKey: ["blogs"] });
+      toast.success(`${selectedIds.size} blogs deleted.`);
+    } catch (error) {
+      toast.error("Failed to delete.");
+    }
   };
 
   if (isLoading) {
@@ -403,10 +499,25 @@ const Blogs = () => {
         </Dialog>
       </div>
 
+      {/* Bulk Action Toolbar */}
+      <BulkActionToolbar
+        totalCount={blogs?.length || 0}
+        selectedCount={selectedIds.size}
+        allSelected={selectedIds.size === (blogs?.length || 0) && (blogs?.length || 0) > 0}
+        onSelectAll={selectAll}
+        onExportAll={exportAll}
+        onExportSelected={exportSelected}
+        onCopy={copySelected}
+        onActivate={bulkActivate}
+        onDeactivate={bulkDeactivate}
+        onDelete={bulkDelete}
+      />
+
       <div className="border rounded-lg overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-10"></TableHead>
               <TableHead>Title</TableHead>
               <TableHead>Slug</TableHead>
               <TableHead>Category</TableHead>
@@ -418,6 +529,12 @@ const Blogs = () => {
           <TableBody>
             {blogs?.map((blog) => (
               <TableRow key={blog.id}>
+                <TableCell>
+                  <Checkbox
+                    checked={selectedIds.has(blog.id)}
+                    onCheckedChange={() => toggleSelect(blog.id)}
+                  />
+                </TableCell>
                 <TableCell className="font-medium">{blog.title}</TableCell>
                 <TableCell className="text-muted-foreground">{blog.slug}</TableCell>
                 <TableCell>{blog.category || "-"}</TableCell>
@@ -478,7 +595,7 @@ const Blogs = () => {
             ))}
             {blogs?.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                   No blogs yet. Create your first blog!
                 </TableCell>
               </TableRow>

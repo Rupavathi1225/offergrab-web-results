@@ -6,6 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/hooks/use-toast";
 import { Plus, Save, Trash2, GripVertical, Pencil, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import BulkActionToolbar from "@/components/admin/BulkActionToolbar";
+import { convertToCSV, downloadCSV } from "@/lib/csvExport";
 
 interface SearchButton {
   id: string;
@@ -20,6 +23,7 @@ const SearchButtons = () => {
   const [loading, setLoading] = useState(true);
   const [newButton, setNewButton] = useState({ title: '', serial_number: 1, target_wr: 1 });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchButtons();
@@ -101,6 +105,7 @@ const SearchButtons = () => {
       if (error) throw error;
 
       setButtons(buttons.filter(b => b.id !== id));
+      setSelectedIds(prev => { const n = new Set(prev); n.delete(id); return n; });
       toast({ title: "Deleted!", description: "Button removed." });
     } catch (error) {
       console.error('Error deleting:', error);
@@ -110,7 +115,96 @@ const SearchButtons = () => {
 
   const handleCancelEdit = () => {
     setEditingId(null);
-    fetchButtons(); // Reset to original values
+    fetchButtons();
+  };
+
+  // Bulk actions
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) newSet.delete(id);
+      else newSet.add(id);
+      return newSet;
+    });
+  };
+
+  const selectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(new Set(buttons.map(b => b.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const csvColumns = [
+    { key: 'serial_number' as const, header: 'Serial #' },
+    { key: 'title' as const, header: 'Title' },
+    { key: 'target_wr' as const, header: 'Target WR' },
+    { key: 'is_active' as const, header: 'Active' },
+  ];
+
+  const exportAll = () => {
+    const csv = convertToCSV(buttons, csvColumns);
+    downloadCSV(csv, 'search-buttons.csv');
+    toast({ title: "Exported!", description: "All buttons exported to CSV." });
+  };
+
+  const exportSelected = () => {
+    const selected = buttons.filter(b => selectedIds.has(b.id));
+    const csv = convertToCSV(selected, csvColumns);
+    downloadCSV(csv, 'search-buttons-selected.csv');
+    toast({ title: "Exported!", description: `${selected.length} buttons exported to CSV.` });
+  };
+
+  const copySelected = () => {
+    const selected = buttons.filter(b => selectedIds.has(b.id));
+    const text = selected.map(b => `${b.title} (wr=${b.target_wr})`).join('\n');
+    navigator.clipboard.writeText(text);
+    toast({ title: "Copied!", description: `${selected.length} buttons copied to clipboard.` });
+  };
+
+  const bulkActivate = async () => {
+    try {
+      const { error } = await supabase
+        .from('related_searches')
+        .update({ is_active: true })
+        .in('id', Array.from(selectedIds));
+      if (error) throw error;
+      fetchButtons();
+      toast({ title: "Activated!", description: `${selectedIds.size} buttons activated.` });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to activate.", variant: "destructive" });
+    }
+  };
+
+  const bulkDeactivate = async () => {
+    try {
+      const { error } = await supabase
+        .from('related_searches')
+        .update({ is_active: false })
+        .in('id', Array.from(selectedIds));
+      if (error) throw error;
+      fetchButtons();
+      toast({ title: "Deactivated!", description: `${selectedIds.size} buttons deactivated.` });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to deactivate.", variant: "destructive" });
+    }
+  };
+
+  const bulkDelete = async () => {
+    if (!confirm(`Delete ${selectedIds.size} selected buttons?`)) return;
+    try {
+      const { error } = await supabase
+        .from('related_searches')
+        .delete()
+        .in('id', Array.from(selectedIds));
+      if (error) throw error;
+      setSelectedIds(new Set());
+      fetchButtons();
+      toast({ title: "Deleted!", description: `${selectedIds.size} buttons deleted.` });
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to delete.", variant: "destructive" });
+    }
   };
 
   if (loading) {
@@ -173,6 +267,20 @@ const SearchButtons = () => {
         </Button>
       </div>
 
+      {/* Bulk Action Toolbar */}
+      <BulkActionToolbar
+        totalCount={buttons.length}
+        selectedCount={selectedIds.size}
+        allSelected={selectedIds.size === buttons.length && buttons.length > 0}
+        onSelectAll={selectAll}
+        onExportAll={exportAll}
+        onExportSelected={exportSelected}
+        onCopy={copySelected}
+        onActivate={bulkActivate}
+        onDeactivate={bulkDeactivate}
+        onDelete={bulkDelete}
+      />
+
       {/* Existing Buttons */}
       <div className="glass-card p-6">
         <h3 className="font-semibold text-foreground mb-4">Existing Buttons</h3>
@@ -182,6 +290,10 @@ const SearchButtons = () => {
             
             return (
               <div key={button.id} className="flex items-center gap-4 p-4 bg-secondary/30 rounded-lg">
+                <Checkbox
+                  checked={selectedIds.has(button.id)}
+                  onCheckedChange={() => toggleSelect(button.id)}
+                />
                 <GripVertical className="w-5 h-5 text-muted-foreground cursor-grab" />
                 
                 <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
