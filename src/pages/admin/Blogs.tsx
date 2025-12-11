@@ -73,6 +73,7 @@ const Blogs = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingBlog, setEditingBlog] = useState<Blog | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [isGeneratingContent, setIsGeneratingContent] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   
   const [formData, setFormData] = useState({
@@ -209,6 +210,34 @@ const Blogs = () => {
       toast.error(error instanceof Error ? error.message : "Failed to generate image");
     } finally {
       setIsGeneratingImage(false);
+    }
+  };
+
+  const generateContent = async () => {
+    if (!formData.title) {
+      toast.error("Please enter a title first");
+      return;
+    }
+
+    setIsGeneratingContent(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-blog-content", {
+        body: { title: formData.title, slug: formData.slug },
+      });
+
+      if (error) throw error;
+
+      if (data.content) {
+        setFormData(prev => ({ ...prev, content: data.content }));
+        toast.success("Content generated successfully!");
+      } else {
+        throw new Error(data.error || "Failed to generate content");
+      }
+    } catch (error) {
+      console.error("Error generating content:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to generate content");
+    } finally {
+      setIsGeneratingContent(false);
     }
   };
 
@@ -458,6 +487,22 @@ const Blogs = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="content">Content</Label>
+                <div className="flex gap-2 mb-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={generateContent}
+                    disabled={isGeneratingContent || !formData.title}
+                    className="gap-2"
+                  >
+                    {isGeneratingContent ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-4 h-4" />
+                    )}
+                    Generate AI Content
+                  </Button>
+                </div>
                 <Textarea
                   id="content"
                   value={formData.content}
