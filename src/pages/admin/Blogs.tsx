@@ -213,7 +213,7 @@ const Blogs = () => {
     }
   };
 
-  const generateContent = async () => {
+  const generateContent = async (blogId?: string) => {
     if (!formData.title) {
       toast.error("Please enter a title first");
       return;
@@ -229,7 +229,30 @@ const Blogs = () => {
 
       if (data.content) {
         setFormData(prev => ({ ...prev, content: data.content }));
-        toast.success("Content generated successfully!");
+        
+        // Save related searches if we have a blog ID and related searches were generated
+        if (blogId && data.relatedSearches && data.relatedSearches.length > 0) {
+          const relatedSearchesToInsert = data.relatedSearches.slice(0, 6).map((title: string, index: number) => ({
+            title,
+            blog_id: blogId,
+            target_wr: index + 1,
+            serial_number: index + 1,
+            is_active: true,
+          }));
+          
+          // Delete existing related searches for this blog first
+          await supabase.from("related_searches").delete().eq("blog_id", blogId);
+          
+          // Insert new related searches
+          const { error: insertError } = await supabase.from("related_searches").insert(relatedSearchesToInsert);
+          if (insertError) {
+            console.error("Error saving related searches:", insertError);
+          } else {
+            queryClient.invalidateQueries({ queryKey: ["related-searches"] });
+          }
+        }
+        
+        toast.success("Content and related searches generated!");
       } else {
         throw new Error(data.error || "Failed to generate content");
       }
@@ -491,7 +514,7 @@ const Blogs = () => {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={generateContent}
+                    onClick={() => generateContent(editingBlog?.id)}
                     disabled={isGeneratingContent || !formData.title}
                     className="gap-2"
                   >

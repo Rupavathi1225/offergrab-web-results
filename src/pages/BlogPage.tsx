@@ -33,7 +33,7 @@ const BlogPage = () => {
         .eq("blog_id", blog!.id)
         .eq("is_active", true)
         .order("serial_number", { ascending: true })
-        .limit(6);
+        .limit(4);
 
       if (error) throw error;
       return data;

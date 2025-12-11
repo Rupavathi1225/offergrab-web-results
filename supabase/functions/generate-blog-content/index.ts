@@ -44,21 +44,23 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are a professional blog content writer. Generate engaging, well-structured blog content based on the given title. 
-            
-            Guidelines:
-            - Write in a conversational yet professional tone
-            - Include an engaging introduction
-            - Use clear headings and subheadings (use markdown ## and ### for headings)
-            - Include practical tips or insights where relevant
-            - End with a compelling conclusion
-            - Aim for 800-1200 words
-            - Make the content SEO-friendly
-            - Do not include the title in the content (it will be displayed separately)`,
+            content: `You are a content generator. Generate blog content and related searches based on the given title.
+
+STRICT RULES:
+1. Content: Write EXACTLY 50 words. Short, tight, simple. No headings, no markdown formatting.
+2. Related Searches: Generate 4-6 related search phrases. Each phrase must be EXACTLY 5 words.
+
+Respond in this exact JSON format:
+{
+  "content": "Your 50-word blog content here...",
+  "relatedSearches": ["five word search phrase one", "five word search phrase two", ...]
+}
+
+Only respond with valid JSON, nothing else.`,
           },
           {
             role: 'user',
-            content: `Write a comprehensive blog post with the title: "${title}"${slug ? ` (URL slug: ${slug})` : ''}`,
+            content: `Generate content and related searches for: "${title}"`,
           },
         ],
       }),
@@ -89,9 +91,9 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
+    const rawContent = data.choices?.[0]?.message?.content;
 
-    if (!content) {
+    if (!rawContent) {
       console.error('No content in response:', data);
       return new Response(
         JSON.stringify({ error: 'No content generated' }),
@@ -99,10 +101,33 @@ serve(async (req) => {
       );
     }
 
-    console.log('Content generated successfully, length:', content.length);
+    console.log('Raw AI response:', rawContent);
+
+    // Parse the JSON response
+    let parsedContent;
+    try {
+      // Remove markdown code blocks if present
+      const cleanedContent = rawContent.replace(/```json\n?|\n?```/g, '').trim();
+      parsedContent = JSON.parse(cleanedContent);
+    } catch (parseError) {
+      console.error('Failed to parse AI response as JSON:', parseError);
+      // Fallback: return raw content without related searches
+      return new Response(
+        JSON.stringify({ 
+          content: rawContent,
+          relatedSearches: []
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Content generated successfully');
 
     return new Response(
-      JSON.stringify({ content }),
+      JSON.stringify({ 
+        content: parsedContent.content || rawContent,
+        relatedSearches: parsedContent.relatedSearches || []
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
