@@ -75,6 +75,8 @@ const Blogs = () => {
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isGeneratingContent, setIsGeneratingContent] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [generatedSearches, setGeneratedSearches] = useState<string[]>([]);
+  const [selectedSearches, setSelectedSearches] = useState<Set<number>>(new Set());
   
   const [formData, setFormData] = useState({
     title: "",
@@ -102,10 +104,15 @@ const Blogs = () => {
   const createMutation = useMutation({
     mutationFn: async (data: Omit<Blog, "id" | "created_at" | "updated_at" | "is_active" | "excerpt">) => {
       const isActive = data.status === "published";
-      const { error } = await supabase.from("blogs").insert([{ ...data, is_active: isActive, excerpt: null }]);
+      const { data: insertedData, error } = await supabase.from("blogs").insert([{ ...data, is_active: isActive, excerpt: null }]).select().single();
       if (error) throw error;
+      return insertedData;
     },
-    onSuccess: () => {
+    onSuccess: async (data) => {
+      // Save selected related searches
+      if (data && selectedSearches.size > 0) {
+        await saveRelatedSearches(data.id);
+      }
       queryClient.invalidateQueries({ queryKey: ["blogs"] });
       toast.success("Blog created successfully");
       resetForm();
@@ -124,8 +131,13 @@ const Blogs = () => {
       }
       const { error } = await supabase.from("blogs").update(updateData).eq("id", id);
       if (error) throw error;
+      return id;
     },
-    onSuccess: () => {
+    onSuccess: async (blogId) => {
+      // Save selected related searches
+      if (blogId && selectedSearches.size > 0) {
+        await saveRelatedSearches(blogId);
+      }
       queryClient.invalidateQueries({ queryKey: ["blogs"] });
       toast.success("Blog updated successfully");
       resetForm();
@@ -175,6 +187,8 @@ const Blogs = () => {
       status: "published",
     });
     setEditingBlog(null);
+    setGeneratedSearches([]);
+    setSelectedSearches(new Set());
   };
 
   const handleTitleChange = (title: string) => {
@@ -213,7 +227,7 @@ const Blogs = () => {
     }
   };
 
-  const generateContent = async (blogId?: string) => {
+  const generateContent = async () => {
     if (!formData.title) {
       toast.error("Please enter a title first");
       return;
@@ -230,29 +244,13 @@ const Blogs = () => {
       if (data.content) {
         setFormData(prev => ({ ...prev, content: data.content }));
         
-        // Save related searches if we have a blog ID and related searches were generated
-        if (blogId && data.relatedSearches && data.relatedSearches.length > 0) {
-          const relatedSearchesToInsert = data.relatedSearches.slice(0, 6).map((title: string, index: number) => ({
-            title,
-            blog_id: blogId,
-            target_wr: index + 1,
-            serial_number: index + 1,
-            is_active: true,
-          }));
-          
-          // Delete existing related searches for this blog first
-          await supabase.from("related_searches").delete().eq("blog_id", blogId);
-          
-          // Insert new related searches
-          const { error: insertError } = await supabase.from("related_searches").insert(relatedSearchesToInsert);
-          if (insertError) {
-            console.error("Error saving related searches:", insertError);
-          } else {
-            queryClient.invalidateQueries({ queryKey: ["related-searches"] });
-          }
+        // Store generated searches in state for user selection
+        if (data.relatedSearches && data.relatedSearches.length > 0) {
+          setGeneratedSearches(data.relatedSearches);
+          setSelectedSearches(new Set()); // Reset selections
         }
         
-        toast.success("Content and related searches generated!");
+        toast.success("Content generated! Select related searches below.");
       } else {
         throw new Error(data.error || "Failed to generate content");
       }
@@ -261,6 +259,44 @@ const Blogs = () => {
       toast.error(error instanceof Error ? error.message : "Failed to generate content");
     } finally {
       setIsGeneratingContent(false);
+    }
+  };
+
+  const toggleSearchSelection = (index: number) => {
+    setSelectedSearches(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(index)) {
+        newSet.delete(index);
+      } else if (newSet.size < 4) {
+        newSet.add(index);
+      } else {
+        toast.error("Maximum 4 related searches allowed");
+      }
+      return newSet;
+    });
+  };
+
+  const saveRelatedSearches = async (blogId: string) => {
+    if (selectedSearches.size === 0) return;
+    
+    const selectedTitles = Array.from(selectedSearches).map(index => generatedSearches[index]);
+    const relatedSearchesToInsert = selectedTitles.map((title, idx) => ({
+      title,
+      blog_id: blogId,
+      target_wr: idx + 1,
+      serial_number: idx + 1,
+      is_active: true,
+    }));
+    
+    // Delete existing related searches for this blog first
+    await supabase.from("related_searches").delete().eq("blog_id", blogId);
+    
+    // Insert selected related searches
+    const { error: insertError } = await supabase.from("related_searches").insert(relatedSearchesToInsert);
+    if (insertError) {
+      console.error("Error saving related searches:", insertError);
+    } else {
+      queryClient.invalidateQueries({ queryKey: ["related-searches"] });
     }
   };
 
@@ -514,7 +550,7 @@ const Blogs = () => {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => generateContent(editingBlog?.id)}
+                    onClick={() => generateContent()}
                     disabled={isGeneratingContent || !formData.title}
                     className="gap-2"
                   >
@@ -534,6 +570,38 @@ const Blogs = () => {
                   rows={6}
                 />
               </div>
+
+              {/* Related Searches Selection */}
+              {generatedSearches.length > 0 && (
+                <div className="space-y-2 p-4 border border-border rounded-lg bg-muted/30">
+                  <Label className="text-sm font-medium">
+                    Select Related Searches (max 4)
+                  </Label>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    Selected searches will be linked to this blog and redirect to /wr=1, /wr=2, etc.
+                  </p>
+                  <div className="space-y-2">
+                    {generatedSearches.map((search, index) => (
+                      <div key={index} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`search-${index}`}
+                          checked={selectedSearches.has(index)}
+                          onCheckedChange={() => toggleSearchSelection(index)}
+                        />
+                        <label
+                          htmlFor={`search-${index}`}
+                          className="text-sm cursor-pointer flex-1"
+                        >
+                          {search}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {selectedSearches.size}/4 selected
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
