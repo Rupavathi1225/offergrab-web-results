@@ -218,6 +218,7 @@ export type Database = {
       }
       related_searches: {
         Row: {
+          blog_id: string | null
           created_at: string
           id: string
           is_active: boolean
@@ -227,6 +228,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          blog_id?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
@@ -236,6 +238,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          blog_id?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
@@ -244,7 +247,15 @@ export type Database = {
           title?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "related_searches_blog_id_fkey"
+            columns: ["blog_id"]
+            isOneToOne: false
+            referencedRelation: "blogs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       sessions: {
         Row: {
