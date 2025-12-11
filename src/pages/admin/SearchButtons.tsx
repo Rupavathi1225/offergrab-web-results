@@ -10,24 +10,47 @@ import { Checkbox } from "@/components/ui/checkbox";
 import BulkActionToolbar from "@/components/admin/BulkActionToolbar";
 import { convertToCSV, downloadCSV } from "@/lib/csvExport";
 
+interface Blog {
+  id: string;
+  title: string;
+  slug: string;
+}
+
 interface SearchButton {
   id: string;
   title: string;
   serial_number: number;
   target_wr: number;
   is_active: boolean;
+  blog_id: string | null;
 }
 
 const SearchButtons = () => {
   const [buttons, setButtons] = useState<SearchButton[]>([]);
+  const [blogs, setBlogs] = useState<Blog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newButton, setNewButton] = useState({ title: '', serial_number: 1, target_wr: 1 });
+  const [newButton, setNewButton] = useState({ title: '', serial_number: 1, target_wr: 1, blog_id: '' });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchButtons();
+    fetchBlogs();
   }, []);
+
+  const fetchBlogs = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('blogs')
+        .select('id, title, slug')
+        .order('title', { ascending: true });
+
+      if (error) throw error;
+      if (data) setBlogs(data);
+    } catch (error) {
+      console.error('Error fetching blogs:', error);
+    }
+  };
 
   const fetchButtons = async () => {
     try {
@@ -37,7 +60,7 @@ const SearchButtons = () => {
         .order('serial_number', { ascending: true });
 
       if (error) throw error;
-      if (data) setButtons(data);
+      if (data) setButtons(data as SearchButton[]);
     } catch (error) {
       console.error('Error fetching buttons:', error);
     } finally {
@@ -51,6 +74,11 @@ const SearchButtons = () => {
       return;
     }
 
+    if (!newButton.blog_id) {
+      toast({ title: "Error", description: "Please select a blog", variant: "destructive" });
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('related_searches')
@@ -58,11 +86,12 @@ const SearchButtons = () => {
           title: newButton.title,
           serial_number: newButton.serial_number,
           target_wr: newButton.target_wr,
+          blog_id: newButton.blog_id,
         });
 
       if (error) throw error;
 
-      setNewButton({ title: '', serial_number: buttons.length + 1, target_wr: 1 });
+      setNewButton({ title: '', serial_number: buttons.length + 1, target_wr: 1, blog_id: '' });
       fetchButtons();
       toast({ title: "Added!", description: "Search button has been added." });
     } catch (error) {
@@ -80,6 +109,7 @@ const SearchButtons = () => {
           serial_number: button.serial_number,
           target_wr: button.target_wr,
           is_active: button.is_active,
+          blog_id: button.blog_id,
         })
         .eq('id', button.id);
 
@@ -134,6 +164,12 @@ const SearchButtons = () => {
     } else {
       setSelectedIds(new Set());
     }
+  };
+
+  const getBlogTitle = (blogId: string | null) => {
+    if (!blogId) return 'No Blog';
+    const blog = blogs.find(b => b.id === blogId);
+    return blog ? blog.title : 'Unknown';
   };
 
   const csvColumns = [
@@ -225,7 +261,23 @@ const SearchButtons = () => {
       {/* Add New */}
       <div className="glass-card p-6">
         <h3 className="font-semibold text-foreground mb-4">Add New Button</h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div>
+            <label className="block text-sm text-muted-foreground mb-1">Blog *</label>
+            <Select 
+              value={newButton.blog_id} 
+              onValueChange={(v) => setNewButton({ ...newButton, blog_id: v })}
+            >
+              <SelectTrigger className="admin-input">
+                <SelectValue placeholder="Select blog" />
+              </SelectTrigger>
+              <SelectContent>
+                {blogs.map(blog => (
+                  <SelectItem key={blog.id} value={blog.id}>{blog.title}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="md:col-span-2">
             <label className="block text-sm text-muted-foreground mb-1">Title</label>
             <Input
@@ -296,7 +348,30 @@ const SearchButtons = () => {
                 />
                 <GripVertical className="w-5 h-5 text-muted-foreground cursor-grab" />
                 
-                <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-5 gap-4">
+                  <div>
+                    {isEditing ? (
+                      <Select 
+                        value={button.blog_id || ''}
+                        onValueChange={(v) => setButtons(buttons.map(b => 
+                          b.id === button.id ? { ...b, blog_id: v } : b
+                        ))}
+                      >
+                        <SelectTrigger className="admin-input">
+                          <SelectValue placeholder="Select blog" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {blogs.map(blog => (
+                            <SelectItem key={blog.id} value={blog.id}>{blog.title}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <div className="flex items-center h-10 px-3 text-primary text-sm truncate" title={getBlogTitle(button.blog_id)}>
+                        {getBlogTitle(button.blog_id)}
+                      </div>
+                    )}
+                  </div>
                   <div className="md:col-span-2">
                     {isEditing ? (
                       <Input

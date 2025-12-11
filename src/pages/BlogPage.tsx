@@ -23,13 +23,14 @@ const BlogPage = () => {
     enabled: !!slug,
   });
 
-  // Fetch related searches for this blog
+  // Fetch related searches for this specific blog only
   const { data: relatedSearches } = useQuery({
     queryKey: ["related-searches", blog?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("related_searches")
         .select("*")
+        .eq("blog_id", blog!.id)
         .eq("is_active", true)
         .order("serial_number", { ascending: true })
         .limit(6);
