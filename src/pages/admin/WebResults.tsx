@@ -5,8 +5,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Save, Trash2, Edit2, X, Globe } from "lucide-react";
+import { Plus, Save, Trash2, Edit2, X, Globe, Sparkles, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { countries } from "@/lib/countries";
 import BulkActionToolbar from "@/components/admin/BulkActionToolbar";
@@ -27,13 +29,35 @@ interface WebResult {
   is_active: boolean;
 }
 
+interface RelatedSearch {
+  id: string;
+  title: string;
+  target_wr: number;
+  blog_id: string | null;
+}
+
+interface GeneratedWebResult {
+  name: string;
+  title: string;
+  description: string;
+  link: string;
+  isSelected: boolean;
+  isSponsored: boolean;
+}
+
 const WebResults = () => {
   const [results, setResults] = useState<WebResult[]>([]);
+  const [relatedSearches, setRelatedSearches] = useState<RelatedSearch[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingResult, setEditingResult] = useState<WebResult | null>(null);
   const [showDialog, setShowDialog] = useState(false);
   const [selectedWr, setSelectedWr] = useState<number>(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  
+  // AI Generator state
+  const [selectedRelatedSearch, setSelectedRelatedSearch] = useState<string>("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedResults, setGeneratedResults] = useState<GeneratedWebResult[]>([]);
 
   const emptyResult: Omit<WebResult, 'id'> = {
     name: '',
@@ -53,6 +77,7 @@ const WebResults = () => {
 
   useEffect(() => {
     fetchResults();
+    fetchRelatedSearches();
   }, []);
 
   const fetchResults = async () => {
@@ -69,6 +94,120 @@ const WebResults = () => {
       console.error('Error fetching results:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchRelatedSearches = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('related_searches')
+        .select('*')
+        .eq('is_active', true)
+        .order('target_wr', { ascending: true });
+
+      if (error) throw error;
+      if (data) setRelatedSearches(data);
+    } catch (error) {
+      console.error('Error fetching related searches:', error);
+    }
+  };
+
+  const generateWebResults = async () => {
+    if (!selectedRelatedSearch) {
+      toast({ title: "Error", description: "Please select a related search first", variant: "destructive" });
+      return;
+    }
+
+    const search = relatedSearches.find(s => s.id === selectedRelatedSearch);
+    if (!search) return;
+
+    setIsGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-web-results", {
+        body: { relatedSearchTitle: search.title },
+      });
+
+      if (error) throw error;
+
+      if (data.webResults && data.webResults.length > 0) {
+        setGeneratedResults(data.webResults.map((r: any) => ({
+          ...r,
+          isSelected: false,
+          isSponsored: false,
+        })));
+        toast({ title: "Success", description: "6 web results generated! Select up to 4." });
+      } else {
+        throw new Error(data.error || "Failed to generate web results");
+      }
+    } catch (error) {
+      console.error("Error generating web results:", error);
+      toast({ 
+        title: "Error", 
+        description: error instanceof Error ? error.message : "Failed to generate web results", 
+        variant: "destructive" 
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const toggleGeneratedResultSelection = (index: number) => {
+    setGeneratedResults(prev => {
+      const selected = prev.filter(r => r.isSelected).length;
+      const result = prev[index];
+      
+      if (!result.isSelected && selected >= 4) {
+        toast({ title: "Error", description: "Maximum 4 web results allowed", variant: "destructive" });
+        return prev;
+      }
+      
+      return prev.map((r, i) => 
+        i === index ? { ...r, isSelected: !r.isSelected } : r
+      );
+    });
+  };
+
+  const toggleGeneratedResultSponsored = (index: number) => {
+    setGeneratedResults(prev => 
+      prev.map((r, i) => 
+        i === index ? { ...r, isSponsored: !r.isSponsored } : r
+      )
+    );
+  };
+
+  const saveGeneratedResults = async () => {
+    const selectedResults = generatedResults.filter(r => r.isSelected);
+    if (selectedResults.length === 0) {
+      toast({ title: "Error", description: "Please select at least one web result", variant: "destructive" });
+      return;
+    }
+
+    const search = relatedSearches.find(s => s.id === selectedRelatedSearch);
+    if (!search) return;
+
+    try {
+      const resultsToInsert = selectedResults.map((r, idx) => ({
+        name: r.name,
+        title: r.title,
+        description: r.description,
+        link: r.link,
+        wr_page: search.target_wr,
+        is_sponsored: r.isSponsored,
+        serial_number: idx + 1,
+        is_active: true,
+        allowed_countries: ['worldwide'],
+      }));
+
+      const { error } = await supabase.from('web_results').insert(resultsToInsert);
+      if (error) throw error;
+
+      setGeneratedResults([]);
+      setSelectedRelatedSearch("");
+      fetchResults();
+      toast({ title: "Success", description: `${selectedResults.length} web results added to wr=${search.target_wr}` });
+    } catch (error) {
+      console.error('Error saving web results:', error);
+      toast({ title: "Error", description: "Failed to save web results", variant: "destructive" });
     }
   };
 
@@ -152,6 +291,14 @@ const WebResults = () => {
   const filteredResults = selectedWr === 0 
     ? results 
     : results.filter(r => r.wr_page === selectedWr);
+
+  // Get unique wr_pages with their related search titles
+  const wrPagesWithSearches = relatedSearches.reduce((acc, search) => {
+    if (!acc[search.target_wr]) {
+      acc[search.target_wr] = search.title;
+    }
+    return acc;
+  }, {} as Record<number, string>);
 
   // Bulk actions
   const toggleSelect = (id: string) => {
@@ -260,108 +407,142 @@ const WebResults = () => {
         <p className="text-muted-foreground">Manage web results for each page</p>
       </div>
 
-      {/* Add New */}
-      <div className="glass-card p-6">
-        <h3 className="font-semibold text-foreground mb-4">Add New Result</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* AI Web Results Generator */}
+      <div className="glass-card p-6 border-2 border-primary/30">
+        <h3 className="font-semibold text-primary mb-4 flex items-center gap-2">
+          <Sparkles className="w-5 h-5" />
+          AI Web Results Generator
+        </h3>
+        
+        <div className="space-y-4">
           <div>
-            <label className="block text-sm text-muted-foreground mb-1">Name</label>
-            <Input
-              value={newResult.name}
-              onChange={(e) => setNewResult({ ...newResult, name: e.target.value })}
-              className="admin-input"
-              placeholder="e.g., Example Site"
-            />
+            <Label className="text-sm text-muted-foreground mb-2 block">Select Related Search</Label>
+            <div className="flex gap-4">
+              <Select value={selectedRelatedSearch} onValueChange={setSelectedRelatedSearch}>
+                <SelectTrigger className="admin-input flex-1">
+                  <SelectValue placeholder="Choose a related search" />
+                </SelectTrigger>
+                <SelectContent>
+                  {relatedSearches.map(search => (
+                    <SelectItem key={search.id} value={search.id}>
+                      {search.title} (wr={search.target_wr})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button 
+                onClick={generateWebResults} 
+                disabled={!selectedRelatedSearch || isGenerating}
+                className="gap-2"
+              >
+                {isGenerating ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4" />
+                )}
+                Generate 6 Web Results
+              </Button>
+            </div>
           </div>
-          <div>
-            <label className="block text-sm text-muted-foreground mb-1">Link</label>
-            <Input
-              value={newResult.link}
-              onChange={(e) => setNewResult({ ...newResult, link: e.target.value })}
-              className="admin-input"
-              placeholder="https://example.com"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-muted-foreground mb-1">Title</label>
-            <Input
-              value={newResult.title}
-              onChange={(e) => setNewResult({ ...newResult, title: e.target.value })}
-              className="admin-input"
-              placeholder="Result title"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-muted-foreground mb-1">Logo URL (optional)</label>
-            <Input
-              value={newResult.logo_url || ''}
-              onChange={(e) => setNewResult({ ...newResult, logo_url: e.target.value })}
-              className="admin-input"
-              placeholder="https://example.com/logo.png"
-            />
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-sm text-muted-foreground mb-1">Description</label>
-            <Textarea
-              value={newResult.description || ''}
-              onChange={(e) => setNewResult({ ...newResult, description: e.target.value })}
-              className="admin-input"
-              placeholder="Result description"
-            />
-          </div>
-          <div>
-            <label className="block text-sm text-muted-foreground mb-1">Web Result Page</label>
-            <Select 
-              value={String(newResult.wr_page)} 
-              onValueChange={(v) => setNewResult({ ...newResult, wr_page: parseInt(v) })}
-            >
-              <SelectTrigger className="admin-input">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[1, 2, 3, 4, 5].map(n => (
-                  <SelectItem key={n} value={String(n)}>wr={n}</SelectItem>
+
+          {/* Generated Results Selection */}
+          {generatedResults.length > 0 && (
+            <div className="space-y-3 p-4 border border-border rounded-lg bg-muted/30">
+              <Label className="text-sm font-medium">
+                Select Web Results (max 4) - Toggle Sponsored
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Selected results will be added to wr={relatedSearches.find(s => s.id === selectedRelatedSearch)?.target_wr}
+              </p>
+              
+              <div className="flex flex-col gap-3">
+                {generatedResults.map((result, index) => (
+                  <div 
+                    key={index} 
+                    className={`p-4 rounded-lg border transition-colors ${
+                      result.isSelected 
+                        ? 'border-primary bg-primary/10' 
+                        : 'border-border hover:border-primary/50'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        checked={result.isSelected}
+                        onCheckedChange={() => toggleGeneratedResultSelection(index)}
+                        className="mt-1"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium text-foreground">{result.name}</span>
+                          {result.isSponsored && (
+                            <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded">
+                              Sponsored
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-primary mb-1">{result.title}</p>
+                        <p className="text-xs text-muted-foreground mb-2">{result.description}</p>
+                        <p className="text-xs text-muted-foreground/70 truncate">{result.link}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Label className="text-xs text-muted-foreground">Sponsored</Label>
+                        <Switch
+                          checked={result.isSponsored}
+                          onCheckedChange={() => toggleGeneratedResultSponsored(index)}
+                          disabled={!result.isSelected}
+                        />
+                      </div>
+                    </div>
+                  </div>
                 ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="block text-sm text-muted-foreground mb-1">Serial Number</label>
-            <Input
-              type="number"
-              value={newResult.serial_number}
-              onChange={(e) => setNewResult({ ...newResult, serial_number: parseInt(e.target.value) || 1 })}
-              className="admin-input"
-              min={1}
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <Checkbox
-              checked={newResult.is_sponsored}
-              onCheckedChange={(checked) => setNewResult({ ...newResult, is_sponsored: !!checked })}
-            />
-            <label className="text-sm text-muted-foreground">Sponsored</label>
-          </div>
+              </div>
+              
+              <div className="flex items-center justify-between pt-2">
+                <p className="text-xs text-muted-foreground">
+                  {generatedResults.filter(r => r.isSelected).length}/4 selected
+                </p>
+                <Button onClick={saveGeneratedResults} disabled={!generatedResults.some(r => r.isSelected)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Selected Results
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
-        <Button onClick={handleAdd} className="mt-4">
-          <Plus className="w-4 h-4 mr-2" /> Add Result
-        </Button>
       </div>
 
-      {/* Filter */}
-      <div className="flex items-center gap-4">
-        <label className="text-sm text-muted-foreground">Filter by page:</label>
-        <Select value={String(selectedWr)} onValueChange={(v) => setSelectedWr(parseInt(v))}>
-          <SelectTrigger className="admin-input w-32">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="0">All</SelectItem>
-            {[1, 2, 3, 4, 5].map(n => (
-              <SelectItem key={n} value={String(n)}>wr={n}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      {/* Page Selection Tabs */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-sm text-muted-foreground">Select Page:</span>
+        <Button
+          variant={selectedWr === 0 ? "default" : "outline"}
+          size="sm"
+          onClick={() => setSelectedWr(0)}
+        >
+          All
+        </Button>
+        {Object.entries(wrPagesWithSearches).map(([wr, title]) => (
+          <Button
+            key={wr}
+            variant={selectedWr === parseInt(wr) ? "default" : "outline"}
+            size="sm"
+            onClick={() => setSelectedWr(parseInt(wr))}
+            className="flex flex-col items-center py-2 h-auto"
+          >
+            <span>wr={wr}</span>
+            <span className="text-xs opacity-70 truncate max-w-[80px]">{title?.slice(0, 12)}...</span>
+          </Button>
+        ))}
+        {[1, 2, 3, 4, 5].filter(n => !wrPagesWithSearches[n]).map(n => (
+          <Button
+            key={n}
+            variant={selectedWr === n ? "default" : "outline"}
+            size="sm"
+            onClick={() => setSelectedWr(n)}
+          >
+            wr={n}
+          </Button>
+        ))}
       </div>
 
       {/* Bulk Action Toolbar */}
@@ -378,9 +559,102 @@ const WebResults = () => {
         onDelete={bulkDelete}
       />
 
+      {/* Add New Manually */}
+      <div className="glass-card p-6">
+        <h3 className="font-semibold text-foreground mb-4">Add Web Result Manually - Page wr={selectedWr || 1}</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm text-muted-foreground mb-1">Title *</label>
+            <Input
+              value={newResult.title}
+              onChange={(e) => setNewResult({ ...newResult, title: e.target.value, name: e.target.value.split(' ')[0] || '' })}
+              className="admin-input"
+              placeholder="e.g., Fiverr"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-muted-foreground mb-1">Related Search (determines page)</label>
+            <div className="flex flex-wrap gap-1 p-2 bg-secondary/30 rounded-lg min-h-[40px] items-center">
+              {relatedSearches.slice(0, 3).map(search => (
+                <span 
+                  key={search.id} 
+                  className={`text-xs px-2 py-1 rounded cursor-pointer transition-colors ${
+                    newResult.wr_page === search.target_wr 
+                      ? 'bg-primary text-primary-foreground' 
+                      : 'bg-muted hover:bg-muted/80'
+                  }`}
+                  onClick={() => setNewResult({ ...newResult, wr_page: search.target_wr })}
+                >
+                  {search.title} (wr={search.target_wr})
+                </span>
+              ))}
+              {relatedSearches.length > 3 && (
+                <span className="text-xs text-muted-foreground">...</span>
+              )}
+            </div>
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-sm text-muted-foreground mb-1">Description</label>
+            <Textarea
+              value={newResult.description || ''}
+              onChange={(e) => setNewResult({ ...newResult, description: e.target.value })}
+              className="admin-input"
+              placeholder="Enter description..."
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-muted-foreground mb-1">Original Link *</label>
+            <Input
+              value={newResult.link}
+              onChange={(e) => setNewResult({ ...newResult, link: e.target.value })}
+              className="admin-input"
+              placeholder="https://www.fiverr.com"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-muted-foreground mb-1">Logo URL</label>
+            <Input
+              value={newResult.logo_url || ''}
+              onChange={(e) => setNewResult({ ...newResult, logo_url: e.target.value })}
+              className="admin-input"
+              placeholder="https://example.com/logo.png"
+            />
+          </div>
+          <div>
+            <label className="block text-sm text-muted-foreground mb-1">Display Order</label>
+            <Input
+              type="number"
+              value={newResult.serial_number}
+              onChange={(e) => setNewResult({ ...newResult, serial_number: parseInt(e.target.value) || 0 })}
+              className="admin-input"
+              min={0}
+            />
+          </div>
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={newResult.is_active}
+                onCheckedChange={(checked) => setNewResult({ ...newResult, is_active: checked })}
+              />
+              <label className="text-sm text-primary">Active</label>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={newResult.is_sponsored}
+                onCheckedChange={(checked) => setNewResult({ ...newResult, is_sponsored: checked })}
+              />
+              <label className="text-sm text-primary">Sponsored</label>
+            </div>
+          </div>
+        </div>
+        <Button onClick={handleAdd} className="mt-4">
+          Create
+        </Button>
+      </div>
+
       {/* Existing Results */}
       <div className="glass-card p-6">
-        <h3 className="font-semibold text-foreground mb-4">Existing Results ({filteredResults.length})</h3>
+        <h3 className="font-semibold text-foreground mb-4">Existing Web Results - Page wr={selectedWr || "All"}</h3>
         <div className="overflow-x-auto">
           <table className="data-table">
             <thead>
@@ -414,6 +688,9 @@ const WebResults = () => {
                         </div>
                       )}
                       {result.name}
+                      {result.is_sponsored && (
+                        <span className="text-xs bg-yellow-500/20 text-yellow-400 px-1.5 py-0.5 rounded">Ad</span>
+                      )}
                     </div>
                   </td>
                   <td className="max-w-xs truncate">{result.title}</td>
