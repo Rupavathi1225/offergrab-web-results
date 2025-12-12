@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -175,7 +175,7 @@ const Blogs = () => {
     },
   });
 
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setFormData({
       title: "",
       slug: "",
@@ -188,7 +188,14 @@ const Blogs = () => {
     setEditingBlog(null);
     setGeneratedSearches([]);
     setSelectedSearches(new Set());
-  };
+  }, []);
+
+  const handleDialogOpenChange = useCallback((open: boolean) => {
+    setIsDialogOpen(open);
+    if (!open) {
+      resetForm();
+    }
+  }, [resetForm]);
 
   const handleTitleChange = (title: string) => {
     setFormData(prev => ({
@@ -450,10 +457,7 @@ const Blogs = () => {
         </Button>
       </div>
 
-      <Dialog open={isDialogOpen} onOpenChange={(open) => {
-        setIsDialogOpen(open);
-        if (!open) resetForm();
-      }}>
+      <Dialog open={isDialogOpen} onOpenChange={handleDialogOpenChange}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingBlog ? "Edit Blog" : "Create New Blog"}</DialogTitle>
@@ -497,7 +501,7 @@ const Blogs = () => {
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
                 <Select
-                  value={formData.category}
+                  value={formData.category || undefined}
                   onValueChange={(value) => setFormData(prev => ({ ...prev, category: value }))}
                 >
                   <SelectTrigger>
