@@ -75,21 +75,19 @@ const BlogPage = () => {
 
       <div className="container mx-auto px-4 py-8">
         <article className="max-w-3xl mx-auto">
-          {/* Category Badge */}
-          {blog.category && (
-            <div className="flex items-center gap-2 mb-4">
-              <Tag className="w-4 h-4 text-primary" />
-              <span className="text-sm text-primary font-medium">{blog.category}</span>
-            </div>
-          )}
-
           {/* Title */}
-          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-4 font-display">
+          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-6 font-display">
             {blog.title}
           </h1>
 
-          {/* Meta Info */}
-          <div className="flex flex-wrap items-center gap-4 text-muted-foreground text-sm mb-8 pb-8 border-b border-border">
+          {/* Meta Info - Vertical Layout */}
+          <div className="flex flex-col gap-3 text-muted-foreground text-sm mb-8 pb-8 border-b border-border">
+            {blog.category && (
+              <div className="flex items-center gap-2">
+                <Tag className="w-4 h-4 text-primary" />
+                <span className="text-primary font-medium">{blog.category}</span>
+              </div>
+            )}
             {blog.author && (
               <div className="flex items-center gap-2">
                 <User className="w-4 h-4" />
