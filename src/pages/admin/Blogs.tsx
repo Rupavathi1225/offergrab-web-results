@@ -75,7 +75,7 @@ const Blogs = () => {
   const [isGeneratingContent, setIsGeneratingContent] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [generatedSearches, setGeneratedSearches] = useState<string[]>([]);
-  const [selectedSearches, setSelectedSearches] = useState<Set<number>>(new Set());
+  const [selectedSearchesOrder, setSelectedSearchesOrder] = useState<number[]>([]);
   
   const [formData, setFormData] = useState({
     title: "",
@@ -109,7 +109,7 @@ const Blogs = () => {
     },
     onSuccess: async (data) => {
       // Save selected related searches
-      if (data && selectedSearches.size > 0) {
+      if (data && selectedSearchesOrder.length > 0) {
         await saveRelatedSearches(data.id);
       }
       queryClient.invalidateQueries({ queryKey: ["blogs"] });
@@ -134,7 +134,7 @@ const Blogs = () => {
     },
     onSuccess: async (blogId) => {
       // Save selected related searches
-      if (blogId && selectedSearches.size > 0) {
+      if (blogId && selectedSearchesOrder.length > 0) {
         await saveRelatedSearches(blogId);
       }
       queryClient.invalidateQueries({ queryKey: ["blogs"] });
@@ -187,7 +187,7 @@ const Blogs = () => {
     });
     setEditingBlog(null);
     setGeneratedSearches([]);
-    setSelectedSearches(new Set());
+    setSelectedSearchesOrder([]);
   }, []);
 
   const handleDialogOpenChange = useCallback((open: boolean) => {
@@ -253,7 +253,7 @@ const Blogs = () => {
         // Store generated searches in state for user selection
         if (data.relatedSearches && data.relatedSearches.length > 0) {
           setGeneratedSearches(data.relatedSearches);
-          setSelectedSearches(new Set()); // Reset selections
+          setSelectedSearchesOrder([]); // Reset selections
         }
         
         toast.success("Content generated! Select related searches below.");
@@ -269,28 +269,30 @@ const Blogs = () => {
   };
 
   const toggleSearchSelection = (index: number) => {
-    setSelectedSearches(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(index)) {
-        newSet.delete(index);
-      } else if (newSet.size < 4) {
-        newSet.add(index);
+    setSelectedSearchesOrder(prev => {
+      const existingIndex = prev.indexOf(index);
+      if (existingIndex !== -1) {
+        // Remove from selection
+        return prev.filter(i => i !== index);
+      } else if (prev.length < 4) {
+        // Add to selection order
+        return [...prev, index];
       } else {
         toast.error("Maximum 4 related searches allowed");
+        return prev;
       }
-      return newSet;
     });
   };
 
   const saveRelatedSearches = async (blogId: string) => {
-    if (selectedSearches.size === 0) return;
+    if (selectedSearchesOrder.length === 0) return;
     
-    const selectedTitles = Array.from(selectedSearches).map(index => generatedSearches[index]);
-    const relatedSearchesToInsert = selectedTitles.map((title, idx) => ({
-      title,
+    // Use the order array to maintain selection order for target_wr assignment
+    const relatedSearchesToInsert = selectedSearchesOrder.map((index, orderIdx) => ({
+      title: generatedSearches[index],
       blog_id: blogId,
-      target_wr: idx + 1,
-      serial_number: idx + 1,
+      target_wr: orderIdx + 1, // First selected = 1, second = 2, etc.
+      serial_number: orderIdx + 1,
       is_active: true,
     }));
     
@@ -579,37 +581,43 @@ const Blogs = () => {
               {generatedSearches.length > 0 && (
                 <div className="space-y-3 p-4 border border-border rounded-lg bg-muted/30">
                   <Label className="text-sm font-medium">
-                    Select Related Searches (max 4)
+                    Select Related Searches for Landing Page (max 4)
                   </Label>
                   <p className="text-xs text-muted-foreground">
-                    Selected searches will be linked to this blog and redirect to /wr=1, /wr=2, etc.
+                    Selected searches will appear on landing page and redirect to /wr=1, /wr=2, etc.
                   </p>
                   <div className="flex flex-col gap-2">
-                    {generatedSearches.map((search, index) => (
-                      <div 
-                        key={index} 
-                        className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors cursor-pointer ${
-                          selectedSearches.has(index) 
-                            ? 'border-primary bg-primary/10' 
-                            : 'border-border hover:border-primary/50'
-                        }`}
-                        onClick={() => toggleSearchSelection(index)}
-                      >
-                        <Checkbox
-                          checked={selectedSearches.has(index)}
-                          onClick={(e) => e.stopPropagation()}
-                        />
-                        <span className="text-sm cursor-pointer flex-1">
-                          {search}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          → /wr={index + 1}
-                        </span>
-                      </div>
-                    ))}
+                    {generatedSearches.map((search, index) => {
+                      const selectionOrder = selectedSearchesOrder.indexOf(index);
+                      const isSelected = selectionOrder !== -1;
+                      return (
+                        <div 
+                          key={index} 
+                          className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors cursor-pointer ${
+                            isSelected 
+                              ? 'border-primary bg-primary/10' 
+                              : 'border-border hover:border-primary/50'
+                          }`}
+                          onClick={() => toggleSearchSelection(index)}
+                        >
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleSearchSelection(index)}
+                          />
+                          <span className="text-sm cursor-pointer flex-1">
+                            {search}
+                          </span>
+                          {isSelected && (
+                            <span className="text-xs text-primary font-medium">
+                              → /wr={selectionOrder + 1}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {selectedSearches.size}/4 selected
+                    {selectedSearchesOrder.length}/4 selected
                   </p>
                 </div>
               )}
