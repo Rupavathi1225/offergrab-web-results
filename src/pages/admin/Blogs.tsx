@@ -592,16 +592,12 @@ const Blogs = () => {
                         onClick={() => toggleSearchSelection(index)}
                       >
                         <Checkbox
-                          id={`search-${index}`}
                           checked={selectedSearches.has(index)}
-                          onCheckedChange={() => toggleSearchSelection(index)}
+                          onClick={(e) => e.stopPropagation()}
                         />
-                        <label
-                          htmlFor={`search-${index}`}
-                          className="text-sm cursor-pointer flex-1"
-                        >
+                        <span className="text-sm cursor-pointer flex-1">
                           {search}
-                        </label>
+                        </span>
                         <span className="text-xs text-muted-foreground">
                           → /wr={index + 1}
                         </span>
