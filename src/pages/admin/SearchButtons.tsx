@@ -194,9 +194,9 @@ const SearchButtons = () => {
 
   const copySelected = () => {
     const selected = buttons.filter(b => selectedIds.has(b.id));
-    const text = selected.map(b => `${b.title} (wr=${b.target_wr})`).join('\n');
+    const text = selected.map(b => `${window.location.origin}/webresult/${b.target_wr}`).join('\n');
     navigator.clipboard.writeText(text);
-    toast({ title: "Copied!", description: `${selected.length} buttons copied to clipboard.` });
+    toast({ title: "Copied!", description: `${selected.length} related search links copied to clipboard.` });
   };
 
   const bulkActivate = async () => {

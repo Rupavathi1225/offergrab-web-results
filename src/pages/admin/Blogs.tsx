@@ -392,9 +392,9 @@ const Blogs = () => {
   const copySelected = () => {
     if (!blogs) return;
     const selected = blogs.filter(b => selectedIds.has(b.id));
-    const text = selected.map(b => `${b.title}: ${window.location.origin}/blog/${b.slug}`).join('\n');
+    const text = selected.map(b => `${window.location.origin}/blog/${b.slug}`).join('\n');
     navigator.clipboard.writeText(text);
-    toast.success(`${selected.length} blogs copied to clipboard.`);
+    toast.success(`${selected.length} blog links copied to clipboard.`);
   };
 
   const bulkActivate = async () => {
