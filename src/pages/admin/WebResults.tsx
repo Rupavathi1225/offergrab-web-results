@@ -343,9 +343,9 @@ const WebResults = () => {
 
   const copySelected = () => {
     const selected = filteredResults.filter(r => selectedIds.has(r.id));
-    const text = selected.map(r => `${r.name}: ${r.title} - ${r.link}`).join('\n');
+    const text = selected.map(r => `${window.location.origin}/webresult/${r.wr_page}`).join('\n');
     navigator.clipboard.writeText(text);
-    toast({ title: "Copied!", description: `${selected.length} results copied to clipboard.` });
+    toast({ title: "Copied!", description: `${selected.length} web result links copied to clipboard.` });
   };
 
   const bulkActivate = async () => {
