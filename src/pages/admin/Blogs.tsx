@@ -571,18 +571,26 @@ const Blogs = () => {
                 />
               </div>
 
-              {/* Related Searches Selection */}
+              {/* Related Searches Selection - Vertical Layout */}
               {generatedSearches.length > 0 && (
-                <div className="space-y-2 p-4 border border-border rounded-lg bg-muted/30">
+                <div className="space-y-3 p-4 border border-border rounded-lg bg-muted/30">
                   <Label className="text-sm font-medium">
                     Select Related Searches (max 4)
                   </Label>
-                  <p className="text-xs text-muted-foreground mb-2">
+                  <p className="text-xs text-muted-foreground">
                     Selected searches will be linked to this blog and redirect to /wr=1, /wr=2, etc.
                   </p>
-                  <div className="space-y-2">
+                  <div className="flex flex-col gap-2">
                     {generatedSearches.map((search, index) => (
-                      <div key={index} className="flex items-center space-x-2">
+                      <div 
+                        key={index} 
+                        className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors cursor-pointer ${
+                          selectedSearches.has(index) 
+                            ? 'border-primary bg-primary/10' 
+                            : 'border-border hover:border-primary/50'
+                        }`}
+                        onClick={() => toggleSearchSelection(index)}
+                      >
                         <Checkbox
                           id={`search-${index}`}
                           checked={selectedSearches.has(index)}
@@ -594,10 +602,13 @@ const Blogs = () => {
                         >
                           {search}
                         </label>
+                        <span className="text-xs text-muted-foreground">
+                          → /wr={index + 1}
+                        </span>
                       </div>
                     ))}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">
+                  <p className="text-xs text-muted-foreground">
                     {selectedSearches.size}/4 selected
                   </p>
                 </div>
