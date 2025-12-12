@@ -418,7 +418,17 @@ const WebResults = () => {
           <div>
             <Label className="text-sm text-muted-foreground mb-2 block">Select Related Search</Label>
             <div className="flex gap-4">
-              <Select value={selectedRelatedSearch} onValueChange={setSelectedRelatedSearch}>
+              <Select 
+                value={selectedRelatedSearch} 
+                onValueChange={(value) => {
+                  setSelectedRelatedSearch(value);
+                  // Auto-select the page tab based on the related search
+                  const search = relatedSearches.find(s => s.id === value);
+                  if (search) {
+                    setSelectedWr(search.target_wr);
+                  }
+                }}
+              >
                 <SelectTrigger className="admin-input flex-1">
                   <SelectValue placeholder="Choose a related search" />
                 </SelectTrigger>
