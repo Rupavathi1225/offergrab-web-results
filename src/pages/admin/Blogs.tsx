@@ -602,7 +602,7 @@ const Blogs = () => {
                         >
                           <Checkbox
                             checked={isSelected}
-                            onCheckedChange={() => toggleSearchSelection(index)}
+                            onClick={(e) => e.stopPropagation()}
                           />
                           <span className="text-sm cursor-pointer flex-1">
                             {search}
