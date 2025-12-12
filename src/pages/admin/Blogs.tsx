@@ -448,10 +448,12 @@ const Blogs = () => {
           <Plus className="w-4 h-4" />
           Add Blog
         </Button>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => {
-          setIsDialogOpen(open);
-          if (!open) resetForm();
-        }}>
+      </div>
+
+      <Dialog open={isDialogOpen} onOpenChange={(open) => {
+        setIsDialogOpen(open);
+        if (!open) resetForm();
+      }}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingBlog ? "Edit Blog" : "Create New Blog"}</DialogTitle>
@@ -636,8 +638,7 @@ const Blogs = () => {
               </div>
             </form>
           </DialogContent>
-        </Dialog>
-      </div>
+      </Dialog>
 
       {/* Bulk Action Toolbar */}
       <BulkActionToolbar
