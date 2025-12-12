@@ -118,12 +118,12 @@ const BlogPage = () => {
         {relatedSearches && relatedSearches.length > 0 && (
           <div className="max-w-3xl mx-auto mt-12 pt-8 border-t border-border">
             <h3 className="text-xl font-semibold text-foreground mb-4">Related Searches</h3>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-col gap-2">
               {relatedSearches.map((search) => (
                 <a
                   key={search.id}
                   href={`/webresult/${search.target_wr}`}
-                  className="px-4 py-2 bg-muted rounded-full text-sm text-foreground hover:bg-muted/80 transition-colors"
+                  className="px-4 py-2 bg-muted rounded-lg text-sm text-foreground hover:bg-muted/80 transition-colors"
                 >
                   {search.title}
                 </a>
