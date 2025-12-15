@@ -16,6 +16,11 @@ interface PrelandingData {
   cta_button_text: string;
   background_color: string;
   background_image_url: string | null;
+  web_result_id: string | null;
+}
+
+interface WebResultData {
+  link: string;
 }
 
 const Prelanding = () => {
@@ -25,6 +30,7 @@ const Prelanding = () => {
   const redirectUrl = searchParams.get('redirect');
   
   const [prelanding, setPrelanding] = useState<PrelandingData | null>(null);
+  const [webResultLink, setWebResultLink] = useState<string | null>(null);
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -44,7 +50,22 @@ const Prelanding = () => {
         .maybeSingle();
 
       if (error) throw error;
-      if (data) setPrelanding(data);
+      if (data) {
+        setPrelanding(data);
+        
+        // Fetch the linked web result's link
+        if (data.web_result_id) {
+          const { data: webResult } = await supabase
+            .from('web_results')
+            .select('link')
+            .eq('id', data.web_result_id)
+            .maybeSingle();
+          
+          if (webResult) {
+            setWebResultLink(webResult.link);
+          }
+        }
+      }
     } catch (error) {
       console.error('Error fetching prelanding:', error);
     } finally {
@@ -92,9 +113,11 @@ const Prelanding = () => {
       // Track the submit
       await trackClick('prelanding_submit', id, 'Email Capture', `/prelanding/${id}`);
 
-      // Redirect to the target URL
-      if (redirectUrl) {
-        window.location.href = redirectUrl;
+      // Determine redirect URL: use query param first, then linked web result, then fallback to landing
+      const targetUrl = redirectUrl || webResultLink;
+      
+      if (targetUrl) {
+        window.location.href = targetUrl;
       } else {
         navigate('/landing');
       }
