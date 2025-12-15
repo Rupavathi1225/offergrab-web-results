@@ -175,6 +175,14 @@ const WebResults = () => {
     );
   };
 
+  const updateGeneratedResult = (index: number, field: keyof GeneratedWebResult, value: string) => {
+    setGeneratedResults(prev => 
+      prev.map((r, i) => 
+        i === index ? { ...r, [field]: value } : r
+      )
+    );
+  };
+
   const saveGeneratedResults = async () => {
     const selectedResults = generatedResults.filter(r => r.isSelected);
     if (selectedResults.length === 0) {
@@ -459,7 +467,7 @@ const WebResults = () => {
           {generatedResults.length > 0 && (
             <div className="space-y-3 p-4 border border-border rounded-lg bg-muted/30">
               <Label className="text-sm font-medium">
-                Select Web Results (max 4) - Toggle Sponsored
+                Edit & Select Web Results (max 4) - You can edit before saving
               </Label>
               <p className="text-xs text-muted-foreground">
                 Selected results will be added to wr={relatedSearches.find(s => s.id === selectedRelatedSearch)?.target_wr}
@@ -481,18 +489,50 @@ const WebResults = () => {
                         onCheckedChange={() => toggleGeneratedResultSelection(index)}
                         className="mt-1"
                       />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium text-foreground">{result.name}</span>
-                          {result.isSponsored && (
-                            <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded">
-                              Sponsored
-                            </span>
-                          )}
+                      <div className="flex-1 space-y-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Name</Label>
+                            <Input
+                              value={result.name}
+                              onChange={(e) => updateGeneratedResult(index, 'name', e.target.value)}
+                              className="admin-input h-8 text-sm"
+                              placeholder="Site name"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Title</Label>
+                            <Input
+                              value={result.title}
+                              onChange={(e) => updateGeneratedResult(index, 'title', e.target.value)}
+                              className="admin-input h-8 text-sm"
+                              placeholder="Display title"
+                            />
+                          </div>
                         </div>
-                        <p className="text-sm text-primary mb-1">{result.title}</p>
-                        <p className="text-xs text-muted-foreground mb-2">{result.description}</p>
-                        <p className="text-xs text-muted-foreground/70 truncate">{result.link}</p>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Description</Label>
+                          <Textarea
+                            value={result.description}
+                            onChange={(e) => updateGeneratedResult(index, 'description', e.target.value)}
+                            className="admin-input text-sm min-h-[60px]"
+                            placeholder="Description"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Link</Label>
+                          <Input
+                            value={result.link}
+                            onChange={(e) => updateGeneratedResult(index, 'link', e.target.value)}
+                            className="admin-input h-8 text-sm"
+                            placeholder="https://..."
+                          />
+                        </div>
+                        {result.isSponsored && (
+                          <span className="inline-block text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded w-fit">
+                            Sponsored
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <Label className="text-xs text-muted-foreground">Sponsored</Label>
