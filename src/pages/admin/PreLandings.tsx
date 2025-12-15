@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Save, Trash2, Edit2, Eye } from "lucide-react";
+import { Plus, Save, Trash2, Edit2, Eye, Sparkles, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 
@@ -27,12 +27,14 @@ interface WebResult {
   id: string;
   name: string;
   title: string;
+  link: string;
 }
 
 const PreLandings = () => {
   const [prelandings, setPrelandings] = useState<Prelanding[]>([]);
   const [webResults, setWebResults] = useState<WebResult[]>([]);
   const [loading, setLoading] = useState(true);
+  const [generating, setGenerating] = useState(false);
   const [editingPrelanding, setEditingPrelanding] = useState<Prelanding | null>(null);
   const [showDialog, setShowDialog] = useState(false);
   const [isNew, setIsNew] = useState(false);
@@ -40,7 +42,7 @@ const PreLandings = () => {
   const emptyPrelanding: Omit<Prelanding, 'id'> = {
     web_result_id: null,
     logo_url: '',
-    main_image_url: '',
+    main_image_url: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80',
     headline: '',
     description: '',
     email_placeholder: 'Enter your email',
@@ -58,7 +60,7 @@ const PreLandings = () => {
     try {
       const [prelandingsRes, resultsRes] = await Promise.all([
         supabase.from('prelandings').select('*').order('created_at', { ascending: false }),
-        supabase.from('web_results').select('id, name, title').eq('is_active', true),
+        supabase.from('web_results').select('id, name, title, link').eq('is_active', true),
       ]);
 
       if (prelandingsRes.data) setPrelandings(prelandingsRes.data);
@@ -67,6 +69,50 @@ const PreLandings = () => {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const generateWithAI = async () => {
+    if (!editingPrelanding?.web_result_id) {
+      toast({ title: "Error", description: "Please select a web result first", variant: "destructive" });
+      return;
+    }
+
+    const selectedResult = webResults.find(r => r.id === editingPrelanding.web_result_id);
+    if (!selectedResult) {
+      toast({ title: "Error", description: "Web result not found", variant: "destructive" });
+      return;
+    }
+
+    setGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-prelanding', {
+        body: {
+          webResultName: selectedResult.name,
+          webResultTitle: selectedResult.title,
+          webResultLink: selectedResult.link,
+        },
+      });
+
+      if (error) throw error;
+
+      if (data) {
+        setEditingPrelanding({
+          ...editingPrelanding,
+          headline: data.headline || editingPrelanding.headline,
+          description: data.description || editingPrelanding.description,
+          email_placeholder: data.email_placeholder || editingPrelanding.email_placeholder,
+          cta_button_text: data.cta_button_text || editingPrelanding.cta_button_text,
+          background_color: data.background_color || editingPrelanding.background_color,
+          main_image_url: data.main_image_url || 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80',
+        });
+        toast({ title: "Generated!", description: "Pre-landing content generated with AI." });
+      }
+    } catch (error) {
+      console.error('Error generating:', error);
+      toast({ title: "Error", description: "Failed to generate content. Please try again.", variant: "destructive" });
+    } finally {
+      setGenerating(false);
     }
   };
 
@@ -236,25 +282,45 @@ const PreLandings = () => {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm text-muted-foreground mb-1">Select Web Result</label>
-                <Select 
-                  value={editingPrelanding.web_result_id || 'none'} 
-                  onValueChange={(v) => setEditingPrelanding({ 
-                    ...editingPrelanding, 
-                    web_result_id: v === 'none' ? null : v 
-                  })}
-                >
-                  <SelectTrigger className="admin-input">
-                    <SelectValue placeholder="Select a web result..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    {webResults.map(result => (
-                      <SelectItem key={result.id} value={result.id}>
-                        {result.name} - {result.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex gap-2">
+                  <Select 
+                    value={editingPrelanding.web_result_id || 'none'} 
+                    onValueChange={(v) => setEditingPrelanding({ 
+                      ...editingPrelanding, 
+                      web_result_id: v === 'none' ? null : v 
+                    })}
+                  >
+                    <SelectTrigger className="admin-input flex-1">
+                      <SelectValue placeholder="Select a web result..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None</SelectItem>
+                      {webResults.map(result => (
+                        <SelectItem key={result.id} value={result.id}>
+                          {result.name} - {result.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button 
+                    type="button"
+                    variant="secondary"
+                    onClick={generateWithAI}
+                    disabled={generating || !editingPrelanding.web_result_id}
+                    className="shrink-0"
+                  >
+                    {generating ? (
+                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating...</>
+                    ) : (
+                      <><Sparkles className="w-4 h-4 mr-2" /> Generate with AI</>
+                    )}
+                  </Button>
+                </div>
+                {editingPrelanding.web_result_id && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Redirect URL: {webResults.find(r => r.id === editingPrelanding.web_result_id)?.link || 'N/A'}
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-4">

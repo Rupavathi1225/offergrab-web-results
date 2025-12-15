@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.generate-web-results]
 verify_jwt = false
+
+[functions.generate-prelanding]
+verify_jwt = false
