@@ -284,6 +284,12 @@ const Blogs = () => {
     });
   };
 
+  const updateGeneratedSearch = (index: number, value: string) => {
+    setGeneratedSearches(prev => 
+      prev.map((s, i) => i === index ? value : s)
+    );
+  };
+
   const saveRelatedSearches = async (blogId: string) => {
     if (selectedSearchesOrder.length === 0) return;
     
@@ -577,14 +583,14 @@ const Blogs = () => {
                 />
               </div>
 
-              {/* Related Searches Selection - Vertical Layout */}
+              {/* Related Searches Selection - Editable */}
               {generatedSearches.length > 0 && (
                 <div className="space-y-3 p-4 border border-border rounded-lg bg-muted/30">
                   <Label className="text-sm font-medium">
-                    Select Related Searches for Landing Page (max 4)
+                    Edit & Select Related Searches for Landing Page (max 4)
                   </Label>
                   <p className="text-xs text-muted-foreground">
-                    Selected searches will appear on landing page and redirect to /wr=1, /wr=2, etc.
+                    You can edit the search text before saving. Selected searches will appear on landing page.
                   </p>
                   <div className="flex flex-col gap-2">
                     {generatedSearches.map((search, index) => {
@@ -593,29 +599,34 @@ const Blogs = () => {
                       return (
                         <div 
                           key={index} 
-                          className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors cursor-pointer ${
+                          className={`flex items-center space-x-3 p-3 rounded-lg border transition-colors ${
                             isSelected 
                               ? 'border-primary bg-primary/10' 
                               : 'border-border hover:border-primary/50'
                           }`}
-                          onClick={() => toggleSearchSelection(index)}
                         >
-                          <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
-                            isSelected 
-                              ? 'bg-primary border-primary' 
-                              : 'border-muted-foreground'
-                          }`}>
+                          <div 
+                            className={`w-4 h-4 rounded border-2 flex items-center justify-center cursor-pointer flex-shrink-0 ${
+                              isSelected 
+                                ? 'bg-primary border-primary' 
+                                : 'border-muted-foreground'
+                            }`}
+                            onClick={() => toggleSearchSelection(index)}
+                          >
                             {isSelected && (
                               <svg className="w-3 h-3 text-primary-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                               </svg>
                             )}
                           </div>
-                          <span className="text-sm cursor-pointer flex-1">
-                            {search}
-                          </span>
+                          <Input
+                            value={search}
+                            onChange={(e) => updateGeneratedSearch(index, e.target.value)}
+                            className="flex-1 h-8 text-sm"
+                            placeholder="Enter search text..."
+                          />
                           {isSelected && (
-                            <span className="text-xs text-primary font-medium">
+                            <span className="text-xs text-primary font-medium flex-shrink-0">
                               → /wr={selectionOrder + 1}
                             </span>
                           )}
