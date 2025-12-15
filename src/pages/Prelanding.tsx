@@ -43,9 +43,15 @@ const Prelanding = () => {
     if (!id) return;
     
     try {
+      // Fetch prelanding with joined web_result link
       const { data, error } = await supabase
         .from('prelandings')
-        .select('*')
+        .select(`
+          *,
+          web_results!prelandings_web_result_id_fkey (
+            link
+          )
+        `)
         .eq('id', id)
         .maybeSingle();
 
@@ -53,17 +59,9 @@ const Prelanding = () => {
       if (data) {
         setPrelanding(data);
         
-        // Fetch the linked web result's link
-        if (data.web_result_id) {
-          const { data: webResult } = await supabase
-            .from('web_results')
-            .select('link')
-            .eq('id', data.web_result_id)
-            .maybeSingle();
-          
-          if (webResult) {
-            setWebResultLink(webResult.link);
-          }
+        // Get the link from the joined web_result
+        if (data.web_results?.link) {
+          setWebResultLink(data.web_results.link);
         }
       }
     } catch (error) {
@@ -113,11 +111,11 @@ const Prelanding = () => {
       // Track the submit
       await trackClick('prelanding_submit', id, 'Email Capture', `/prelanding/${id}`);
 
-      // Determine redirect URL: use query param first, then linked web result, then fallback to landing
-      const targetUrl = redirectUrl || webResultLink;
-      
-      if (targetUrl) {
-        window.location.href = targetUrl;
+      // Redirect to the web result's link after email capture
+      if (webResultLink) {
+        window.location.href = webResultLink;
+      } else if (redirectUrl) {
+        window.location.href = redirectUrl;
       } else {
         navigate('/landing');
       }
