@@ -83,12 +83,17 @@ const WebResult = () => {
 
   const handleResultClick = async (result: WebResultItem, index: number) => {
     const lid = index + 1;
-    await trackClick('web_result', result.id, result.title, `/webresult/${wrPage}`, lid, result.link);
     
-    // Check if prelanding exists and is active
+    // Check if prelanding exists and is active FIRST before any async operations
     const prelanding = prelandings[result.id];
+    console.log('Checking prelanding for result:', result.id, 'Found:', prelanding);
+    
+    // Track click (don't await to avoid delay)
+    trackClick('web_result', result.id, result.title, `/webresult/${wrPage}`, lid, result.link);
+    
     if (prelanding && prelanding.is_active) {
-      navigate(`/prelanding/${prelanding.id}?redirect=${encodeURIComponent(result.link)}`);
+      // Navigate to prelanding page - redirect will happen after email capture
+      navigate(`/prelanding/${prelanding.id}`);
     } else {
       // Open link directly
       window.open(result.link, '_blank', 'noopener,noreferrer');
