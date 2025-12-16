@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useSearchParams, useNavigate } from "react-router-dom";
+import { useParams, useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { trackClick, getOrCreateSessionId } from "@/lib/tracking";
 import { Input } from "@/components/ui/input";
@@ -23,10 +23,13 @@ interface WebResultData {
   link: string;
 }
 
+const DEFAULT_IMAGE = "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80";
+
 const Prelanding = () => {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const redirectUrl = searchParams.get('redirect');
   
   const [prelanding, setPrelanding] = useState<PrelandingData | null>(null);
@@ -34,6 +37,11 @@ const Prelanding = () => {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+
+  // Get context from navigation state
+  const fromBlog = location.state?.fromBlog;
+  const blogSlug = location.state?.blogSlug;
+  const passedWebResultLink = location.state?.webResultLink;
 
   useEffect(() => {
     fetchPrelanding();
@@ -59,9 +67,10 @@ const Prelanding = () => {
       if (data) {
         setPrelanding(data);
         
-        // Get the link from the joined web_result
-        if (data.web_results?.link) {
-          setWebResultLink(data.web_results.link);
+        // Get the link from the joined web_result or from state
+        const link = data.web_results?.link || passedWebResultLink;
+        if (link) {
+          setWebResultLink(link);
         }
       }
     } catch (error) {
@@ -111,14 +120,23 @@ const Prelanding = () => {
       // Track the submit
       await trackClick('prelanding_submit', id, 'Email Capture', `/prelanding/${id}`);
 
+      toast({
+        title: "Success!",
+        description: "Redirecting you now...",
+      });
+
       // Redirect to the web result's link after email capture
-      if (webResultLink) {
-        window.location.href = webResultLink;
-      } else if (redirectUrl) {
-        window.location.href = redirectUrl;
-      } else {
-        navigate('/landing');
-      }
+      setTimeout(() => {
+        if (webResultLink) {
+          window.location.href = webResultLink;
+        } else if (redirectUrl) {
+          window.location.href = redirectUrl;
+        } else if (fromBlog && blogSlug) {
+          navigate(`/blog/${blogSlug}`);
+        } else {
+          navigate('/landing');
+        }
+      }, 500);
     } catch (error) {
       console.error('Error submitting:', error);
       toast({
@@ -171,16 +189,14 @@ const Prelanding = () => {
           </div>
         )}
 
-        {/* Main Image */}
-        {prelanding.main_image_url && (
-          <div className="mb-6">
-            <img 
-              src={prelanding.main_image_url} 
-              alt="Main" 
-              className="w-full rounded-lg"
-            />
-          </div>
-        )}
+        {/* Main Image - Always show default if none provided */}
+        <div className="mb-6">
+          <img 
+            src={prelanding.main_image_url || DEFAULT_IMAGE} 
+            alt="Main" 
+            className="w-full rounded-lg"
+          />
+        </div>
 
         {/* Headline */}
         <h1 className="text-2xl font-display font-bold text-foreground text-center mb-4">
