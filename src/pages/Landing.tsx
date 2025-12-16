@@ -36,8 +36,8 @@ const Landing = () => {
           .from('related_searches')
           .select('*')
           .eq('is_active', true)
-          .is('blog_id', null)
-          .order('serial_number', { ascending: true }),
+          .order('serial_number', { ascending: true })
+          .limit(4),
       ]);
 
       if (contentRes.data) setContent(contentRes.data);
@@ -87,23 +87,23 @@ const Landing = () => {
           </p>
         </div>
 
-        {/* Related Categories */}
+        {/* Related Searches */}
         {searches.length > 0 && (
-          <div className="max-w-3xl mx-auto">
-            <p className="text-center text-muted-foreground text-sm uppercase tracking-wider mb-8">
-              Related Categories
+          <div className="max-w-xl mx-auto">
+            <p className="text-center text-muted-foreground text-sm mb-6">
+              Related Searches
             </p>
             
-            <div className="space-y-4">
+            <div className="space-y-3">
               {searches.map((search, index) => (
                 <div
                   key={search.id}
                   onClick={() => handleSearchClick(search)}
-                  className="group cursor-pointer bg-card/50 border border-border/50 rounded-xl p-5 flex items-center justify-between hover:bg-primary/10 hover:border-primary/50 transition-all duration-300 animate-slide-up"
-                  style={{ animationDelay: `${index * 0.1}s` }}
+                  className="group cursor-pointer bg-card/80 border border-border/30 rounded-lg px-4 py-3 flex items-center justify-between hover:bg-primary/20 hover:border-primary/50 transition-all duration-200"
+                  style={{ animationDelay: `${index * 0.05}s` }}
                 >
-                  <span className="text-foreground font-medium text-lg">{search.title}</span>
-                  <span className="text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all duration-300 text-xl">
+                  <span className="text-primary text-sm font-medium">{search.title}</span>
+                  <span className="text-muted-foreground group-hover:text-primary transition-colors text-sm">
                     →
                   </span>
                 </div>
