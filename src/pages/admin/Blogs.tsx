@@ -542,11 +542,22 @@ const Blogs = () => {
                     Generate AI Image
                   </Button>
                 </div>
-                <Input
-                  value={formData.featured_image_url}
-                  onChange={(e) => setFormData(prev => ({ ...prev, featured_image_url: e.target.value }))}
-                  placeholder="Or paste image URL here..."
-                />
+                <div className="flex gap-2">
+                  <Input
+                    value={formData.featured_image_url}
+                    onChange={(e) => setFormData(prev => ({ ...prev, featured_image_url: e.target.value }))}
+                    placeholder="Or paste image URL here..."
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setFormData(prev => ({ ...prev, featured_image_url: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80' }))}
+                  >
+                    Default
+                  </Button>
+                </div>
                 {formData.featured_image_url && (
                   <img 
                     src={formData.featured_image_url} 

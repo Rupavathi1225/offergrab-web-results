@@ -41,7 +41,8 @@ Generate the following fields in JSON format:
   "description": "A persuasive description (2-3 sentences) explaining the value",
   "email_placeholder": "A friendly email placeholder text",
   "cta_button_text": "An action-oriented button text (max 20 chars)",
-  "background_color": "A hex color that matches the brand feel (dark preferred like #1a1a2e, #0f172a, #1e3a5f)"
+  "background_color": "A hex color that matches the brand feel (dark preferred like #1a1a2e, #0f172a, #1e3a5f)",
+  "logo_url": "A relevant logo image URL from unsplash (use format: https://images.unsplash.com/photo-ID?w=200&q=80). Pick a professional business/brand related image."
 }
 
 Return only valid JSON, no additional text.`;
@@ -99,8 +100,9 @@ Return only valid JSON, no additional text.`;
 
     const prelandingData = JSON.parse(cleanedContent);
 
-    // Add default main image URL
+    // Add default URLs
     const defaultMainImage = 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80';
+    const defaultLogo = 'https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=200&q=80';
 
     const result = {
       headline: prelandingData.headline || `Unlock ${webResultName}`,
@@ -109,6 +111,7 @@ Return only valid JSON, no additional text.`;
       cta_button_text: prelandingData.cta_button_text || 'Get Access Now',
       background_color: prelandingData.background_color || '#1a1a2e',
       main_image_url: defaultMainImage,
+      logo_url: prelandingData.logo_url || defaultLogo,
     };
 
     console.log('Generated prelanding data:', result);

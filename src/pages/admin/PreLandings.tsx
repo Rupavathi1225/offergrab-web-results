@@ -105,6 +105,7 @@ const PreLandings = () => {
           cta_button_text: data.cta_button_text || editingPrelanding.cta_button_text,
           background_color: data.background_color || editingPrelanding.background_color,
           main_image_url: data.main_image_url || 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80',
+          logo_url: data.logo_url || editingPrelanding.logo_url,
         });
         toast({ title: "Generated!", description: "Pre-landing content generated with AI." });
       }
@@ -115,6 +116,9 @@ const PreLandings = () => {
       setGenerating(false);
     }
   };
+
+  const DEFAULT_LOGO = 'https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?w=200&q=80';
+  const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=800&q=80';
 
   const handleSave = async () => {
     if (!editingPrelanding) return;
@@ -326,21 +330,41 @@ const PreLandings = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-muted-foreground mb-1">Logo URL</label>
-                  <Input
-                    value={editingPrelanding.logo_url || ''}
-                    onChange={(e) => setEditingPrelanding({ ...editingPrelanding, logo_url: e.target.value })}
-                    className="admin-input"
-                    placeholder="https://example.com/logo.png"
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      value={editingPrelanding.logo_url || ''}
+                      onChange={(e) => setEditingPrelanding({ ...editingPrelanding, logo_url: e.target.value })}
+                      className="admin-input flex-1"
+                      placeholder="https://example.com/logo.png"
+                    />
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setEditingPrelanding({ ...editingPrelanding, logo_url: DEFAULT_LOGO })}
+                    >
+                      Default
+                    </Button>
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm text-muted-foreground mb-1">Main Image URL</label>
-                  <Input
-                    value={editingPrelanding.main_image_url || ''}
-                    onChange={(e) => setEditingPrelanding({ ...editingPrelanding, main_image_url: e.target.value })}
-                    className="admin-input"
-                    placeholder="https://example.com/main-image.jpg"
-                  />
+                  <div className="flex gap-2">
+                    <Input
+                      value={editingPrelanding.main_image_url || ''}
+                      onChange={(e) => setEditingPrelanding({ ...editingPrelanding, main_image_url: e.target.value })}
+                      className="admin-input flex-1"
+                      placeholder="https://example.com/main-image.jpg"
+                    />
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setEditingPrelanding({ ...editingPrelanding, main_image_url: DEFAULT_IMAGE })}
+                    >
+                      Default
+                    </Button>
+                  </div>
                 </div>
               </div>
 
