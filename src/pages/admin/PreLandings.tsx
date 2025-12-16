@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Save, Trash2, Edit2, Eye, Sparkles, Loader2 } from "lucide-react";
+import { Plus, Save, Trash2, Edit2, Eye, Sparkles, Loader2, Search } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 
@@ -38,6 +38,7 @@ const PreLandings = () => {
   const [editingPrelanding, setEditingPrelanding] = useState<Prelanding | null>(null);
   const [showDialog, setShowDialog] = useState(false);
   const [isNew, setIsNew] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const emptyPrelanding: Omit<Prelanding, 'id'> = {
     web_result_id: null,
@@ -204,6 +205,16 @@ const PreLandings = () => {
     );
   }
 
+  // Filter prelandings based on search query
+  const filteredPrelandings = prelandings.filter(p => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      p.headline.toLowerCase().includes(query) ||
+      (p.description?.toLowerCase().includes(query))
+    );
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -216,12 +227,23 @@ const PreLandings = () => {
         </Button>
       </div>
 
+      {/* Search Box */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search by headline or description..."
+          className="pl-10"
+        />
+      </div>
+
       {/* Existing Prelandings */}
       <div className="glass-card p-6">
-        <h3 className="font-semibold text-foreground mb-4">Existing Pre-Landings ({prelandings.length})</h3>
+        <h3 className="font-semibold text-foreground mb-4">Existing Pre-Landings ({filteredPrelandings.length})</h3>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {prelandings.map((prelanding) => (
+          {filteredPrelandings.map((prelanding) => (
             <div 
               key={prelanding.id} 
               className="p-4 rounded-lg border border-border/50"
@@ -267,9 +289,9 @@ const PreLandings = () => {
             </div>
           ))}
 
-          {prelandings.length === 0 && (
+          {filteredPrelandings.length === 0 && (
             <p className="text-center text-muted-foreground py-8 col-span-full">
-              No pre-landings yet. Create one above!
+              {searchQuery ? "No pre-landings match your search." : "No pre-landings yet. Create one above!"}
             </p>
           )}
         </div>

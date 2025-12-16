@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Save, Trash2, Edit2, X, Globe, Sparkles, Loader2 } from "lucide-react";
+import { Plus, Save, Trash2, Edit2, X, Globe, Sparkles, Loader2, Search } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { countries } from "@/lib/countries";
 import BulkActionToolbar from "@/components/admin/BulkActionToolbar";
@@ -53,6 +53,7 @@ const WebResults = () => {
   const [showDialog, setShowDialog] = useState(false);
   const [selectedWr, setSelectedWr] = useState<number>(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
   
   // AI Generator state
   const [selectedRelatedSearch, setSelectedRelatedSearch] = useState<string>("");
@@ -296,9 +297,21 @@ const WebResults = () => {
     }
   };
 
+  // Filter results based on search query
+  const searchFiltered = results.filter(r => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      r.name.toLowerCase().includes(query) ||
+      r.title.toLowerCase().includes(query) ||
+      (r.description?.toLowerCase().includes(query)) ||
+      r.link.toLowerCase().includes(query)
+    );
+  });
+
   const filteredResults = selectedWr === 0 
-    ? results 
-    : results.filter(r => r.wr_page === selectedWr);
+    ? searchFiltered 
+    : searchFiltered.filter(r => r.wr_page === selectedWr);
 
   // Get unique wr_pages with their related search titles
   const wrPagesWithSearches = relatedSearches.reduce((acc, search) => {
@@ -413,6 +426,17 @@ const WebResults = () => {
       <div>
         <h1 className="text-2xl font-display font-bold text-foreground mb-2">Web Results</h1>
         <p className="text-muted-foreground">Manage web results for each page</p>
+      </div>
+
+      {/* Search Box */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search by name, title, description, or link..."
+          className="pl-10"
+        />
       </div>
 
       {/* AI Web Results Generator */}

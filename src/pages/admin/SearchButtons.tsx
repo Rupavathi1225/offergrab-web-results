@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Save, Trash2, GripVertical, Pencil, X } from "lucide-react";
+import { Plus, Save, Trash2, GripVertical, Pencil, X, Search } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import BulkActionToolbar from "@/components/admin/BulkActionToolbar";
@@ -32,6 +32,7 @@ const SearchButtons = () => {
   const [newButton, setNewButton] = useState({ title: '', serial_number: 1, target_wr: 1, blog_id: '' });
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     fetchButtons();
@@ -251,11 +252,33 @@ const SearchButtons = () => {
     );
   }
 
+  // Filter buttons based on search query
+  const filteredButtons = buttons.filter(b => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    const blogTitle = getBlogTitle(b.blog_id).toLowerCase();
+    return (
+      b.title.toLowerCase().includes(query) ||
+      blogTitle.includes(query)
+    );
+  });
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-display font-bold text-foreground mb-2">Search Buttons</h1>
         <p className="text-muted-foreground">Manage related search buttons on landing page</p>
+      </div>
+
+      {/* Search Box */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search by title or blog name..."
+          className="pl-10"
+        />
       </div>
 
       {/* Add New */}
@@ -321,9 +344,9 @@ const SearchButtons = () => {
 
       {/* Bulk Action Toolbar */}
       <BulkActionToolbar
-        totalCount={buttons.length}
+        totalCount={filteredButtons.length}
         selectedCount={selectedIds.size}
-        allSelected={selectedIds.size === buttons.length && buttons.length > 0}
+        allSelected={selectedIds.size === filteredButtons.length && filteredButtons.length > 0}
         onSelectAll={selectAll}
         onExportAll={exportAll}
         onExportSelected={exportSelected}
@@ -335,9 +358,9 @@ const SearchButtons = () => {
 
       {/* Existing Buttons */}
       <div className="glass-card p-6">
-        <h3 className="font-semibold text-foreground mb-4">Existing Buttons</h3>
+        <h3 className="font-semibold text-foreground mb-4">Existing Buttons ({filteredButtons.length})</h3>
         <div className="space-y-4">
-          {buttons.map((button) => {
+          {filteredButtons.map((button) => {
             const isEditing = editingId === button.id;
             
             return (
@@ -467,8 +490,10 @@ const SearchButtons = () => {
             );
           })}
 
-          {buttons.length === 0 && (
-            <p className="text-center text-muted-foreground py-8">No buttons yet. Add one above!</p>
+          {filteredButtons.length === 0 && (
+            <p className="text-center text-muted-foreground py-8">
+              {searchQuery ? "No buttons match your search." : "No buttons yet. Add one above!"}
+            </p>
           )}
         </div>
       </div>

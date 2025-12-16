@@ -29,7 +29,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
-import { Plus, Pencil, Trash2, Copy, ExternalLink, Loader2, Sparkles } from "lucide-react";
+import { Plus, Pencil, Trash2, Copy, ExternalLink, Loader2, Sparkles, Search } from "lucide-react";
 import { toast } from "sonner";
 import BulkActionToolbar from "@/components/admin/BulkActionToolbar";
 import { convertToCSV, downloadCSV } from "@/lib/csvExport";
@@ -76,6 +76,7 @@ const Blogs = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [generatedSearches, setGeneratedSearches] = useState<string[]>([]);
   const [selectedSearchesOrder, setSelectedSearchesOrder] = useState<number[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   
   const [formData, setFormData] = useState({
     title: "",
@@ -455,6 +456,18 @@ const Blogs = () => {
     );
   }
 
+  // Filter blogs based on search query
+  const filteredBlogs = blogs?.filter(blog => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      blog.title.toLowerCase().includes(query) ||
+      blog.slug.toLowerCase().includes(query) ||
+      (blog.author?.toLowerCase().includes(query)) ||
+      (blog.category?.toLowerCase().includes(query))
+    );
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -463,6 +476,17 @@ const Blogs = () => {
           <Plus className="w-4 h-4" />
           Add Blog
         </Button>
+      </div>
+
+      {/* Search Box */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search by title, slug, author, or category..."
+          className="pl-10"
+        />
       </div>
 
       {isDialogOpen && (
@@ -711,7 +735,7 @@ const Blogs = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {blogs?.map((blog) => (
+            {filteredBlogs?.map((blog) => (
               <TableRow key={blog.id}>
                 <TableCell>
                   <Checkbox
@@ -777,10 +801,10 @@ const Blogs = () => {
                 </TableCell>
               </TableRow>
             ))}
-            {blogs?.length === 0 && (
+            {filteredBlogs?.length === 0 && (
               <TableRow>
                 <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  No blogs yet. Create your first blog!
+                  {searchQuery ? "No blogs match your search." : "No blogs yet. Create your first blog!"}
                 </TableCell>
               </TableRow>
             )}
