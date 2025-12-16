@@ -30,18 +30,52 @@ const Landing = () => {
 
   const fetchData = async () => {
     try {
-      const [contentRes, searchesRes] = await Promise.all([
+      // Fetch content and one search per target_wr page (1, 2, 3, 4)
+      const [contentRes, wr1, wr2, wr3, wr4] = await Promise.all([
         supabase.from('landing_content').select('*').limit(1).maybeSingle(),
         supabase
           .from('related_searches')
           .select('*')
           .eq('is_active', true)
+          .eq('target_wr', 1)
           .order('serial_number', { ascending: true })
-          .limit(4),
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from('related_searches')
+          .select('*')
+          .eq('is_active', true)
+          .eq('target_wr', 2)
+          .order('serial_number', { ascending: true })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from('related_searches')
+          .select('*')
+          .eq('is_active', true)
+          .eq('target_wr', 3)
+          .order('serial_number', { ascending: true })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from('related_searches')
+          .select('*')
+          .eq('is_active', true)
+          .eq('target_wr', 4)
+          .order('serial_number', { ascending: true })
+          .limit(1)
+          .maybeSingle(),
       ]);
 
       if (contentRes.data) setContent(contentRes.data);
-      if (searchesRes.data) setSearches(searchesRes.data);
+      
+      // Combine searches from each page into array
+      const allSearches: RelatedSearch[] = [];
+      if (wr1.data) allSearches.push(wr1.data);
+      if (wr2.data) allSearches.push(wr2.data);
+      if (wr3.data) allSearches.push(wr3.data);
+      if (wr4.data) allSearches.push(wr4.data);
+      setSearches(allSearches);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
