@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Search, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { initSession, trackClick, getOrCreateSessionId } from "@/lib/tracking";
@@ -27,12 +27,17 @@ interface Prelanding {
 const WebResult = () => {
   const { page } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const wrPage = parseInt(page || '1');
   
   const [results, setResults] = useState<WebResultItem[]>([]);
   const [content, setContent] = useState<LandingContent | null>(null);
   const [prelandings, setPrelandings] = useState<Record<string, Prelanding>>({});
   const [loading, setLoading] = useState(true);
+
+  // Get blog context from navigation state
+  const fromBlog = location.state?.fromBlog;
+  const blogSlug = location.state?.blogSlug;
 
   // Separate sponsored and organic results, with sponsored first
   const sponsoredResults = results.filter(r => r.is_sponsored);
@@ -92,11 +97,26 @@ const WebResult = () => {
     trackClick('web_result', result.id, result.title, `/webresult/${wrPage}`, lid, result.link);
     
     if (prelanding && prelanding.is_active) {
-      // Navigate to prelanding page - redirect will happen after email capture
-      navigate(`/prelanding/${prelanding.id}`);
+      // Navigate to prelanding page - pass blog context if coming from blog
+      navigate(`/prelanding/${prelanding.id}`, {
+        state: { 
+          fromBlog,
+          blogSlug,
+          webResultLink: result.link
+        }
+      });
     } else {
       // Open link directly
       window.open(result.link, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const handleBack = () => {
+    if (fromBlog && blogSlug) {
+      // Return to the specific blog page
+      navigate(`/blog/${blogSlug}`);
+    } else {
+      navigate('/landing');
     }
   };
 
@@ -137,7 +157,7 @@ const WebResult = () => {
         <div className="container mx-auto px-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button 
-              onClick={() => navigate('/landing')}
+              onClick={handleBack}
               className="p-2 hover:bg-secondary/50 rounded-lg transition-colors"
             >
               <ArrowLeft className="w-5 h-5 text-muted-foreground" />

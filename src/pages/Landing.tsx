@@ -32,7 +32,12 @@ const Landing = () => {
     try {
       const [contentRes, searchesRes] = await Promise.all([
         supabase.from('landing_content').select('*').limit(1).maybeSingle(),
-        supabase.from('related_searches').select('*').eq('is_active', true).order('serial_number', { ascending: true }),
+        supabase
+          .from('related_searches')
+          .select('*')
+          .eq('is_active', true)
+          .is('blog_id', null)
+          .order('serial_number', { ascending: true }),
       ]);
 
       if (contentRes.data) setContent(contentRes.data);
@@ -75,35 +80,37 @@ const Landing = () => {
       <main className="container mx-auto px-4 py-16 md:py-24">
         <div className="max-w-3xl mx-auto text-center animate-fade-in">
           <h2 className="text-3xl md:text-4xl lg:text-5xl font-display font-bold text-foreground mb-6 leading-tight">
-            {content?.headline || 'OfferGrab - Discover Amazing Deals & Offers'}
+            {content?.headline || 'Grab Hot Deals Faster'}
           </h2>
           <p className="text-muted-foreground text-lg md:text-xl mb-12 leading-relaxed">
-            {content?.description || 'Find the best deals and offers.'}
+            {content?.description || 'Finding great offers is all OfferGrabZone helps users spot trending deals, hidden discounts, and limited-time steals before they disappear.'}
           </p>
         </div>
 
         {/* Related Categories */}
-        <div className="max-w-2xl mx-auto">
-          <p className="text-center text-muted-foreground text-sm uppercase tracking-wider mb-6">
-            Related Categories
-          </p>
-          
-          <div className="space-y-3">
-            {searches.map((search, index) => (
-              <div
-                key={search.id}
-                onClick={() => handleSearchClick(search)}
-                className="search-box flex items-center justify-between group animate-slide-up"
-                style={{ animationDelay: `${index * 0.1}s` }}
-              >
-                <span className="text-foreground font-medium">{search.title}</span>
-                <span className="text-muted-foreground group-hover:text-primary transition-colors">
-                  →
-                </span>
-              </div>
-            ))}
+        {searches.length > 0 && (
+          <div className="max-w-3xl mx-auto">
+            <p className="text-center text-muted-foreground text-sm uppercase tracking-wider mb-8">
+              Related Categories
+            </p>
+            
+            <div className="space-y-4">
+              {searches.map((search, index) => (
+                <div
+                  key={search.id}
+                  onClick={() => handleSearchClick(search)}
+                  className="group cursor-pointer bg-card/50 border border-border/50 rounded-xl p-5 flex items-center justify-between hover:bg-primary/10 hover:border-primary/50 transition-all duration-300 animate-slide-up"
+                  style={{ animationDelay: `${index * 0.1}s` }}
+                >
+                  <span className="text-foreground font-medium text-lg">{search.title}</span>
+                  <span className="text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all duration-300 text-xl">
+                    →
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </main>
 
       {/* Footer */}

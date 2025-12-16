@@ -1,16 +1,16 @@
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Calendar, User, Tag } from "lucide-react";
-import { format } from "date-fns";
+import { Loader2, ArrowLeft } from "lucide-react";
+import { trackClick } from "@/lib/tracking";
 
 const BlogPage = () => {
   const { slug } = useParams<{ slug: string }>();
+  const navigate = useNavigate();
 
   const { data: blog, isLoading, error } = useQuery({
     queryKey: ["blog", slug],
     queryFn: async () => {
-      // Query by slug only - published and active blogs are accessible via direct URL
       const { data, error } = await supabase
         .from("blogs")
         .select("*")
@@ -41,6 +41,18 @@ const BlogPage = () => {
     enabled: !!blog,
   });
 
+  const handleSearchClick = (search: any) => {
+    trackClick('related_search', search.id, search.title, `/blog/${slug}`);
+    // Pass blog context via state so we can return to this blog
+    navigate(`/webresult/${search.target_wr}`, { 
+      state: { 
+        fromBlog: true, 
+        blogSlug: slug,
+        blogId: blog?.id 
+      } 
+    });
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -62,6 +74,19 @@ const BlogPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b border-border/50 py-4">
+        <div className="container mx-auto px-4 flex items-center gap-4">
+          <button 
+            onClick={() => navigate('/landing')}
+            className="p-2 hover:bg-secondary/50 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5 text-muted-foreground" />
+          </button>
+          <h1 className="text-xl font-display font-bold text-primary">OfferGrab</h1>
+        </div>
+      </header>
+
       {/* Featured Image */}
       {blog.featured_image_url && (
         <div className="w-full h-64 md:h-96 overflow-hidden">
@@ -76,29 +101,9 @@ const BlogPage = () => {
       <div className="container mx-auto px-4 py-8">
         <article className="max-w-3xl mx-auto">
           {/* Title */}
-          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-6 font-display">
+          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-8 font-display">
             {blog.title}
           </h1>
-
-          {/* Meta Info - Vertical Layout */}
-          <div className="flex flex-col gap-3 text-muted-foreground text-sm mb-8 pb-8 border-b border-border">
-            {blog.category && (
-              <div className="flex items-center gap-2">
-                <Tag className="w-4 h-4 text-primary" />
-                <span className="text-primary font-medium">{blog.category}</span>
-              </div>
-            )}
-            {blog.author && (
-              <div className="flex items-center gap-2">
-                <User className="w-4 h-4" />
-                <span>{blog.author}</span>
-              </div>
-            )}
-            <div className="flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              <span>{format(new Date(blog.created_at), "MMMM d, yyyy")}</span>
-            </div>
-          </div>
 
           {/* Content */}
           {blog.content && (
@@ -114,17 +119,23 @@ const BlogPage = () => {
 
         {/* Related Searches */}
         {relatedSearches && relatedSearches.length > 0 && (
-          <div className="max-w-3xl mx-auto mt-12 pt-8 border-t border-border">
-            <h3 className="text-xl font-semibold text-foreground mb-4">Related Searches</h3>
-            <div className="flex flex-col gap-2">
-              {relatedSearches.map((search) => (
-                <a
+          <div className="max-w-3xl mx-auto mt-12 pt-8 border-t border-border/50">
+            <h3 className="text-xl font-semibold text-foreground mb-6 text-center uppercase tracking-wider">
+              Related Searches
+            </h3>
+            <div className="space-y-4">
+              {relatedSearches.map((search, index) => (
+                <div
                   key={search.id}
-                  href={`/webresult/${search.target_wr}`}
-                  className="px-4 py-2 bg-muted rounded-lg text-sm text-foreground hover:bg-muted/80 transition-colors"
+                  onClick={() => handleSearchClick(search)}
+                  className="group cursor-pointer bg-card/50 border border-border/50 rounded-xl p-5 flex items-center justify-between hover:bg-primary/10 hover:border-primary/50 transition-all duration-300"
+                  style={{ animationDelay: `${index * 0.1}s` }}
                 >
-                  {search.title}
-                </a>
+                  <span className="text-foreground font-medium text-lg">{search.title}</span>
+                  <span className="text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all duration-300 text-xl">
+                    →
+                  </span>
+                </div>
               ))}
             </div>
           </div>
