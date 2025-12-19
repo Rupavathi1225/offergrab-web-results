@@ -8,8 +8,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Save, Trash2, Edit2, X, Globe, Sparkles, Loader2, Search, Copy, ClipboardList } from "lucide-react";
+import { Plus, Save, Trash2, Edit2, X, Globe, Sparkles, Loader2, Search, Copy, ChevronDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { countries } from "@/lib/countries";
 import BulkActionToolbar from "@/components/admin/BulkActionToolbar";
 import { convertToCSV, downloadCSV } from "@/lib/csvExport";
@@ -81,6 +82,7 @@ const WebResults = () => {
     description: true,
     blogName: true,
     relatedSearch: true,
+    originalLink: true,
     date: true,
   });
 
@@ -336,6 +338,7 @@ const WebResults = () => {
     if (copyFields.description) values.push(copyTarget.description || '');
     if (copyFields.blogName) values.push(blog?.title || 'N/A');
     if (copyFields.relatedSearch) values.push(search?.title || 'N/A');
+    if (copyFields.originalLink) values.push(copyTarget.link || '');
     if (copyFields.date) values.push(copyTarget.created_at ? formatDate(copyTarget.created_at) : formatDate(new Date().toISOString()));
     
     const copyText = values.join('\t');
@@ -343,6 +346,39 @@ const WebResults = () => {
     navigator.clipboard.writeText(copyText);
     toast({ title: "Copied!", description: "Web result details copied to clipboard." });
     setShowCopyDialog(false);
+  };
+
+  // Quick copy single field
+  const quickCopy = (result: WebResult, field: 'title' | 'description' | 'originalLink' | 'blogName' | 'relatedSearch' | 'date' | 'all') => {
+    const { search, blog } = getWebResultContext(result);
+    let copyText = '';
+    
+    if (field === 'all') {
+      // Copy all 6 fields as horizontal row
+      copyText = [
+        result.title || '',
+        result.description || '',
+        blog?.title || 'N/A',
+        search?.title || 'N/A',
+        result.link || '',
+        result.created_at ? formatDate(result.created_at) : formatDate(new Date().toISOString()),
+      ].join('\t');
+    } else if (field === 'title') {
+      copyText = result.title || '';
+    } else if (field === 'description') {
+      copyText = result.description || '';
+    } else if (field === 'originalLink') {
+      copyText = result.link || '';
+    } else if (field === 'blogName') {
+      copyText = blog?.title || 'N/A';
+    } else if (field === 'relatedSearch') {
+      copyText = search?.title || 'N/A';
+    } else if (field === 'date') {
+      copyText = result.created_at ? formatDate(result.created_at) : formatDate(new Date().toISOString());
+    }
+    
+    navigator.clipboard.writeText(copyText);
+    toast({ title: "Copied!", description: `${field === 'all' ? 'All details' : field} copied to clipboard.` });
   };
 
   // Generate masked link for a web result
@@ -355,7 +391,7 @@ const WebResults = () => {
       targetWr: result.wr_page,
     });
     navigator.clipboard.writeText(maskedLink);
-    toast({ title: "Copied!", description: "Masked link copied to clipboard." });
+    toast({ title: "Copied!", description: "Shareable link copied to clipboard." });
   };
 
   // Filter results based on search query and selected filters
@@ -950,22 +986,39 @@ const WebResults = () => {
                     </td>
                     <td>
                       <div className="flex items-center gap-1">
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={() => openCopyDialog(result)}
-                          title="Copy Details"
-                        >
-                          <ClipboardList className="w-4 h-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="icon"
-                          onClick={() => generateAndCopyMaskedLink(result)}
-                          title="Copy Masked Link"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" title="Copy Options">
+                              <Copy className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem onClick={() => generateAndCopyMaskedLink(result)}>
+                              Copy Shareable Link
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => quickCopy(result, 'all')}>
+                              Copy All Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => quickCopy(result, 'title')}>
+                              Copy Title
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => quickCopy(result, 'description')}>
+                              Copy Description
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => quickCopy(result, 'blogName')}>
+                              Copy Blog Name
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => quickCopy(result, 'relatedSearch')}>
+                              Copy Related Search
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => quickCopy(result, 'originalLink')}>
+                              Copy Original Link
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => quickCopy(result, 'date')}>
+                              Copy Date
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                         <Button 
                           variant="ghost" 
                           size="icon"
@@ -1004,10 +1057,11 @@ const WebResults = () => {
               <div className="space-y-2">
                 {Object.entries(copyFields).map(([key, value]) => {
                   const labels: Record<string, string> = {
-                    title: 'Title',
-                    description: 'Description',
-                    blogName: 'Blog Name',
+                    title: 'Web Result Title',
+                    description: 'Web Result Description',
+                    blogName: 'Blog',
                     relatedSearch: 'Related Search',
+                    originalLink: 'Original Link',
                     date: 'Date',
                   };
                   return (
