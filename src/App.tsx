@@ -31,11 +31,12 @@ function App() {
             <Route path="/" element={<Navigate to="/landing" replace />} />
             <Route path="/landing" element={<Landing />} />
             <Route path="/webresult/:page" element={<WebResult />} />
+            {/* Masked/short alias for web results pages (used by copied links) */}
+            <Route path="/wr/:page" element={<WebResult />} />
             <Route path="/prelanding/:id" element={<Prelanding />} />
             <Route path="/lid" element={<LinkRedirect />} />
             <Route path="/blog/:slug" element={<BlogPage />} />
             <Route path="/p" element={<BlogByNumber />} />
-            
             {/* Admin Routes */}
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<LandingContent />} />
