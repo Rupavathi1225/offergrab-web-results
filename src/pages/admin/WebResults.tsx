@@ -520,18 +520,12 @@ const WebResults = () => {
   const copySelected = () => {
     const selected = filteredResults.filter(r => selectedIds.has(r.id));
     
-    // Headers row
-    const headers = ['Web Result Title', 'Web Result Description', 'Blog', 'Related Search', 'Original Link', 'Date', 'Name', 'Url Link'];
+    // Headers row - only 6 fields as specified
+    const headers = ['Web Result Title', 'Web Result Description', 'Blog', 'Related Search', 'Original Link', 'Date'];
     
     // Data rows for each selected result
     const dataRows = selected.map(r => {
       const { search, blog } = getWebResultContext(r);
-      const maskedLink = generateMaskedLink({
-        blogId: blog?.id,
-        relatedSearchId: search?.id,
-        webResultId: r.id,
-        targetWr: r.wr_page,
-      });
       
       return [
         r.title || '',
@@ -539,15 +533,13 @@ const WebResults = () => {
         blog?.title || '',
         search?.title || '',
         r.link || '',
-        new Date(r.created_at).toLocaleDateString(),
-        r.name || '',
-        maskedLink
+        new Date(r.created_at).toLocaleDateString()
       ].join('\t');
     });
     
     const text = headers.join('\t') + '\n' + dataRows.join('\n');
     navigator.clipboard.writeText(text);
-    toast({ title: "Copied!", description: `${selected.length} results with all details copied to clipboard.` });
+    toast({ title: "Copied!", description: `${selected.length} results copied to clipboard.` });
   };
 
   const bulkActivate = async () => {
