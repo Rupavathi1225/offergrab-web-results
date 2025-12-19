@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, XCircle, Loader2, Link2, Sparkles } from "lucide-react";
+import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, XCircle, Loader2, Link2, Sparkles, PlusCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import * as XLSX from "xlsx";
@@ -62,6 +62,13 @@ const BulkWebResultEditor = () => {
   const [isAIMatching, setIsAIMatching] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
   const [applyResult, setApplyResult] = useState<{ success: number; failed: number } | null>(null);
+  
+  // Manual entry state
+  const [manualName, setManualName] = useState("");
+  const [manualNewTitle, setManualNewTitle] = useState("");
+  const [manualNewUrl, setManualNewUrl] = useState("");
+  const [manualNewDescription, setManualNewDescription] = useState("");
+  const [isManualMatching, setIsManualMatching] = useState(false);
 
   const validateFile = (file: File): boolean => {
     const validExtensions = ['.csv', '.xlsx', '.xls'];
@@ -199,10 +206,12 @@ const BulkWebResultEditor = () => {
     
     const webResultsMap = new Map<string, WebResult>();
     const urlMap = new Map<string, WebResult>();
+    const nameMap = new Map<string, WebResult>();
     
     (webResults || []).forEach(wr => {
       webResultsMap.set(wr.id, wr as WebResult);
       urlMap.set(wr.link.toLowerCase(), wr as WebResult);
+      nameMap.set(wr.name.toLowerCase(), wr as WebResult);
     });
     
     return parsedRows.map(row => {
@@ -218,6 +227,11 @@ const BulkWebResultEditor = () => {
         matchedResult = urlMap.get(row.old_url.toLowerCase());
       }
       
+      // Priority 3: Match by sheet_name (Name column)
+      if (!matchedResult && row.sheet_name) {
+        matchedResult = nameMap.get(row.sheet_name.toLowerCase());
+      }
+      
       if (matchedResult) {
         return {
           rowIndex: row.rowIndex,
@@ -229,14 +243,14 @@ const BulkWebResultEditor = () => {
           newUrl: row.new_url,
           newDescription: row.new_description || '',
           status: 'matched' as const,
-          selected: false,
+          selected: true, // Auto-select matched rows
         };
       } else {
         return {
           rowIndex: row.rowIndex,
           webResultId: null,
           currentTitle: '-',
-          currentUrl: row.old_url || row.web_result_id || '-',
+          currentUrl: row.old_url || row.web_result_id || row.sheet_name || '-',
           currentDescription: '-',
           newTitle: row.new_title,
           newUrl: row.new_url,
@@ -395,6 +409,89 @@ const BulkWebResultEditor = () => {
       setIsAIMatching(false);
     }
   }, [parsedRows, toast]);
+
+  const handleManualMatch = useCallback(async () => {
+    if (!manualName.trim()) {
+      toast({
+        title: "Missing Name",
+        description: "Please enter the web result name to match.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!manualNewTitle.trim() && !manualNewUrl.trim() && !manualNewDescription.trim()) {
+      toast({
+        title: "Missing Data",
+        description: "Please enter at least one field to update (new title, URL, or description).",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsManualMatching(true);
+    setParseError(null);
+    setApplyResult(null);
+
+    try {
+      // Fetch web result by name
+      const { data: webResults, error } = await supabase
+        .from('web_results')
+        .select('id, name, title, link, description')
+        .ilike('name', manualName.trim());
+
+      if (error) throw new Error('Failed to search web results.');
+
+      if (!webResults || webResults.length === 0) {
+        setParseError(`No web result found with name "${manualName}".`);
+        toast({
+          title: "No Match Found",
+          description: `Could not find a web result with name "${manualName}".`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const wr = webResults[0];
+      
+      const newRow: MatchedRow = {
+        rowIndex: Date.now(),
+        webResultId: wr.id,
+        currentTitle: wr.title,
+        currentUrl: wr.link,
+        currentDescription: wr.description || '',
+        newTitle: manualNewTitle.trim(),
+        newUrl: manualNewUrl.trim(),
+        newDescription: manualNewDescription.trim(),
+        status: 'matched',
+        selected: true,
+        confidenceScore: 100, // Manual match = 100% confidence
+      };
+
+      setMatchedRows(prev => [...prev.filter(r => r.webResultId !== wr.id), newRow]);
+      
+      // Clear form
+      setManualName("");
+      setManualNewTitle("");
+      setManualNewUrl("");
+      setManualNewDescription("");
+
+      toast({
+        title: "Match Found",
+        description: `Found "${wr.name}" and added to preview. Click Apply to update.`,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Manual matching failed';
+      setParseError(errorMessage);
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsManualMatching(false);
+    }
+  }, [manualName, manualNewTitle, manualNewUrl, manualNewDescription, toast]);
 
   const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -693,7 +790,7 @@ const BulkWebResultEditor = () => {
         <CardContent className="space-y-4">
           {/* Import Section with Tabs */}
           <Tabs defaultValue="file" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="file" className="flex items-center gap-2">
                 <Upload className="w-4 h-4" />
                 Upload File
@@ -701,6 +798,10 @@ const BulkWebResultEditor = () => {
               <TabsTrigger value="google" className="flex items-center gap-2">
                 <Link2 className="w-4 h-4" />
                 Google Sheet
+              </TabsTrigger>
+              <TabsTrigger value="manual" className="flex items-center gap-2">
+                <PlusCircle className="w-4 h-4" />
+                Manual Entry
               </TabsTrigger>
             </TabsList>
             
@@ -723,7 +824,7 @@ const BulkWebResultEditor = () => {
                     {file ? file.name : 'Click to upload CSV or XLSX file'}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    Required columns: new_title, new_url, and (web_result_id OR old_url)
+                    Required columns: new_title, new_url, and (Name OR web_result_id OR old_url)
                   </span>
                 </label>
               </div>
@@ -753,9 +854,70 @@ const BulkWebResultEditor = () => {
                 </div>
                 <div className="text-xs text-muted-foreground space-y-1">
                   <p>⚠️ The Google Sheet must be publicly accessible (Share → Anyone with the link can view)</p>
-                  <p>Required columns: new_title, new_url, and (web_result_id OR original_link)</p>
+                  <p>Required columns: new_title, new_url, and (Name OR web_result_id OR original_link)</p>
                   <p>Optional: new_description (or "Web Result Description")</p>
                 </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="manual" className="mt-4">
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Web Result Name *</label>
+                    <Input
+                      placeholder="Enter the exact web result name (e.g., TapTap)"
+                      value={manualName}
+                      onChange={(e) => setManualName(e.target.value)}
+                      disabled={isManualMatching}
+                    />
+                    <p className="text-xs text-muted-foreground">Must match exactly with the name in the database</p>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">New Title</label>
+                    <Input
+                      placeholder="Enter the new title"
+                      value={manualNewTitle}
+                      onChange={(e) => setManualNewTitle(e.target.value)}
+                      disabled={isManualMatching}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">New URL</label>
+                    <Input
+                      placeholder="Enter the new URL"
+                      value={manualNewUrl}
+                      onChange={(e) => setManualNewUrl(e.target.value)}
+                      disabled={isManualMatching}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">New Description</label>
+                    <Input
+                      placeholder="Enter the new description (optional)"
+                      value={manualNewDescription}
+                      onChange={(e) => setManualNewDescription(e.target.value)}
+                      disabled={isManualMatching}
+                    />
+                  </div>
+                </div>
+                <Button 
+                  onClick={handleManualMatch}
+                  disabled={isManualMatching || !manualName.trim()}
+                  className="w-full md:w-auto"
+                >
+                  {isManualMatching ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Searching...
+                    </>
+                  ) : (
+                    <>
+                      <PlusCircle className="w-4 h-4 mr-2" />
+                      Find & Add to Preview
+                    </>
+                  )}
+                </Button>
               </div>
             </TabsContent>
           </Tabs>
