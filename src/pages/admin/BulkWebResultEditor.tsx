@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, XCircle, Loader2, Link2 } from "lucide-react";
+import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, XCircle, Loader2, Link2, Sparkles } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import * as XLSX from "xlsx";
@@ -33,13 +33,21 @@ interface MatchedRow {
   status: 'matched' | 'not_found' | 'error';
   errorMessage?: string;
   selected: boolean;
+  confidenceScore?: number;
 }
 
 interface WebResult {
   id: string;
+  name: string;
   title: string;
   link: string;
   description: string | null;
+}
+
+interface AIMatch {
+  original_web_result: string;
+  matched_new_name: string;
+  confidence_score: number;
 }
 
 const BulkWebResultEditor = () => {
@@ -50,6 +58,7 @@ const BulkWebResultEditor = () => {
   const [matchedRows, setMatchedRows] = useState<MatchedRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
+  const [isAIMatching, setIsAIMatching] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
   const [applyResult, setApplyResult] = useState<{ success: number; failed: number } | null>(null);
 
@@ -173,7 +182,7 @@ const BulkWebResultEditor = () => {
     // Fetch all web results
     const { data: webResults, error } = await supabase
       .from('web_results')
-      .select('id, title, link, description');
+      .select('id, name, title, link, description');
     
     if (error) {
       throw new Error('Failed to fetch web results from database.');
@@ -183,8 +192,8 @@ const BulkWebResultEditor = () => {
     const urlMap = new Map<string, WebResult>();
     
     (webResults || []).forEach(wr => {
-      webResultsMap.set(wr.id, wr);
-      urlMap.set(wr.link.toLowerCase(), wr);
+      webResultsMap.set(wr.id, wr as WebResult);
+      urlMap.set(wr.link.toLowerCase(), wr as WebResult);
     });
     
     return parsedRows.map(row => {
@@ -231,6 +240,105 @@ const BulkWebResultEditor = () => {
     });
   };
 
+  const matchRowsWithAI = async (parsedRows: ParsedRow[]): Promise<MatchedRow[]> => {
+    // Fetch all web results
+    const { data: webResults, error } = await supabase
+      .from('web_results')
+      .select('id, name, title, link, description');
+    
+    if (error) {
+      throw new Error('Failed to fetch web results from database.');
+    }
+
+    if (!webResults || webResults.length === 0) {
+      throw new Error('No web results found in database.');
+    }
+
+    // Get original names (using 'name' field from web_results)
+    const originalNames = webResults.map(wr => wr.name);
+    
+    // Get new names from uploaded data (using new_title)
+    const uploadedNewNames = parsedRows.map(row => row.new_title).filter(Boolean);
+
+    if (uploadedNewNames.length === 0) {
+      throw new Error('No new titles found in uploaded data.');
+    }
+
+    // Call AI matching function
+    const { data: aiResponse, error: aiError } = await supabase.functions.invoke('match-web-results', {
+      body: {
+        original_web_results: originalNames,
+        uploaded_new_names: uploadedNewNames,
+      },
+    });
+
+    if (aiError) {
+      console.error('AI matching error:', aiError);
+      throw new Error('AI matching failed. Please try again.');
+    }
+
+    if (aiResponse?.error) {
+      throw new Error(aiResponse.error);
+    }
+
+    const aiMatches: AIMatch[] = aiResponse?.matches || [];
+
+    // Create a map of original name to matched data
+    const matchMap = new Map<string, { newTitle: string; confidence: number }>();
+    aiMatches.forEach(match => {
+      if (match.matched_new_name !== "NO MATCH") {
+        matchMap.set(match.original_web_result, {
+          newTitle: match.matched_new_name,
+          confidence: match.confidence_score,
+        });
+      }
+    });
+
+    // Create a map of new titles to parsed rows (for URL/description lookup)
+    const newTitleToRowMap = new Map<string, ParsedRow>();
+    parsedRows.forEach(row => {
+      if (row.new_title) {
+        newTitleToRowMap.set(row.new_title, row);
+      }
+    });
+
+    // Build matched rows
+    return webResults.map((wr, index) => {
+      const matchData = matchMap.get(wr.name);
+      
+      if (matchData) {
+        const parsedRow = newTitleToRowMap.get(matchData.newTitle);
+        return {
+          rowIndex: index,
+          webResultId: wr.id,
+          currentTitle: wr.title,
+          currentUrl: wr.link,
+          currentDescription: wr.description || '',
+          newTitle: matchData.newTitle,
+          newUrl: parsedRow?.new_url || '',
+          newDescription: parsedRow?.new_description || '',
+          status: 'matched' as const,
+          selected: matchData.confidence >= 80, // Auto-select high confidence matches
+          confidenceScore: matchData.confidence,
+        };
+      } else {
+        return {
+          rowIndex: index,
+          webResultId: wr.id,
+          currentTitle: wr.title,
+          currentUrl: wr.link,
+          currentDescription: wr.description || '',
+          newTitle: '',
+          newUrl: '',
+          newDescription: '',
+          status: 'not_found' as const,
+          errorMessage: 'No matching name found in uploaded data',
+          selected: false,
+        };
+      }
+    }).filter(row => row.newTitle || row.status === 'not_found'); // Only show rows with matches or explicitly unmatched
+  };
+
   const processData = useCallback(async (parsed: ParsedRow[], source: string) => {
     setParsedRows(parsed);
     const matched = await matchRows(parsed);
@@ -241,6 +349,43 @@ const BulkWebResultEditor = () => {
       description: `Found ${matched.length} rows. ${matched.filter(r => r.status === 'matched').length} matched, ${matched.filter(r => r.status === 'not_found').length} not found.`,
     });
   }, [toast]);
+
+  const handleAIMatching = useCallback(async () => {
+    if (parsedRows.length === 0) {
+      toast({
+        title: "No Data",
+        description: "Please upload a file or import a Google Sheet first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAIMatching(true);
+    setParseError(null);
+
+    try {
+      const matched = await matchRowsWithAI(parsedRows);
+      setMatchedRows(matched);
+      
+      const matchedCount = matched.filter(r => r.status === 'matched').length;
+      const highConfidence = matched.filter(r => (r.confidenceScore ?? 0) >= 80).length;
+      
+      toast({
+        title: "AI Matching Complete",
+        description: `Found ${matchedCount} matches. ${highConfidence} with high confidence (auto-selected).`,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'AI matching failed';
+      setParseError(errorMessage);
+      toast({
+        title: "AI Matching Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsAIMatching(false);
+    }
+  }, [parsedRows, toast]);
 
   const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -597,11 +742,48 @@ const BulkWebResultEditor = () => {
               </div>
             </TabsContent>
           </Tabs>
+
+          {/* AI Matching Button */}
+          {parsedRows.length > 0 && (
+            <div className="flex items-center gap-4 p-4 bg-secondary/50 rounded-lg">
+              <div className="flex-1">
+                <p className="text-sm font-medium">AI-Powered Name Matching</p>
+                <p className="text-xs text-muted-foreground">
+                  Use AI to automatically match web result names based on semantic meaning and intent
+                </p>
+              </div>
+              <Button 
+                onClick={handleAIMatching}
+                disabled={isAIMatching || isLoading}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                {isAIMatching ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Matching...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    AI Match Names
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
           
           {isLoading && (
             <div className="flex items-center justify-center gap-2 py-4">
               <Loader2 className="w-5 h-5 animate-spin" />
               <span>Parsing and matching rows...</span>
+            </div>
+          )}
+
+          {isAIMatching && (
+            <div className="flex items-center justify-center gap-2 py-4">
+              <Sparkles className="w-5 h-5 animate-pulse text-primary" />
+              <span>AI is analyzing names and finding matches...</span>
             </div>
           )}
           
@@ -670,6 +852,7 @@ const BulkWebResultEditor = () => {
                   <TableRow>
                     <TableHead className="w-12">Apply</TableHead>
                     <TableHead className="w-24">Status</TableHead>
+                    <TableHead className="w-20">Confidence</TableHead>
                     <TableHead>Current Title</TableHead>
                     <TableHead>Current URL</TableHead>
                     <TableHead>Current Description</TableHead>
@@ -709,6 +892,18 @@ const BulkWebResultEditor = () => {
                             <AlertCircle className="w-3 h-3 mr-1" />
                             Error
                           </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {row.confidenceScore !== undefined ? (
+                          <Badge 
+                            variant={row.confidenceScore >= 80 ? "default" : row.confidenceScore >= 60 ? "secondary" : "outline"}
+                            className={row.confidenceScore >= 80 ? "bg-green-500" : row.confidenceScore >= 60 ? "bg-yellow-500" : ""}
+                          >
+                            {row.confidenceScore}%
+                          </Badge>
+                        ) : (
+                          <span className="text-muted-foreground text-xs">-</span>
                         )}
                       </TableCell>
                       <TableCell className="max-w-48 truncate" title={row.currentTitle}>
