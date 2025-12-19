@@ -18,6 +18,7 @@ interface ParsedRow {
   old_url?: string;
   new_title: string;
   new_url: string;
+  new_description?: string;
 }
 
 interface MatchedRow {
@@ -25,8 +26,10 @@ interface MatchedRow {
   webResultId: string | null;
   currentTitle: string;
   currentUrl: string;
+  currentDescription: string;
   newTitle: string;
   newUrl: string;
+  newDescription: string;
   status: 'matched' | 'not_found' | 'error';
   errorMessage?: string;
   selected: boolean;
@@ -36,6 +39,7 @@ interface WebResult {
   id: string;
   title: string;
   link: string;
+  description: string | null;
 }
 
 const BulkWebResultEditor = () => {
@@ -109,13 +113,14 @@ const BulkWebResultEditor = () => {
           // Check for required columns
           const newTitleIndex = headers.findIndex(h => h === 'new_title');
           const newUrlIndex = headers.findIndex(h => h === 'new_url');
+          const newDescriptionIndex = headers.findIndex(h => h === 'new_description' || h === 'web result description');
           
           // Check for matching columns
           const webResultIdIndex = headers.findIndex(h => h === 'web_result_id');
-          const oldUrlIndex = headers.findIndex(h => h === 'old_url' || h === 'url_link' || h === 'original_link');
+          const oldUrlIndex = headers.findIndex(h => h === 'old_url' || h === 'url_link' || h === 'original_link' || h === 'original link');
           
           if (webResultIdIndex === -1 && oldUrlIndex === -1) {
-            reject(new Error('File must contain either "web_result_id" or "old_url" (or "url_link" / "original_link") column for matching.'));
+            reject(new Error('File must contain either "web_result_id" or "old_url" (or "original_link") column for matching.'));
             return;
           }
           
@@ -131,6 +136,10 @@ const BulkWebResultEditor = () => {
               new_url: String(row[newUrlIndex] || '').trim(),
             };
             
+            if (newDescriptionIndex !== -1 && row[newDescriptionIndex]) {
+              parsedRow.new_description = String(row[newDescriptionIndex]).trim();
+            }
+            
             if (webResultIdIndex !== -1 && row[webResultIdIndex]) {
               parsedRow.web_result_id = String(row[webResultIdIndex]).trim();
             }
@@ -139,7 +148,7 @@ const BulkWebResultEditor = () => {
               parsedRow.old_url = String(row[oldUrlIndex]).trim();
             }
             
-            if (parsedRow.new_title && parsedRow.new_url) {
+            if (parsedRow.new_title || parsedRow.new_url || parsedRow.new_description) {
               rows.push(parsedRow);
             }
           }
@@ -164,7 +173,7 @@ const BulkWebResultEditor = () => {
     // Fetch all web results
     const { data: webResults, error } = await supabase
       .from('web_results')
-      .select('id, title, link');
+      .select('id, title, link, description');
     
     if (error) {
       throw new Error('Failed to fetch web results from database.');
@@ -197,8 +206,10 @@ const BulkWebResultEditor = () => {
           webResultId: matchedResult.id,
           currentTitle: matchedResult.title,
           currentUrl: matchedResult.link,
+          currentDescription: matchedResult.description || '',
           newTitle: row.new_title,
           newUrl: row.new_url,
+          newDescription: row.new_description || '',
           status: 'matched' as const,
           selected: false,
         };
@@ -208,8 +219,10 @@ const BulkWebResultEditor = () => {
           webResultId: null,
           currentTitle: '-',
           currentUrl: row.old_url || row.web_result_id || '-',
+          currentDescription: '-',
           newTitle: row.new_title,
           newUrl: row.new_url,
+          newDescription: row.new_description || '',
           status: 'not_found' as const,
           errorMessage: 'No matching web result found',
           selected: false,
@@ -336,13 +349,14 @@ const BulkWebResultEditor = () => {
       // Check for required columns
       const newTitleIndex = headers.findIndex(h => h === 'new_title');
       const newUrlIndex = headers.findIndex(h => h === 'new_url');
+      const newDescriptionIndex = headers.findIndex(h => h === 'new_description' || h === 'web result description');
       
       // Check for matching columns
       const webResultIdIndex = headers.findIndex(h => h === 'web_result_id');
-      const oldUrlIndex = headers.findIndex(h => h === 'old_url' || h === 'url_link' || h === 'original_link');
+      const oldUrlIndex = headers.findIndex(h => h === 'old_url' || h === 'url_link' || h === 'original_link' || h === 'original link');
       
       if (webResultIdIndex === -1 && oldUrlIndex === -1) {
-        throw new Error('Sheet must contain either "web_result_id" or "old_url" (or "url_link" / "original_link") column for matching.');
+        throw new Error('Sheet must contain either "web_result_id" or "old_url" (or "original_link") column for matching.');
       }
 
       const rows: ParsedRow[] = [];
@@ -357,6 +371,10 @@ const BulkWebResultEditor = () => {
           new_url: String(row[newUrlIndex] || '').trim(),
         };
         
+        if (newDescriptionIndex !== -1 && row[newDescriptionIndex]) {
+          parsedRow.new_description = String(row[newDescriptionIndex]).trim();
+        }
+        
         if (webResultIdIndex !== -1 && row[webResultIdIndex]) {
           parsedRow.web_result_id = String(row[webResultIdIndex]).trim();
         }
@@ -365,7 +383,7 @@ const BulkWebResultEditor = () => {
           parsedRow.old_url = String(row[oldUrlIndex]).trim();
         }
         
-        if (parsedRow.new_title && parsedRow.new_url) {
+        if (parsedRow.new_title || parsedRow.new_url || parsedRow.new_description) {
           rows.push(parsedRow);
         }
       }
@@ -443,13 +461,17 @@ const BulkWebResultEditor = () => {
         }
         
         // Then update the web_result
+        const updateData: Record<string, string> = {
+          updated_at: new Date().toISOString(),
+        };
+        
+        if (row.newTitle) updateData.title = row.newTitle;
+        if (row.newUrl) updateData.link = row.newUrl;
+        if (row.newDescription) updateData.description = row.newDescription;
+        
         const { error: updateError } = await supabase
           .from('web_results')
-          .update({
-            title: row.newTitle,
-            link: row.newUrl,
-            updated_at: new Date().toISOString(),
-          })
+          .update(updateData)
           .eq('id', row.webResultId);
         
         if (updateError) {
@@ -569,7 +591,8 @@ const BulkWebResultEditor = () => {
                 </div>
                 <div className="text-xs text-muted-foreground space-y-1">
                   <p>⚠️ The Google Sheet must be publicly accessible (Share → Anyone with the link can view)</p>
-                  <p>Required columns: new_title, new_url, and (web_result_id OR old_url)</p>
+                  <p>Required columns: new_title, new_url, and (web_result_id OR original_link)</p>
+                  <p>Optional: new_description (or "Web Result Description")</p>
                 </div>
               </div>
             </TabsContent>
@@ -649,8 +672,10 @@ const BulkWebResultEditor = () => {
                     <TableHead className="w-24">Status</TableHead>
                     <TableHead>Current Title</TableHead>
                     <TableHead>Current URL</TableHead>
+                    <TableHead>Current Description</TableHead>
                     <TableHead>New Title</TableHead>
                     <TableHead>New URL</TableHead>
+                    <TableHead>New Description</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -692,11 +717,17 @@ const BulkWebResultEditor = () => {
                       <TableCell className="max-w-48 truncate" title={row.currentUrl}>
                         {row.currentUrl}
                       </TableCell>
+                      <TableCell className="max-w-32 truncate" title={row.currentDescription}>
+                        {row.currentDescription || '-'}
+                      </TableCell>
                       <TableCell className="max-w-48 truncate font-medium text-primary" title={row.newTitle}>
-                        {row.newTitle}
+                        {row.newTitle || '-'}
                       </TableCell>
                       <TableCell className="max-w-48 truncate font-medium text-primary" title={row.newUrl}>
-                        {row.newUrl}
+                        {row.newUrl || '-'}
+                      </TableCell>
+                      <TableCell className="max-w-32 truncate font-medium text-primary" title={row.newDescription}>
+                        {row.newDescription || '-'}
                       </TableCell>
                     </TableRow>
                   ))}
