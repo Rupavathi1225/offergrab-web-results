@@ -8,11 +8,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Save, Trash2, Edit2, X, Globe, Sparkles, Loader2, Search } from "lucide-react";
+import { Plus, Save, Trash2, Edit2, X, Globe, Sparkles, Loader2, Search, Copy, ClipboardList } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { countries } from "@/lib/countries";
 import BulkActionToolbar from "@/components/admin/BulkActionToolbar";
 import { convertToCSV, downloadCSV } from "@/lib/csvExport";
+import { generateMaskedLink, formatDate, formatWebResultForCopy, generateRandomToken } from "@/lib/linkGenerator";
 
 interface WebResult {
   id: string;
@@ -27,6 +28,13 @@ interface WebResult {
   allowed_countries: string[];
   fallback_link: string | null;
   is_active: boolean;
+  created_at?: string;
+}
+
+interface Blog {
+  id: string;
+  title: string;
+  slug: string;
 }
 
 interface RelatedSearch {
@@ -47,18 +55,36 @@ interface GeneratedWebResult {
 
 const WebResults = () => {
   const [results, setResults] = useState<WebResult[]>([]);
+  const [blogs, setBlogs] = useState<Blog[]>([]);
   const [relatedSearches, setRelatedSearches] = useState<RelatedSearch[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingResult, setEditingResult] = useState<WebResult | null>(null);
   const [showDialog, setShowDialog] = useState(false);
+  const [showCopyDialog, setShowCopyDialog] = useState(false);
+  const [copyTarget, setCopyTarget] = useState<WebResult | null>(null);
   const [selectedWr, setSelectedWr] = useState<number>(0);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // Blog and Related Search filtering
+  const [selectedBlogId, setSelectedBlogId] = useState<string>("");
+  const [selectedRelatedSearchId, setSelectedRelatedSearchId] = useState<string>("");
   
   // AI Generator state
   const [selectedRelatedSearch, setSelectedRelatedSearch] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedResults, setGeneratedResults] = useState<GeneratedWebResult[]>([]);
+  
+  // Copy fields selection
+  const [copyFields, setCopyFields] = useState({
+    name: true,
+    title: true,
+    description: true,
+    blogName: true,
+    relatedSearch: true,
+    originalLink: true,
+    date: true,
+  });
 
   const emptyResult: Omit<WebResult, 'id'> = {
     name: '',
@@ -77,41 +103,31 @@ const WebResults = () => {
   const [newResult, setNewResult] = useState(emptyResult);
 
   useEffect(() => {
-    fetchResults();
-    fetchRelatedSearches();
+    fetchData();
   }, []);
 
-  const fetchResults = async () => {
+  const fetchData = async () => {
     try {
-      const { data, error } = await supabase
-        .from('web_results')
-        .select('*')
-        .order('wr_page', { ascending: true })
-        .order('serial_number', { ascending: true });
+      const [resultsRes, blogsRes, searchesRes] = await Promise.all([
+        supabase.from('web_results').select('*').order('wr_page', { ascending: true }).order('serial_number', { ascending: true }),
+        supabase.from('blogs').select('id, title, slug').order('title', { ascending: true }),
+        supabase.from('related_searches').select('*').eq('is_active', true).order('target_wr', { ascending: true }),
+      ]);
 
-      if (error) throw error;
-      if (data) setResults(data);
+      if (resultsRes.data) setResults(resultsRes.data);
+      if (blogsRes.data) setBlogs(blogsRes.data);
+      if (searchesRes.data) setRelatedSearches(searchesRes.data);
     } catch (error) {
-      console.error('Error fetching results:', error);
+      console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchRelatedSearches = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('related_searches')
-        .select('*')
-        .eq('is_active', true)
-        .order('target_wr', { ascending: true });
-
-      if (error) throw error;
-      if (data) setRelatedSearches(data);
-    } catch (error) {
-      console.error('Error fetching related searches:', error);
-    }
-  };
+  // Filter related searches based on selected blog
+  const filteredRelatedSearches = selectedBlogId 
+    ? relatedSearches.filter(s => s.blog_id === selectedBlogId)
+    : relatedSearches;
 
   const generateWebResults = async () => {
     if (!selectedRelatedSearch) {
@@ -212,7 +228,7 @@ const WebResults = () => {
 
       setGeneratedResults([]);
       setSelectedRelatedSearch("");
-      fetchResults();
+      fetchData();
       toast({ title: "Success", description: `${selectedResults.length} web results added to wr=${search.target_wr}` });
     } catch (error) {
       console.error('Error saving web results:', error);
@@ -231,7 +247,7 @@ const WebResults = () => {
       if (error) throw error;
 
       setNewResult(emptyResult);
-      fetchResults();
+      fetchData();
       toast({ title: "Added!", description: "Web result has been added." });
     } catch (error) {
       console.error('Error adding:', error);
@@ -264,7 +280,7 @@ const WebResults = () => {
 
       setShowDialog(false);
       setEditingResult(null);
-      fetchResults();
+      fetchData();
       toast({ title: "Saved!", description: "Result updated." });
     } catch (error) {
       console.error('Error updating:', error);
@@ -297,7 +313,58 @@ const WebResults = () => {
     }
   };
 
-  // Filter results based on search query
+  // Get blog and related search info for a web result
+  const getWebResultContext = (result: WebResult) => {
+    const search = relatedSearches.find(s => s.target_wr === result.wr_page);
+    const blog = search?.blog_id ? blogs.find(b => b.id === search.blog_id) : null;
+    return { search, blog };
+  };
+
+  // Copy single web result with all details
+  const openCopyDialog = (result: WebResult) => {
+    setCopyTarget(result);
+    setShowCopyDialog(true);
+  };
+
+  const handleCopyWithOptions = () => {
+    if (!copyTarget) return;
+    
+    const { search, blog } = getWebResultContext(copyTarget);
+    
+    const selectedFieldsList: (keyof typeof copyFields)[] = [];
+    Object.entries(copyFields).forEach(([key, value]) => {
+      if (value) selectedFieldsList.push(key as keyof typeof copyFields);
+    });
+    
+    const copyText = formatWebResultForCopy({
+      name: copyTarget.name,
+      title: true,
+      description: true,
+      blogName: blog?.title || 'N/A',
+      relatedSearch: search?.title || 'N/A',
+      originalLink: copyTarget.link,
+      date: copyTarget.created_at ? formatDate(copyTarget.created_at) : formatDate(new Date().toISOString()),
+    }, selectedFieldsList);
+    
+    navigator.clipboard.writeText(copyText);
+    toast({ title: "Copied!", description: "Web result details copied to clipboard." });
+    setShowCopyDialog(false);
+  };
+
+  // Generate masked link for a web result
+  const generateAndCopyMaskedLink = (result: WebResult) => {
+    const { search, blog } = getWebResultContext(result);
+    const maskedLink = generateMaskedLink({
+      blogId: blog?.id,
+      relatedSearchId: search?.id,
+      webResultId: result.id,
+      targetWr: result.wr_page,
+    });
+    navigator.clipboard.writeText(maskedLink);
+    toast({ title: "Copied!", description: "Masked link copied to clipboard." });
+  };
+
+  // Filter results based on search query and selected filters
   const searchFiltered = results.filter(r => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
@@ -309,9 +376,21 @@ const WebResults = () => {
     );
   });
 
-  const filteredResults = selectedWr === 0 
-    ? searchFiltered 
-    : searchFiltered.filter(r => r.wr_page === selectedWr);
+  // Apply blog and related search filters
+  let filteredResults = searchFiltered;
+  if (selectedBlogId) {
+    const blogSearchIds = relatedSearches.filter(s => s.blog_id === selectedBlogId).map(s => s.target_wr);
+    filteredResults = filteredResults.filter(r => blogSearchIds.includes(r.wr_page));
+  }
+  if (selectedRelatedSearchId) {
+    const search = relatedSearches.find(s => s.id === selectedRelatedSearchId);
+    if (search) {
+      filteredResults = filteredResults.filter(r => r.wr_page === search.target_wr);
+    }
+  }
+  if (selectedWr !== 0 && !selectedRelatedSearchId) {
+    filteredResults = filteredResults.filter(r => r.wr_page === selectedWr);
+  }
 
   // Get unique wr_pages with their related search titles
   const wrPagesWithSearches = relatedSearches.reduce((acc, search) => {
@@ -364,9 +443,17 @@ const WebResults = () => {
 
   const copySelected = () => {
     const selected = filteredResults.filter(r => selectedIds.has(r.id));
-    const text = selected.map(r => `${window.location.origin}/webresult/${r.wr_page}`).join('\n');
+    const text = selected.map(r => {
+      const { search, blog } = getWebResultContext(r);
+      return generateMaskedLink({
+        blogId: blog?.id,
+        relatedSearchId: search?.id,
+        webResultId: r.id,
+        targetWr: r.wr_page,
+      });
+    }).join('\n');
     navigator.clipboard.writeText(text);
-    toast({ title: "Copied!", description: `${selected.length} web result links copied to clipboard.` });
+    toast({ title: "Copied!", description: `${selected.length} masked links copied to clipboard.` });
   };
 
   const bulkActivate = async () => {
@@ -376,7 +463,7 @@ const WebResults = () => {
         .update({ is_active: true })
         .in('id', Array.from(selectedIds));
       if (error) throw error;
-      fetchResults();
+      fetchData();
       toast({ title: "Activated!", description: `${selectedIds.size} results activated.` });
     } catch (error) {
       toast({ title: "Error", description: "Failed to activate.", variant: "destructive" });
@@ -390,7 +477,7 @@ const WebResults = () => {
         .update({ is_active: false })
         .in('id', Array.from(selectedIds));
       if (error) throw error;
-      fetchResults();
+      fetchData();
       toast({ title: "Deactivated!", description: `${selectedIds.size} results deactivated.` });
     } catch (error) {
       toast({ title: "Error", description: "Failed to deactivate.", variant: "destructive" });
@@ -406,7 +493,7 @@ const WebResults = () => {
         .in('id', Array.from(selectedIds));
       if (error) throw error;
       setSelectedIds(new Set());
-      fetchResults();
+      fetchData();
       toast({ title: "Deleted!", description: `${selectedIds.size} results deleted.` });
     } catch (error) {
       toast({ title: "Error", description: "Failed to delete.", variant: "destructive" });
@@ -428,15 +515,61 @@ const WebResults = () => {
         <p className="text-muted-foreground">Manage web results for each page</p>
       </div>
 
-      {/* Search Box */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search by name, title, description, or link..."
-          className="pl-10"
-        />
+      {/* Blog and Related Search Filters */}
+      <div className="glass-card p-4">
+        <h3 className="font-semibold text-foreground mb-3">Filter by Blog & Related Search</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <Label className="text-sm text-muted-foreground mb-1 block">Select Blog</Label>
+            <Select value={selectedBlogId} onValueChange={(v) => { setSelectedBlogId(v === 'all' ? '' : v); setSelectedRelatedSearchId(''); }}>
+              <SelectTrigger className="admin-input">
+                <SelectValue placeholder="All Blogs" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Blogs</SelectItem>
+                {blogs.map(blog => (
+                  <SelectItem key={blog.id} value={blog.id}>{blog.title}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-sm text-muted-foreground mb-1 block">Select Related Search</Label>
+            <Select 
+              value={selectedRelatedSearchId} 
+              onValueChange={(v) => {
+                setSelectedRelatedSearchId(v === 'all' ? '' : v);
+                const search = relatedSearches.find(s => s.id === v);
+                if (search) setSelectedWr(search.target_wr);
+              }}
+              disabled={!selectedBlogId}
+            >
+              <SelectTrigger className="admin-input">
+                <SelectValue placeholder={selectedBlogId ? "Select Related Search" : "Select Blog First"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Related Searches</SelectItem>
+                {filteredRelatedSearches.map(search => (
+                  <SelectItem key={search.id} value={search.id}>
+                    {search.title} (wr={search.target_wr})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-sm text-muted-foreground mb-1 block">Search</Label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by name, title, description..."
+                className="pl-10"
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* AI Web Results Generator */}
@@ -447,43 +580,65 @@ const WebResults = () => {
         </h3>
         
         <div className="space-y-4">
-          <div>
-            <Label className="text-sm text-muted-foreground mb-2 block">Select Related Search</Label>
-            <div className="flex gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label className="text-sm text-muted-foreground mb-2 block">1. Select Blog (Optional)</Label>
               <Select 
-                value={selectedRelatedSearch} 
-                onValueChange={(value) => {
-                  setSelectedRelatedSearch(value);
-                  // Auto-select the page tab based on the related search
-                  const search = relatedSearches.find(s => s.id === value);
-                  if (search) {
-                    setSelectedWr(search.target_wr);
-                  }
+                value={selectedBlogId || 'all'} 
+                onValueChange={(v) => { 
+                  setSelectedBlogId(v === 'all' ? '' : v); 
+                  setSelectedRelatedSearch('');
                 }}
               >
-                <SelectTrigger className="admin-input flex-1">
-                  <SelectValue placeholder="Choose a related search" />
+                <SelectTrigger className="admin-input">
+                  <SelectValue placeholder="Filter by blog" />
                 </SelectTrigger>
                 <SelectContent>
-                  {relatedSearches.map(search => (
-                    <SelectItem key={search.id} value={search.id}>
-                      {search.title} (wr={search.target_wr})
-                    </SelectItem>
+                  <SelectItem value="all">All Blogs</SelectItem>
+                  {blogs.map(blog => (
+                    <SelectItem key={blog.id} value={blog.id}>{blog.title}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <Button 
-                onClick={generateWebResults} 
-                disabled={!selectedRelatedSearch || isGenerating}
-                className="gap-2"
-              >
-                {isGenerating ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Sparkles className="w-4 h-4" />
-                )}
-                Generate 6 Web Results
-              </Button>
+            </div>
+            <div>
+              <Label className="text-sm text-muted-foreground mb-2 block">2. Select Related Search</Label>
+              <div className="flex gap-4">
+                <Select 
+                  value={selectedRelatedSearch} 
+                  onValueChange={(value) => {
+                    setSelectedRelatedSearch(value);
+                    const search = relatedSearches.find(s => s.id === value);
+                    if (search) setSelectedWr(search.target_wr);
+                  }}
+                >
+                  <SelectTrigger className={`admin-input flex-1 ${selectedRelatedSearch ? 'border-primary bg-primary/10' : ''}`}>
+                    <SelectValue placeholder="Choose a related search" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredRelatedSearches.map(search => {
+                      const blog = blogs.find(b => b.id === search.blog_id);
+                      return (
+                        <SelectItem key={search.id} value={search.id}>
+                          {search.title} (wr={search.target_wr}) {blog ? `[${blog.title}]` : ''}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+                <Button 
+                  onClick={generateWebResults} 
+                  disabled={!selectedRelatedSearch || isGenerating}
+                  className="gap-2"
+                >
+                  {isGenerating ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-4 h-4" />
+                  )}
+                  Generate 6 Web Results
+                </Button>
+              </div>
             </div>
           </div>
 
@@ -648,24 +803,24 @@ const WebResults = () => {
           </div>
           <div>
             <label className="block text-sm text-muted-foreground mb-1">Related Search (determines page)</label>
-            <div className="flex flex-wrap gap-1 p-2 bg-secondary/30 rounded-lg min-h-[40px] items-center">
-              {relatedSearches.slice(0, 3).map(search => (
-                <span 
-                  key={search.id} 
-                  className={`text-xs px-2 py-1 rounded cursor-pointer transition-colors ${
-                    newResult.wr_page === search.target_wr 
-                      ? 'bg-primary text-primary-foreground' 
-                      : 'bg-muted hover:bg-muted/80'
-                  }`}
-                  onClick={() => setNewResult({ ...newResult, wr_page: search.target_wr })}
-                >
-                  {search.title} (wr={search.target_wr})
-                </span>
-              ))}
-              {relatedSearches.length > 3 && (
-                <span className="text-xs text-muted-foreground">...</span>
-              )}
-            </div>
+            <Select 
+              value={newResult.wr_page.toString()} 
+              onValueChange={(v) => setNewResult({ ...newResult, wr_page: parseInt(v) })}
+            >
+              <SelectTrigger className="admin-input">
+                <SelectValue placeholder="Select related search" />
+              </SelectTrigger>
+              <SelectContent>
+                {filteredRelatedSearches.map(search => {
+                  const blog = blogs.find(b => b.id === search.blog_id);
+                  return (
+                    <SelectItem key={search.id} value={search.target_wr.toString()}>
+                      {search.title} (wr={search.target_wr}) {blog ? `[${blog.title}]` : ''}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
           </div>
           <div className="md:col-span-2">
             <label className="block text-sm text-muted-foreground mb-1">Description</label>
@@ -728,7 +883,7 @@ const WebResults = () => {
 
       {/* Existing Results */}
       <div className="glass-card p-6">
-        <h3 className="font-semibold text-foreground mb-4">Existing Web Results - Page wr={selectedWr || "All"}</h3>
+        <h3 className="font-semibold text-foreground mb-4">Existing Web Results ({filteredResults.length})</h3>
         <div className="overflow-x-auto">
           <table className="data-table">
             <thead>
@@ -737,61 +892,88 @@ const WebResults = () => {
                 <th>#</th>
                 <th>Name</th>
                 <th>Title</th>
+                <th>Blog</th>
+                <th>Related Search</th>
                 <th>Page</th>
+                <th>Date</th>
                 <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filteredResults.map((result) => (
-                <tr key={result.id}>
-                  <td>
-                    <Checkbox
-                      checked={selectedIds.has(result.id)}
-                      onCheckedChange={() => toggleSelect(result.id)}
-                    />
-                  </td>
-                  <td className="text-muted-foreground">{result.serial_number}</td>
-                  <td>
-                    <div className="flex items-center gap-2">
-                      {result.logo_url ? (
-                        <img src={result.logo_url} alt="" className="w-6 h-6 rounded" />
+              {filteredResults.map((result) => {
+                const { search, blog } = getWebResultContext(result);
+                return (
+                  <tr key={result.id}>
+                    <td>
+                      <Checkbox
+                        checked={selectedIds.has(result.id)}
+                        onCheckedChange={() => toggleSelect(result.id)}
+                      />
+                    </td>
+                    <td className="text-muted-foreground">{result.serial_number}</td>
+                    <td>
+                      <div className="flex items-center gap-2">
+                        {result.logo_url ? (
+                          <img src={result.logo_url} alt="" className="w-6 h-6 rounded" />
+                        ) : (
+                          <div className="w-6 h-6 rounded bg-secondary flex items-center justify-center text-xs font-bold text-primary">
+                            {result.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        {result.name}
+                        {result.is_sponsored && (
+                          <span className="text-xs bg-yellow-500/20 text-yellow-400 px-1.5 py-0.5 rounded">Ad</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="max-w-xs truncate">{result.title}</td>
+                    <td className="text-xs text-muted-foreground">{blog?.title || 'N/A'}</td>
+                    <td className="text-xs text-muted-foreground max-w-[120px] truncate">{search?.title || 'N/A'}</td>
+                    <td><span className="badge-primary">wr={result.wr_page}</span></td>
+                    <td className="text-xs text-muted-foreground">
+                      {result.created_at ? formatDate(result.created_at) : 'N/A'}
+                    </td>
+                    <td>
+                      {result.is_active ? (
+                        <span className="badge-success">Active</span>
                       ) : (
-                        <div className="w-6 h-6 rounded bg-secondary flex items-center justify-center text-xs font-bold text-primary">
-                          {result.name.charAt(0).toUpperCase()}
-                        </div>
+                        <span className="text-muted-foreground text-xs">Hidden</span>
                       )}
-                      {result.name}
-                      {result.is_sponsored && (
-                        <span className="text-xs bg-yellow-500/20 text-yellow-400 px-1.5 py-0.5 rounded">Ad</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="max-w-xs truncate">{result.title}</td>
-                  <td><span className="badge-primary">wr={result.wr_page}</span></td>
-                  <td>
-                    {result.is_active ? (
-                      <span className="badge-success">Active</span>
-                    ) : (
-                      <span className="text-muted-foreground text-xs">Hidden</span>
-                    )}
-                  </td>
-                  <td>
-                    <div className="flex items-center gap-2">
-                      <Button 
-                        variant="ghost" 
-                        size="icon"
-                        onClick={() => { setEditingResult(result); setShowDialog(true); }}
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(result.id)}>
-                        <Trash2 className="w-4 h-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td>
+                      <div className="flex items-center gap-1">
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => openCopyDialog(result)}
+                          title="Copy Details"
+                        >
+                          <ClipboardList className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => generateAndCopyMaskedLink(result)}
+                          title="Copy Masked Link"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          onClick={() => { setEditingResult(result); setShowDialog(true); }}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(result.id)}>
+                          <Trash2 className="w-4 h-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
 
@@ -800,6 +982,41 @@ const WebResults = () => {
           )}
         </div>
       </div>
+
+      {/* Copy Dialog */}
+      <Dialog open={showCopyDialog} onOpenChange={setShowCopyDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Copy Web Result Details</DialogTitle>
+          </DialogHeader>
+          
+          {copyTarget && (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">Select fields to copy:</p>
+              
+              <div className="space-y-2">
+                {Object.entries(copyFields).map(([key, value]) => (
+                  <div key={key} className="flex items-center gap-2">
+                    <Checkbox
+                      checked={value}
+                      onCheckedChange={(checked) => setCopyFields(prev => ({ ...prev, [key]: !!checked }))}
+                    />
+                    <Label className="text-sm capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</Label>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="flex gap-2 pt-4">
+                <Button variant="outline" onClick={() => setShowCopyDialog(false)}>Cancel</Button>
+                <Button onClick={handleCopyWithOptions}>
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy Selected
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Edit Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
@@ -906,19 +1123,25 @@ const WebResults = () => {
 
               {/* Country Selection */}
               <div>
-                <label className="block text-sm text-muted-foreground mb-2">
-                  <Globe className="w-4 h-4 inline mr-1" />
-                  Allowed Countries
-                </label>
-                <div className="grid grid-cols-3 md:grid-cols-4 gap-2 max-h-48 overflow-y-auto p-2 bg-secondary/30 rounded-lg">
+                <label className="block text-sm text-muted-foreground mb-2">Allowed Countries</label>
+                <div className="flex items-center gap-2 mb-2">
+                  <Checkbox
+                    checked={editingResult.allowed_countries?.includes('worldwide')}
+                    onCheckedChange={() => toggleCountry('worldwide', editingResult, setEditingResult)}
+                  />
+                  <span className="flex items-center gap-1 text-sm">
+                    <Globe className="w-4 h-4" /> Worldwide
+                  </span>
+                </div>
+                <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto p-2 border border-border rounded">
                   {countries.map(country => (
-                    <label key={country.code} className="flex items-center gap-2 text-sm cursor-pointer">
+                    <div key={country.code} className="flex items-center gap-1">
                       <Checkbox
                         checked={editingResult.allowed_countries?.includes(country.code)}
                         onCheckedChange={() => toggleCountry(country.code, editingResult, setEditingResult)}
                       />
-                      {country.name}
-                    </label>
+                      <span className="text-xs">{country.code}</span>
+                    </div>
                   ))}
                 </div>
               </div>
