@@ -8,6 +8,7 @@ import WebResult from "./pages/WebResult";
 import Prelanding from "./pages/Prelanding";
 import LinkRedirect from "./pages/LinkRedirect";
 import BlogPage from "./pages/BlogPage";
+import BlogByNumber from "./pages/BlogByNumber";
 import AdminLayout from "./pages/admin/AdminLayout";
 import LandingContent from "./pages/admin/LandingContent";
 import SearchButtons from "./pages/admin/SearchButtons";
@@ -33,6 +34,7 @@ function App() {
             <Route path="/prelanding/:id" element={<Prelanding />} />
             <Route path="/lid" element={<LinkRedirect />} />
             <Route path="/blog/:slug" element={<BlogPage />} />
+            <Route path="/p" element={<BlogByNumber />} />
             
             {/* Admin Routes */}
             <Route path="/admin" element={<AdminLayout />}>

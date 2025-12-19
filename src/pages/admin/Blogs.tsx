@@ -344,14 +344,26 @@ const Blogs = () => {
     setIsDialogOpen(true);
   };
 
-  const copyBlogLink = (slug: string) => {
-    const url = `${window.location.origin}/blog/${slug}`;
+  const copyBlogLink = (blogId: string, blogs: Blog[]) => {
+    // Find blog index (1-based)
+    const sortedBlogs = [...blogs].sort((a, b) => 
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+    const blogIndex = sortedBlogs.findIndex(b => b.id === blogId) + 1;
+    const randomToken = Math.random().toString(36).substring(2, 10);
+    const url = `${window.location.origin}/p?p=${blogIndex}&n=${randomToken}`;
     navigator.clipboard.writeText(url);
     toast.success("Blog link copied to clipboard!");
   };
 
-  const openBlog = (slug: string) => {
-    window.open(`/blog/${slug}`, "_blank");
+  const openBlog = (blogId: string, blogs: Blog[]) => {
+    // Find blog index (1-based)
+    const sortedBlogs = [...blogs].sort((a, b) => 
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+    const blogIndex = sortedBlogs.findIndex(b => b.id === blogId) + 1;
+    const randomToken = Math.random().toString(36).substring(2, 10);
+    window.open(`/p?p=${blogIndex}&n=${randomToken}`, "_blank");
   };
 
   // Bulk actions
@@ -729,6 +741,7 @@ const Blogs = () => {
               <TableHead>Title</TableHead>
               <TableHead>Slug</TableHead>
               <TableHead>Category</TableHead>
+              <TableHead>Published</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Active</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -746,6 +759,13 @@ const Blogs = () => {
                 <TableCell className="font-medium">{blog.title}</TableCell>
                 <TableCell className="text-muted-foreground">{blog.slug}</TableCell>
                 <TableCell>{blog.category || "-"}</TableCell>
+                <TableCell className="text-muted-foreground text-sm">
+                  {new Date(blog.created_at).toLocaleDateString('en-US', {
+                    month: '2-digit',
+                    day: '2-digit',
+                    year: 'numeric'
+                  })}
+                </TableCell>
                 <TableCell>
                   <span className={`px-2 py-1 rounded-full text-xs ${
                     blog.status === "published" 
@@ -768,7 +788,7 @@ const Blogs = () => {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => copyBlogLink(blog.slug)}
+                      onClick={() => blogs && copyBlogLink(blog.id, blogs)}
                       title="Copy link"
                     >
                       <Copy className="w-4 h-4" />
@@ -776,7 +796,7 @@ const Blogs = () => {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => openBlog(blog.slug)}
+                      onClick={() => blogs && openBlog(blog.id, blogs)}
                       title="Open blog"
                     >
                       <ExternalLink className="w-4 h-4" />
@@ -803,7 +823,7 @@ const Blogs = () => {
             ))}
             {filteredBlogs?.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                   {searchQuery ? "No blogs match your search." : "No blogs yet. Create your first blog!"}
                 </TableCell>
               </TableRow>
