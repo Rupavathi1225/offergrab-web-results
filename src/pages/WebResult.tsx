@@ -233,34 +233,8 @@ const WebResult = () => {
                   className="animate-fade-in"
                   style={{ animationDelay: `${index * 0.05}s` }}
                 >
-                  <div className="flex items-center gap-2 mb-1">
-                    {/* Logo */}
-                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-secondary flex items-center justify-center overflow-hidden">
-                      {result.logo_url ? (
-                        <img 
-                          src={result.logo_url} 
-                          alt={result.name} 
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
-                            const parent = target.parentElement;
-                            if (parent) {
-                              const span = document.createElement('span');
-                              span.className = 'text-xs font-bold text-primary';
-                              span.textContent = getInitial(result.name);
-                              parent.appendChild(span);
-                            }
-                          }}
-                        />
-                      ) : (
-                        <span className="text-xs font-bold text-primary">
-                          {getInitial(result.name)}
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-foreground text-sm">{result.name}</span>
-                    <span className="text-xs text-muted-foreground">· Sponsored</span>
+                  <div className="text-sm text-muted-foreground mb-1">
+                    <span className="text-xs">Sponsored</span>
                   </div>
                   <h3 
                     className="text-primary hover:underline cursor-pointer font-serif text-lg mb-1 tracking-wide underline"
@@ -306,34 +280,6 @@ const WebResult = () => {
                 className="animate-fade-in"
                 style={{ animationDelay: `${index * 0.05}s` }}
               >
-                <div className="flex items-center gap-2 mb-1">
-                  {/* Logo */}
-                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-secondary flex items-center justify-center overflow-hidden">
-                    {result.logo_url ? (
-                      <img 
-                        src={result.logo_url} 
-                        alt={result.name} 
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.style.display = 'none';
-                          const parent = target.parentElement;
-                          if (parent) {
-                            const span = document.createElement('span');
-                            span.className = 'text-xs font-bold text-primary';
-                            span.textContent = getInitial(result.name);
-                            parent.appendChild(span);
-                          }
-                        }}
-                      />
-                    ) : (
-                      <span className="text-xs font-bold text-primary">
-                        {getInitial(result.name)}
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-foreground text-sm">{result.name}</span>
-                </div>
                 <p 
                   className="text-muted-foreground text-xs mb-1 cursor-pointer hover:underline"
                   onClick={() => handleResultClick(result, sponsoredResults.length + index)}
