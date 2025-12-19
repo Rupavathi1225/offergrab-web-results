@@ -21,16 +21,20 @@ export const generateMaskedLink = (params: MaskedLinkParams): string => {
   const baseUrl = window.location.origin;
   
   // Generate random tokens for obfuscation
-  const p = blogId ? blogId.substring(0, 8) : generateRandomToken(6);
+  const p = generateRandomToken(6);
   const n = generateRandomToken(12);
-  const c = webResultId ? webResultId.substring(0, 8) : generateRandomToken(6);
   
   // Create the link with parameters
   const searchParams = new URLSearchParams();
   searchParams.set('p', p);
   searchParams.set('n', n);
-  searchParams.set('c', c);
   
+  // If we have a specific webResultId, link to single result page
+  if (webResultId) {
+    return `${baseUrl}/r/${webResultId}?${searchParams.toString()}`;
+  }
+  
+  // Fallback to WR page if no specific result
   if (targetWr) {
     return `${baseUrl}/wr/${targetWr}?${searchParams.toString()}`;
   }
