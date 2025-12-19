@@ -28,17 +28,38 @@ interface WebResult {
   name: string;
   title: string;
   link: string;
+  blog_id?: string | null;
+  related_search_id?: string | null;
+}
+
+interface Blog {
+  id: string;
+  title: string;
+  slug: string;
+}
+
+interface RelatedSearch {
+  id: string;
+  title: string;
+  blog_id: string | null;
+  target_wr: number;
 }
 
 const PreLandings = () => {
   const [prelandings, setPrelandings] = useState<Prelanding[]>([]);
   const [webResults, setWebResults] = useState<WebResult[]>([]);
+  const [blogs, setBlogs] = useState<Blog[]>([]);
+  const [relatedSearches, setRelatedSearches] = useState<RelatedSearch[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [editingPrelanding, setEditingPrelanding] = useState<Prelanding | null>(null);
   const [showDialog, setShowDialog] = useState(false);
   const [isNew, setIsNew] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // 3-step selection state
+  const [selectedBlogId, setSelectedBlogId] = useState<string>("");
+  const [selectedRelatedSearchId, setSelectedRelatedSearchId] = useState<string>("");
 
   const emptyPrelanding: Omit<Prelanding, 'id'> = {
     web_result_id: null,
@@ -59,19 +80,36 @@ const PreLandings = () => {
 
   const fetchData = async () => {
     try {
-      const [prelandingsRes, resultsRes] = await Promise.all([
+      const [prelandingsRes, resultsRes, blogsRes, searchesRes] = await Promise.all([
         supabase.from('prelandings').select('*').order('created_at', { ascending: false }),
         supabase.from('web_results').select('id, name, title, link').eq('is_active', true),
+        supabase.from('blogs').select('id, title, slug').eq('is_active', true).order('title'),
+        supabase.from('related_searches').select('id, title, blog_id, target_wr').eq('is_active', true),
       ]);
 
       if (prelandingsRes.data) setPrelandings(prelandingsRes.data);
       if (resultsRes.data) setWebResults(resultsRes.data);
+      if (blogsRes.data) setBlogs(blogsRes.data);
+      if (searchesRes.data) setRelatedSearches(searchesRes.data);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
   };
+
+  // Filter related searches by selected blog
+  const filteredRelatedSearches = selectedBlogId 
+    ? relatedSearches.filter(s => s.blog_id === selectedBlogId)
+    : [];
+
+  // Filter web results by selected related search's target_wr
+  const filteredWebResults = selectedRelatedSearchId 
+    ? webResults.filter(wr => {
+        const search = relatedSearches.find(s => s.id === selectedRelatedSearchId);
+        return search ? true : false; // Show all web results for the selected related search
+      })
+    : [];
 
   const generateWithAI = async () => {
     if (!editingPrelanding?.web_result_id) {
@@ -157,6 +195,8 @@ const PreLandings = () => {
 
       setShowDialog(false);
       setEditingPrelanding(null);
+      setSelectedBlogId("");
+      setSelectedRelatedSearchId("");
       fetchData();
     } catch (error) {
       console.error('Error saving:', error);
@@ -182,12 +222,16 @@ const PreLandings = () => {
   const openNew = () => {
     setEditingPrelanding({ ...emptyPrelanding, id: '' } as Prelanding);
     setIsNew(true);
+    setSelectedBlogId("");
+    setSelectedRelatedSearchId("");
     setShowDialog(true);
   };
 
   const openEdit = (prelanding: Prelanding) => {
     setEditingPrelanding(prelanding);
     setIsNew(false);
+    setSelectedBlogId("");
+    setSelectedRelatedSearchId("");
     setShowDialog(true);
   };
 
@@ -195,6 +239,18 @@ const PreLandings = () => {
     if (!id) return 'Not linked';
     const result = webResults.find(r => r.id === id);
     return result?.name || 'Unknown';
+  };
+
+  const getBlogName = (blogId: string) => {
+    const blog = blogs.find(b => b.id === blogId);
+    return blog?.title || 'Unknown Blog';
+  };
+
+  const getRelatedSearchName = (searchId: string) => {
+    const search = relatedSearches.find(s => s.id === searchId);
+    if (!search) return 'Unknown Search';
+    const blogName = search.blog_id ? getBlogName(search.blog_id) : '';
+    return blogName ? `${search.title} (${blogName})` : search.title;
   };
 
   if (loading) {
@@ -306,48 +362,144 @@ const PreLandings = () => {
           
           {editingPrelanding && (
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm text-muted-foreground mb-1">Select Web Result</label>
-                <div className="flex gap-2">
-                  <Select 
-                    value={editingPrelanding.web_result_id || 'none'} 
-                    onValueChange={(v) => setEditingPrelanding({ 
-                      ...editingPrelanding, 
-                      web_result_id: v === 'none' ? null : v 
-                    })}
-                  >
-                    <SelectTrigger className="admin-input flex-1">
-                      <SelectValue placeholder="Select a web result..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      {webResults.map(result => (
-                        <SelectItem key={result.id} value={result.id}>
-                          {result.name} - {result.title}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button 
-                    type="button"
-                    variant="secondary"
-                    onClick={generateWithAI}
-                    disabled={generating || !editingPrelanding.web_result_id}
-                    className="shrink-0"
-                  >
-                    {generating ? (
-                      <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating...</>
-                    ) : (
-                      <><Sparkles className="w-4 h-4 mr-2" /> Generate with AI</>
+              {/* 3-Step Selection */}
+              <div className="p-4 bg-secondary/20 rounded-lg space-y-4">
+                <h4 className="font-medium text-sm text-foreground">Step 1: Select Blog</h4>
+                <Select 
+                  value={selectedBlogId || 'none'} 
+                  onValueChange={(v) => {
+                    setSelectedBlogId(v === 'none' ? '' : v);
+                    setSelectedRelatedSearchId('');
+                    setEditingPrelanding({ ...editingPrelanding, web_result_id: null });
+                  }}
+                >
+                  <SelectTrigger className={`admin-input ${selectedBlogId ? 'border-primary bg-primary/10' : ''}`}>
+                    <SelectValue placeholder="Select a blog..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Select Blog</SelectItem>
+                    {blogs.map(blog => (
+                      <SelectItem key={blog.id} value={blog.id}>
+                        {blog.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {selectedBlogId && (
+                  <>
+                    <h4 className="font-medium text-sm text-foreground">Step 2: Select Related Search</h4>
+                    <Select 
+                      value={selectedRelatedSearchId || 'none'} 
+                      onValueChange={(v) => {
+                        setSelectedRelatedSearchId(v === 'none' ? '' : v);
+                        setEditingPrelanding({ ...editingPrelanding, web_result_id: null });
+                      }}
+                    >
+                      <SelectTrigger className={`admin-input ${selectedRelatedSearchId ? 'border-primary bg-primary/10' : ''}`}>
+                        <SelectValue placeholder="Select related search..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Select Related Search</SelectItem>
+                        {filteredRelatedSearches.map(search => (
+                          <SelectItem key={search.id} value={search.id}>
+                            {search.title} (Target WR: {search.target_wr})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {filteredRelatedSearches.length === 0 && (
+                      <p className="text-xs text-muted-foreground">No related searches found for this blog.</p>
                     )}
-                  </Button>
-                </div>
-                {editingPrelanding.web_result_id && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Redirect URL: {webResults.find(r => r.id === editingPrelanding.web_result_id)?.link || 'N/A'}
-                  </p>
+                  </>
+                )}
+
+                {selectedRelatedSearchId && (
+                  <>
+                    <h4 className="font-medium text-sm text-foreground">Step 3: Select Web Result</h4>
+                    <div className="flex gap-2">
+                      <Select 
+                        value={editingPrelanding.web_result_id || 'none'} 
+                        onValueChange={(v) => setEditingPrelanding({ 
+                          ...editingPrelanding, 
+                          web_result_id: v === 'none' ? null : v 
+                        })}
+                      >
+                        <SelectTrigger className={`admin-input flex-1 ${editingPrelanding.web_result_id ? 'border-primary bg-primary/10' : ''}`}>
+                          <SelectValue placeholder="Select a web result..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          {webResults.map(result => (
+                            <SelectItem key={result.id} value={result.id}>
+                              {result.name} - {result.title}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button 
+                        type="button"
+                        variant="secondary"
+                        onClick={generateWithAI}
+                        disabled={generating || !editingPrelanding.web_result_id}
+                        className="shrink-0"
+                      >
+                        {generating ? (
+                          <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating...</>
+                        ) : (
+                          <><Sparkles className="w-4 h-4 mr-2" /> Generate with AI</>
+                        )}
+                      </Button>
+                    </div>
+                    {editingPrelanding.web_result_id && (
+                      <p className="text-xs text-muted-foreground">
+                        Redirect URL: {webResults.find(r => r.id === editingPrelanding.web_result_id)?.link || 'N/A'}
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
+
+              {/* Direct Web Result Selection (for editing existing) */}
+              {!isNew && !selectedBlogId && (
+                <div>
+                  <label className="block text-sm text-muted-foreground mb-1">Current Web Result (use steps above to change)</label>
+                  <div className="flex gap-2">
+                    <Select 
+                      value={editingPrelanding.web_result_id || 'none'} 
+                      onValueChange={(v) => setEditingPrelanding({ 
+                        ...editingPrelanding, 
+                        web_result_id: v === 'none' ? null : v 
+                      })}
+                    >
+                      <SelectTrigger className="admin-input flex-1">
+                        <SelectValue placeholder="Select a web result..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {webResults.map(result => (
+                          <SelectItem key={result.id} value={result.id}>
+                            {result.name} - {result.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button 
+                      type="button"
+                      variant="secondary"
+                      onClick={generateWithAI}
+                      disabled={generating || !editingPrelanding.web_result_id}
+                      className="shrink-0"
+                    >
+                      {generating ? (
+                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Generating...</>
+                      ) : (
+                        <><Sparkles className="w-4 h-4 mr-2" /> Generate with AI</>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
