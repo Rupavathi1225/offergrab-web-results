@@ -517,24 +517,7 @@ const WebResults = () => {
 
       {/* Blog and Related Search Filters */}
       <div className="glass-card p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-foreground">Filter by Blog & Related Search</h3>
-          <Button
-            variant={!selectedBlogId && !selectedRelatedSearchId && !searchQuery && selectedWr === 0 ? "default" : "outline"}
-            size="sm"
-            onClick={() => {
-              setSelectedBlogId('');
-              setSelectedRelatedSearchId('');
-              setSelectedRelatedSearch('');
-              setSearchQuery('');
-              setSelectedWr(0);
-            }}
-            className="gap-2"
-          >
-            <Globe className="w-4 h-4" />
-            All Web Results
-          </Button>
-        </div>
+        <h3 className="font-semibold text-foreground mb-3">Filter by Blog & Related Search</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <Label className="text-sm text-muted-foreground mb-1 block">Select Blog</Label>
@@ -765,13 +748,6 @@ const WebResults = () => {
       {/* Page Selection Tabs */}
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-sm text-muted-foreground">Select Page:</span>
-        <Button
-          variant={selectedWr === 0 ? "default" : "outline"}
-          size="sm"
-          onClick={() => setSelectedWr(0)}
-        >
-          All
-        </Button>
         {Object.entries(wrPagesWithSearches).map(([wr, title]) => (
           <Button
             key={wr}
@@ -794,6 +770,21 @@ const WebResults = () => {
             wr={n}
           </Button>
         ))}
+        <Button
+          variant={selectedWr === 0 && !selectedBlogId && !selectedRelatedSearchId && !searchQuery ? "default" : "outline"}
+          size="sm"
+          onClick={() => {
+            setSelectedWr(0);
+            setSelectedBlogId('');
+            setSelectedRelatedSearchId('');
+            setSelectedRelatedSearch('');
+            setSearchQuery('');
+          }}
+          className="gap-2"
+        >
+          <Globe className="w-4 h-4" />
+          All Web Results
+        </Button>
       </div>
 
       {/* Bulk Action Toolbar */}
