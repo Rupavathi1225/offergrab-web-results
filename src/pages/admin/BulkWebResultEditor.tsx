@@ -7,7 +7,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, XCircle, Loader2, Link2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import * as XLSX from "xlsx";
 
 interface ParsedRow {
@@ -39,6 +41,7 @@ interface WebResult {
 const BulkWebResultEditor = () => {
   const { toast } = useToast();
   const [file, setFile] = useState<File | null>(null);
+  const [sheetUrl, setSheetUrl] = useState("");
   const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
   const [matchedRows, setMatchedRows] = useState<MatchedRow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -199,11 +202,23 @@ const BulkWebResultEditor = () => {
     });
   };
 
+  const processData = useCallback(async (parsed: ParsedRow[], source: string) => {
+    setParsedRows(parsed);
+    const matched = await matchRows(parsed);
+    setMatchedRows(matched);
+    
+    toast({
+      title: `${source} Parsed Successfully`,
+      description: `Found ${matched.length} rows. ${matched.filter(r => r.status === 'matched').length} matched, ${matched.filter(r => r.status === 'not_found').length} not found.`,
+    });
+  }, [toast]);
+
   const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (!selectedFile) return;
     
     setFile(selectedFile);
+    setSheetUrl("");
     setParseError(null);
     setApplyResult(null);
     setMatchedRows([]);
@@ -216,15 +231,7 @@ const BulkWebResultEditor = () => {
     
     try {
       const parsed = await parseFile(selectedFile);
-      setParsedRows(parsed);
-      
-      const matched = await matchRows(parsed);
-      setMatchedRows(matched);
-      
-      toast({
-        title: "File Parsed Successfully",
-        description: `Found ${matched.length} rows. ${matched.filter(r => r.status === 'matched').length} matched, ${matched.filter(r => r.status === 'not_found').length} not found.`,
-      });
+      await processData(parsed, "File");
     } catch (error) {
       setParseError(error instanceof Error ? error.message : 'Unknown error occurred');
       toast({
@@ -235,7 +242,119 @@ const BulkWebResultEditor = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [toast]);
+  }, [toast, processData]);
+
+  const extractSheetId = (url: string): string | null => {
+    // Match patterns like:
+    // https://docs.google.com/spreadsheets/d/SHEET_ID/edit
+    // https://docs.google.com/spreadsheets/d/SHEET_ID/
+    const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    return match ? match[1] : null;
+  };
+
+  const handleGoogleSheetImport = useCallback(async () => {
+    if (!sheetUrl.trim()) {
+      setParseError("Please enter a Google Sheet URL");
+      return;
+    }
+
+    const sheetId = extractSheetId(sheetUrl);
+    if (!sheetId) {
+      setParseError("Invalid Google Sheet URL. Please use a link like: https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID/edit");
+      return;
+    }
+
+    setFile(null);
+    setParseError(null);
+    setApplyResult(null);
+    setMatchedRows([]);
+    setIsLoading(true);
+
+    try {
+      // Fetch as CSV from public export URL
+      const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
+      const response = await fetch(csvUrl);
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch Google Sheet. Make sure the sheet is publicly accessible (Anyone with the link can view).");
+      }
+
+      const csvText = await response.text();
+      
+      if (!csvText.trim()) {
+        throw new Error("Google Sheet is empty.");
+      }
+
+      // Parse CSV using XLSX
+      const workbook = XLSX.read(csvText, { type: 'string' });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as string[][];
+
+      if (jsonData.length < 2) {
+        throw new Error('Sheet must contain a header row and at least one data row.');
+      }
+
+      const headers = jsonData[0].map(h => String(h).toLowerCase().trim());
+      
+      // Check for required columns
+      const newTitleIndex = headers.findIndex(h => h === 'new_title');
+      const newUrlIndex = headers.findIndex(h => h === 'new_url');
+      
+      if (newTitleIndex === -1 || newUrlIndex === -1) {
+        throw new Error('Sheet must contain "new_title" and "new_url" columns.');
+      }
+      
+      // Check for matching columns
+      const webResultIdIndex = headers.findIndex(h => h === 'web_result_id');
+      const oldUrlIndex = headers.findIndex(h => h === 'old_url');
+      
+      if (webResultIdIndex === -1 && oldUrlIndex === -1) {
+        throw new Error('Sheet must contain either "web_result_id" or "old_url" column for matching.');
+      }
+
+      const rows: ParsedRow[] = [];
+      
+      for (let i = 1; i < jsonData.length; i++) {
+        const row = jsonData[i];
+        if (!row || row.length === 0 || row.every(cell => !cell)) continue;
+        
+        const parsedRow: ParsedRow = {
+          rowIndex: i,
+          new_title: String(row[newTitleIndex] || '').trim(),
+          new_url: String(row[newUrlIndex] || '').trim(),
+        };
+        
+        if (webResultIdIndex !== -1 && row[webResultIdIndex]) {
+          parsedRow.web_result_id = String(row[webResultIdIndex]).trim();
+        }
+        
+        if (oldUrlIndex !== -1 && row[oldUrlIndex]) {
+          parsedRow.old_url = String(row[oldUrlIndex]).trim();
+        }
+        
+        if (parsedRow.new_title && parsedRow.new_url) {
+          rows.push(parsedRow);
+        }
+      }
+
+      if (rows.length === 0) {
+        throw new Error('No valid data rows found in the sheet.');
+      }
+
+      await processData(rows, "Google Sheet");
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to import Google Sheet';
+      setParseError(errorMessage);
+      toast({
+        title: "Import Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [sheetUrl, toast, processData]);
 
   const toggleRowSelection = (rowIndex: number) => {
     setMatchedRows(prev => prev.map(row => 
@@ -356,29 +475,73 @@ const BulkWebResultEditor = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* File Upload Section */}
-          <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
-            <input
-              type="file"
-              accept=".csv,.xlsx,.xls"
-              onChange={handleFileUpload}
-              className="hidden"
-              id="file-upload"
-              disabled={isLoading}
-            />
-            <label
-              htmlFor="file-upload"
-              className="flex flex-col items-center gap-2 cursor-pointer"
-            >
-              <Upload className="w-10 h-10 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">
-                {file ? file.name : 'Click to upload CSV or XLSX file'}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                Required columns: new_title, new_url, and (web_result_id OR old_url)
-              </span>
-            </label>
-          </div>
+          {/* Import Section with Tabs */}
+          <Tabs defaultValue="file" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="file" className="flex items-center gap-2">
+                <Upload className="w-4 h-4" />
+                Upload File
+              </TabsTrigger>
+              <TabsTrigger value="google" className="flex items-center gap-2">
+                <Link2 className="w-4 h-4" />
+                Google Sheet
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="file" className="mt-4">
+              <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
+                <input
+                  type="file"
+                  accept=".csv,.xlsx,.xls"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  id="file-upload"
+                  disabled={isLoading}
+                />
+                <label
+                  htmlFor="file-upload"
+                  className="flex flex-col items-center gap-2 cursor-pointer"
+                >
+                  <Upload className="w-10 h-10 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">
+                    {file ? file.name : 'Click to upload CSV or XLSX file'}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    Required columns: new_title, new_url, and (web_result_id OR old_url)
+                  </span>
+                </label>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="google" className="mt-4">
+              <div className="space-y-4">
+                <div className="flex gap-2">
+                  <Input
+                    type="url"
+                    placeholder="Paste Google Sheet URL here..."
+                    value={sheetUrl}
+                    onChange={(e) => setSheetUrl(e.target.value)}
+                    disabled={isLoading}
+                    className="flex-1"
+                  />
+                  <Button 
+                    onClick={handleGoogleSheetImport}
+                    disabled={isLoading || !sheetUrl.trim()}
+                  >
+                    {isLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      "Import"
+                    )}
+                  </Button>
+                </div>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p>⚠️ The Google Sheet must be publicly accessible (Share → Anyone with the link can view)</p>
+                  <p>Required columns: new_title, new_url, and (web_result_id OR old_url)</p>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
           
           {isLoading && (
             <div className="flex items-center justify-center gap-2 py-4">
