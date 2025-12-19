@@ -76,7 +76,7 @@ const WebResults = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedResults, setGeneratedResults] = useState<GeneratedWebResult[]>([]);
   
-  // Copy fields selection (horizontal row for spreadsheet)
+  // Copy fields selection (horizontal row for spreadsheet) - 6 fields only
   const [copyFields, setCopyFields] = useState({
     title: true,
     description: true,
@@ -84,7 +84,6 @@ const WebResults = () => {
     relatedSearch: true,
     originalLink: true,
     date: true,
-    name: true,
   });
 
   const emptyResult: Omit<WebResult, 'id'> = {
@@ -331,14 +330,8 @@ const WebResults = () => {
     if (!copyTarget) return;
     
     const { search, blog } = getWebResultContext(copyTarget);
-    const maskedLink = generateMaskedLink({
-      blogId: blog?.id,
-      relatedSearchId: search?.id,
-      webResultId: copyTarget.id,
-      targetWr: copyTarget.wr_page,
-    });
     
-    // Build headers and values arrays based on selected fields
+    // Build headers and values arrays based on selected fields - 6 fields only
     const headers: string[] = [];
     const values: string[] = [];
     
@@ -366,13 +359,6 @@ const WebResults = () => {
       headers.push('Date');
       values.push(copyTarget.created_at ? formatDate(copyTarget.created_at) : formatDate(new Date().toISOString()));
     }
-    if (copyFields.name) {
-      headers.push('Name');
-      values.push(copyTarget.name || '');
-    }
-    // Add URL Link (masked link) at the end
-    headers.push('Url Link');
-    values.push(maskedLink);
     
     // Create two rows: headers and values
     const copyText = headers.join('\t') + '\n' + values.join('\t');
