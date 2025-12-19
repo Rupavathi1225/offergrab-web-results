@@ -75,14 +75,12 @@ const WebResults = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedResults, setGeneratedResults] = useState<GeneratedWebResult[]>([]);
   
-  // Copy fields selection
+  // Copy fields selection (horizontal row for spreadsheet)
   const [copyFields, setCopyFields] = useState({
-    name: true,
     title: true,
     description: true,
     blogName: true,
     relatedSearch: true,
-    originalLink: true,
     date: true,
   });
 
@@ -331,20 +329,16 @@ const WebResults = () => {
     
     const { search, blog } = getWebResultContext(copyTarget);
     
-    const selectedFieldsList: (keyof typeof copyFields)[] = [];
-    Object.entries(copyFields).forEach(([key, value]) => {
-      if (value) selectedFieldsList.push(key as keyof typeof copyFields);
-    });
+    // Build horizontal tab-separated row for spreadsheet pasting
+    const values: string[] = [];
     
-    const copyText = formatWebResultForCopy({
-      name: copyTarget.name,
-      title: true,
-      description: true,
-      blogName: blog?.title || 'N/A',
-      relatedSearch: search?.title || 'N/A',
-      originalLink: copyTarget.link,
-      date: copyTarget.created_at ? formatDate(copyTarget.created_at) : formatDate(new Date().toISOString()),
-    }, selectedFieldsList);
+    if (copyFields.title) values.push(copyTarget.title || '');
+    if (copyFields.description) values.push(copyTarget.description || '');
+    if (copyFields.blogName) values.push(blog?.title || 'N/A');
+    if (copyFields.relatedSearch) values.push(search?.title || 'N/A');
+    if (copyFields.date) values.push(copyTarget.created_at ? formatDate(copyTarget.created_at) : formatDate(new Date().toISOString()));
+    
+    const copyText = values.join('\t');
     
     navigator.clipboard.writeText(copyText);
     toast({ title: "Copied!", description: "Web result details copied to clipboard." });
@@ -1005,18 +999,27 @@ const WebResults = () => {
           
           {copyTarget && (
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">Select fields to copy:</p>
+              <p className="text-sm text-muted-foreground">Select fields to copy (copies as horizontal row for spreadsheet):</p>
               
               <div className="space-y-2">
-                {Object.entries(copyFields).map(([key, value]) => (
-                  <div key={key} className="flex items-center gap-2">
-                    <Checkbox
-                      checked={value}
-                      onCheckedChange={(checked) => setCopyFields(prev => ({ ...prev, [key]: !!checked }))}
-                    />
-                    <Label className="text-sm capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</Label>
-                  </div>
-                ))}
+                {Object.entries(copyFields).map(([key, value]) => {
+                  const labels: Record<string, string> = {
+                    title: 'Title',
+                    description: 'Description',
+                    blogName: 'Blog Name',
+                    relatedSearch: 'Related Search',
+                    date: 'Date',
+                  };
+                  return (
+                    <div key={key} className="flex items-center gap-2">
+                      <Checkbox
+                        checked={value}
+                        onCheckedChange={(checked) => setCopyFields(prev => ({ ...prev, [key]: !!checked }))}
+                      />
+                      <Label className="text-sm">{labels[key] || key}</Label>
+                    </div>
+                  );
+                })}
               </div>
               
               <div className="flex gap-2 pt-4">
