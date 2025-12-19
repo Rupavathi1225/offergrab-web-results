@@ -83,29 +83,45 @@ const BulkWebResultEditor = () => {
             return;
           }
           
-          const headers = jsonData[0].map(h => String(h).toLowerCase().trim());
+          // Auto-detect header row by searching for required columns
+          let headerRowIndex = -1;
+          let headers: string[] = [];
+          
+          for (let i = 0; i < Math.min(jsonData.length, 10); i++) {
+            const row = jsonData[i];
+            if (!row) continue;
+            const rowHeaders = row.map(h => String(h || '').toLowerCase().trim());
+            const hasNewTitle = rowHeaders.some(h => h === 'new_title');
+            const hasNewUrl = rowHeaders.some(h => h === 'new_url');
+            
+            if (hasNewTitle && hasNewUrl) {
+              headerRowIndex = i;
+              headers = rowHeaders;
+              break;
+            }
+          }
+          
+          if (headerRowIndex === -1) {
+            reject(new Error('File must contain "new_title" and "new_url" columns. Headers can be in any of the first 10 rows.'));
+            return;
+          }
           
           // Check for required columns
           const newTitleIndex = headers.findIndex(h => h === 'new_title');
           const newUrlIndex = headers.findIndex(h => h === 'new_url');
           
-          if (newTitleIndex === -1 || newUrlIndex === -1) {
-            reject(new Error('File must contain "new_title" and "new_url" columns.'));
-            return;
-          }
-          
           // Check for matching columns
           const webResultIdIndex = headers.findIndex(h => h === 'web_result_id');
-          const oldUrlIndex = headers.findIndex(h => h === 'old_url');
+          const oldUrlIndex = headers.findIndex(h => h === 'old_url' || h === 'url_link' || h === 'original_link');
           
           if (webResultIdIndex === -1 && oldUrlIndex === -1) {
-            reject(new Error('File must contain either "web_result_id" or "old_url" column for matching.'));
+            reject(new Error('File must contain either "web_result_id" or "old_url" (or "url_link" / "original_link") column for matching.'));
             return;
           }
           
           const rows: ParsedRow[] = [];
           
-          for (let i = 1; i < jsonData.length; i++) {
+          for (let i = headerRowIndex + 1; i < jsonData.length; i++) {
             const row = jsonData[i];
             if (!row || row.length === 0 || row.every(cell => !cell)) continue;
             
@@ -295,27 +311,43 @@ const BulkWebResultEditor = () => {
         throw new Error('Sheet must contain a header row and at least one data row.');
       }
 
-      const headers = jsonData[0].map(h => String(h).toLowerCase().trim());
+      // Auto-detect header row by searching for required columns
+      let headerRowIndex = -1;
+      let headers: string[] = [];
+      
+      for (let i = 0; i < Math.min(jsonData.length, 10); i++) {
+        const row = jsonData[i];
+        if (!row) continue;
+        const rowHeaders = row.map(h => String(h || '').toLowerCase().trim());
+        const hasNewTitle = rowHeaders.some(h => h === 'new_title');
+        const hasNewUrl = rowHeaders.some(h => h === 'new_url');
+        
+        if (hasNewTitle && hasNewUrl) {
+          headerRowIndex = i;
+          headers = rowHeaders;
+          break;
+        }
+      }
+      
+      if (headerRowIndex === -1) {
+        throw new Error('Sheet must contain "new_title" and "new_url" columns. Headers can be in any of the first 10 rows.');
+      }
       
       // Check for required columns
       const newTitleIndex = headers.findIndex(h => h === 'new_title');
       const newUrlIndex = headers.findIndex(h => h === 'new_url');
       
-      if (newTitleIndex === -1 || newUrlIndex === -1) {
-        throw new Error('Sheet must contain "new_title" and "new_url" columns.');
-      }
-      
       // Check for matching columns
       const webResultIdIndex = headers.findIndex(h => h === 'web_result_id');
-      const oldUrlIndex = headers.findIndex(h => h === 'old_url');
+      const oldUrlIndex = headers.findIndex(h => h === 'old_url' || h === 'url_link' || h === 'original_link');
       
       if (webResultIdIndex === -1 && oldUrlIndex === -1) {
-        throw new Error('Sheet must contain either "web_result_id" or "old_url" column for matching.');
+        throw new Error('Sheet must contain either "web_result_id" or "old_url" (or "url_link" / "original_link") column for matching.');
       }
 
       const rows: ParsedRow[] = [];
       
-      for (let i = 1; i < jsonData.length; i++) {
+      for (let i = headerRowIndex + 1; i < jsonData.length; i++) {
         const row = jsonData[i];
         if (!row || row.length === 0 || row.every(cell => !cell)) continue;
         
