@@ -84,6 +84,7 @@ const WebResults = () => {
     relatedSearch: true,
     originalLink: true,
     date: true,
+    name: true,
   });
 
   const emptyResult: Omit<WebResult, 'id'> = {
@@ -330,39 +331,82 @@ const WebResults = () => {
     if (!copyTarget) return;
     
     const { search, blog } = getWebResultContext(copyTarget);
+    const maskedLink = generateMaskedLink({
+      blogId: blog?.id,
+      relatedSearchId: search?.id,
+      webResultId: copyTarget.id,
+      targetWr: copyTarget.wr_page,
+    });
     
-    // Build horizontal tab-separated row for spreadsheet pasting
+    // Build headers and values arrays based on selected fields
+    const headers: string[] = [];
     const values: string[] = [];
     
-    if (copyFields.title) values.push(copyTarget.title || '');
-    if (copyFields.description) values.push(copyTarget.description || '');
-    if (copyFields.blogName) values.push(blog?.title || 'N/A');
-    if (copyFields.relatedSearch) values.push(search?.title || 'N/A');
-    if (copyFields.originalLink) values.push(copyTarget.link || '');
-    if (copyFields.date) values.push(copyTarget.created_at ? formatDate(copyTarget.created_at) : formatDate(new Date().toISOString()));
+    if (copyFields.title) {
+      headers.push('Web Result Title');
+      values.push(copyTarget.title || '');
+    }
+    if (copyFields.description) {
+      headers.push('Web Result Description');
+      values.push(copyTarget.description || '');
+    }
+    if (copyFields.blogName) {
+      headers.push('Blog');
+      values.push(blog?.title || 'No Blog');
+    }
+    if (copyFields.relatedSearch) {
+      headers.push('Related Search');
+      values.push(search?.title || 'N/A');
+    }
+    if (copyFields.originalLink) {
+      headers.push('Original Link');
+      values.push(copyTarget.link || '');
+    }
+    if (copyFields.date) {
+      headers.push('Date');
+      values.push(copyTarget.created_at ? formatDate(copyTarget.created_at) : formatDate(new Date().toISOString()));
+    }
+    if (copyFields.name) {
+      headers.push('Name');
+      values.push(copyTarget.name || '');
+    }
+    // Add URL Link (masked link) at the end
+    headers.push('Url Link');
+    values.push(maskedLink);
     
-    const copyText = values.join('\t');
+    // Create two rows: headers and values
+    const copyText = headers.join('\t') + '\n' + values.join('\t');
     
     navigator.clipboard.writeText(copyText);
-    toast({ title: "Copied!", description: "Web result details copied to clipboard." });
+    toast({ title: "Copied!", description: "Headers and data copied to clipboard." });
     setShowCopyDialog(false);
   };
 
   // Quick copy single field
-  const quickCopy = (result: WebResult, field: 'title' | 'description' | 'originalLink' | 'blogName' | 'relatedSearch' | 'date' | 'all') => {
+  const quickCopy = (result: WebResult, field: 'title' | 'description' | 'originalLink' | 'blogName' | 'relatedSearch' | 'date' | 'name' | 'all') => {
     const { search, blog } = getWebResultContext(result);
+    const maskedLink = generateMaskedLink({
+      blogId: blog?.id,
+      relatedSearchId: search?.id,
+      webResultId: result.id,
+      targetWr: result.wr_page,
+    });
     let copyText = '';
     
     if (field === 'all') {
-      // Copy all 6 fields as horizontal row
-      copyText = [
+      // Copy headers row + data row (8 columns: Title, Description, Blog, Related Search, Original Link, Date, Name, Url Link)
+      const headers = ['Web Result Title', 'Web Result Description', 'Blog', 'Related Search', 'Original Link', 'Date', 'Name', 'Url Link'];
+      const values = [
         result.title || '',
         result.description || '',
-        blog?.title || 'N/A',
+        blog?.title || 'No Blog',
         search?.title || 'N/A',
         result.link || '',
         result.created_at ? formatDate(result.created_at) : formatDate(new Date().toISOString()),
-      ].join('\t');
+        result.name || '',
+        maskedLink,
+      ];
+      copyText = headers.join('\t') + '\n' + values.join('\t');
     } else if (field === 'title') {
       copyText = result.title || '';
     } else if (field === 'description') {
@@ -370,15 +414,17 @@ const WebResults = () => {
     } else if (field === 'originalLink') {
       copyText = result.link || '';
     } else if (field === 'blogName') {
-      copyText = blog?.title || 'N/A';
+      copyText = blog?.title || 'No Blog';
     } else if (field === 'relatedSearch') {
       copyText = search?.title || 'N/A';
     } else if (field === 'date') {
       copyText = result.created_at ? formatDate(result.created_at) : formatDate(new Date().toISOString());
+    } else if (field === 'name') {
+      copyText = result.name || '';
     }
     
     navigator.clipboard.writeText(copyText);
-    toast({ title: "Copied!", description: `${field === 'all' ? 'All details' : field} copied to clipboard.` });
+    toast({ title: "Copied!", description: `${field === 'all' ? 'All details with headers' : field} copied to clipboard.` });
   };
 
   // Generate masked link for a web result
