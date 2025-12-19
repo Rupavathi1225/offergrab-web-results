@@ -394,8 +394,8 @@ const WebResults = () => {
     let copyText = '';
     
     if (field === 'all') {
-      // Copy headers row + data row (8 columns: Title, Description, Blog, Related Search, Original Link, Date, Name, Url Link)
-      const headers = ['Web Result Title', 'Web Result Description', 'Blog', 'Related Search', 'Original Link', 'Date', 'Name', 'Url Link'];
+      // Copy headers row + data row (6 columns only: Title, Description, Blog, Related Search, Original Link, Date)
+      const headers = ['Web Result Title', 'Web Result Description', 'Blog', 'Related Search', 'Original Link', 'Date'];
       const values = [
         result.title || '',
         result.description || '',
@@ -403,8 +403,6 @@ const WebResults = () => {
         search?.title || 'N/A',
         result.link || '',
         result.created_at ? formatDate(result.created_at) : formatDate(new Date().toISOString()),
-        result.name || '',
-        maskedLink,
       ];
       copyText = headers.join('\t') + '\n' + values.join('\t');
     } else if (field === 'title') {
