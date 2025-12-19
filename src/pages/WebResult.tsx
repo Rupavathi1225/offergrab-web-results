@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Search, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { initSession, trackClick, getOrCreateSessionId } from "@/lib/tracking";
+import { generateRandomToken } from "@/lib/linkGenerator";
 
 interface WebResultItem {
   id: string;
@@ -24,6 +25,43 @@ interface Prelanding {
   is_active: boolean;
 }
 
+// Generate unique random names for masked URLs
+const generateUniqueMaskedNames = (count: number): string[] => {
+  const names: string[] = [];
+  const usedNames = new Set<string>();
+  
+  const prefixes = ['deal', 'offer', 'promo', 'save', 'get', 'win', 'try', 'find', 'best', 'top', 'hot', 'new', 'vip', 'pro', 'plus'];
+  const suffixes = ['zone', 'hub', 'spot', 'site', 'now', 'go', 'link', 'click', 'web', 'net', 'io', 'app', 'page', 'box', 'max'];
+  
+  for (let i = 0; i < count; i++) {
+    let name = '';
+    let attempts = 0;
+    
+    while (attempts < 100) {
+      const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+      const suffix = suffixes[Math.floor(Math.random() * suffixes.length)];
+      const randomNum = Math.floor(Math.random() * 999) + 1;
+      name = `${prefix}${suffix}${randomNum}`;
+      
+      if (!usedNames.has(name)) {
+        usedNames.add(name);
+        break;
+      }
+      attempts++;
+    }
+    
+    // Fallback to fully random if we couldn't generate a unique name
+    if (usedNames.has(name)) {
+      name = generateRandomToken(10);
+      usedNames.add(name);
+    }
+    
+    names.push(name);
+  }
+  
+  return names;
+};
+
 const WebResult = () => {
   const { page } = useParams();
   const navigate = useNavigate();
@@ -34,6 +72,7 @@ const WebResult = () => {
   const [content, setContent] = useState<LandingContent | null>(null);
   const [prelandings, setPrelandings] = useState<Record<string, Prelanding>>({});
   const [loading, setLoading] = useState(true);
+  const [maskedNames, setMaskedNames] = useState<string[]>([]);
 
   // Get blog context from navigation state
   const fromBlog = location.state?.fromBlog;
@@ -43,9 +82,10 @@ const WebResult = () => {
   const sponsoredResults = results.filter(r => r.is_sponsored);
   const organicResults = results.filter(r => !r.is_sponsored);
 
-  // Generate masked URL with lid format
-  const getMaskedUrl = (lid: number) => {
-    return `https://offergrabzone.lid${lid}/`;
+  // Generate masked URL with unique random name
+  const getMaskedUrl = (index: number) => {
+    const name = maskedNames[index] || generateRandomToken(8);
+    return `https://offergrab.${name}/`;
   };
 
   useEffect(() => {
@@ -53,6 +93,13 @@ const WebResult = () => {
     initSession();
     fetchData();
   }, [wrPage]);
+
+  // Generate unique masked names when results change
+  useEffect(() => {
+    if (results.length > 0) {
+      setMaskedNames(generateUniqueMaskedNames(results.length));
+    }
+  }, [results]);
 
   const fetchData = async () => {
     try {
