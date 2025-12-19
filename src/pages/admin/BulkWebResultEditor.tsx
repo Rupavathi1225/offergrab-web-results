@@ -16,6 +16,7 @@ interface ParsedRow {
   rowIndex: number;
   web_result_id?: string;
   old_url?: string;
+  sheet_name?: string; // Name column from uploaded sheet for AI matching
   new_title: string;
   new_url: string;
   new_description?: string;
@@ -128,8 +129,11 @@ const BulkWebResultEditor = () => {
           const webResultIdIndex = headers.findIndex(h => h === 'web_result_id');
           const oldUrlIndex = headers.findIndex(h => h === 'old_url' || h === 'url_link' || h === 'original_link' || h === 'original link');
           
-          if (webResultIdIndex === -1 && oldUrlIndex === -1) {
-            reject(new Error('File must contain either "web_result_id" or "old_url" (or "original_link") column for matching.'));
+          // Check for Name column (for AI matching)
+          const nameIndex = headers.findIndex(h => h === 'name');
+          
+          if (webResultIdIndex === -1 && oldUrlIndex === -1 && nameIndex === -1) {
+            reject(new Error('File must contain either "web_result_id", "old_url" (or "original_link"), or "Name" column for matching.'));
             return;
           }
           
@@ -155,6 +159,11 @@ const BulkWebResultEditor = () => {
             
             if (oldUrlIndex !== -1 && row[oldUrlIndex]) {
               parsedRow.old_url = String(row[oldUrlIndex]).trim();
+            }
+            
+            // Extract Name column for AI matching
+            if (nameIndex !== -1 && row[nameIndex]) {
+              parsedRow.sheet_name = String(row[nameIndex]).trim();
             }
             
             if (parsedRow.new_title || parsedRow.new_url || parsedRow.new_description) {
@@ -257,18 +266,18 @@ const BulkWebResultEditor = () => {
     // Get original names (using 'name' field from web_results)
     const originalNames = webResults.map(wr => wr.name);
     
-    // Get new names from uploaded data (using new_title)
-    const uploadedNewNames = parsedRows.map(row => row.new_title).filter(Boolean);
+    // Get names from uploaded sheet (using sheet_name column, not new_title)
+    const uploadedSheetNames = parsedRows.map(row => row.sheet_name).filter(Boolean) as string[];
 
-    if (uploadedNewNames.length === 0) {
-      throw new Error('No new titles found in uploaded data.');
+    if (uploadedSheetNames.length === 0) {
+      throw new Error('No "Name" column found in uploaded data. Please add a "Name" column to your sheet for AI matching.');
     }
 
     // Call AI matching function
     const { data: aiResponse, error: aiError } = await supabase.functions.invoke('match-web-results', {
       body: {
         original_web_results: originalNames,
-        uploaded_new_names: uploadedNewNames,
+        uploaded_new_names: uploadedSheetNames,
       },
     });
 
@@ -283,22 +292,22 @@ const BulkWebResultEditor = () => {
 
     const aiMatches: AIMatch[] = aiResponse?.matches || [];
 
-    // Create a map of original name to matched data
-    const matchMap = new Map<string, { newTitle: string; confidence: number }>();
+    // Create a map of original name to matched sheet name and confidence
+    const matchMap = new Map<string, { sheetName: string; confidence: number }>();
     aiMatches.forEach(match => {
       if (match.matched_new_name !== "NO MATCH") {
         matchMap.set(match.original_web_result, {
-          newTitle: match.matched_new_name,
+          sheetName: match.matched_new_name,
           confidence: match.confidence_score,
         });
       }
     });
 
-    // Create a map of new titles to parsed rows (for URL/description lookup)
-    const newTitleToRowMap = new Map<string, ParsedRow>();
+    // Create a map of sheet names to parsed rows (for new_title/URL/description lookup)
+    const sheetNameToRowMap = new Map<string, ParsedRow>();
     parsedRows.forEach(row => {
-      if (row.new_title) {
-        newTitleToRowMap.set(row.new_title, row);
+      if (row.sheet_name) {
+        sheetNameToRowMap.set(row.sheet_name, row);
       }
     });
 
@@ -307,14 +316,14 @@ const BulkWebResultEditor = () => {
       const matchData = matchMap.get(wr.name);
       
       if (matchData) {
-        const parsedRow = newTitleToRowMap.get(matchData.newTitle);
+        const parsedRow = sheetNameToRowMap.get(matchData.sheetName);
         return {
           rowIndex: index,
           webResultId: wr.id,
           currentTitle: wr.title,
           currentUrl: wr.link,
           currentDescription: wr.description || '',
-          newTitle: matchData.newTitle,
+          newTitle: parsedRow?.new_title || '',
           newUrl: parsedRow?.new_url || '',
           newDescription: parsedRow?.new_description || '',
           status: 'matched' as const,
@@ -500,8 +509,11 @@ const BulkWebResultEditor = () => {
       const webResultIdIndex = headers.findIndex(h => h === 'web_result_id');
       const oldUrlIndex = headers.findIndex(h => h === 'old_url' || h === 'url_link' || h === 'original_link' || h === 'original link');
       
-      if (webResultIdIndex === -1 && oldUrlIndex === -1) {
-        throw new Error('Sheet must contain either "web_result_id" or "old_url" (or "original_link") column for matching.');
+      // Check for Name column (for AI matching)
+      const nameIndex = headers.findIndex(h => h === 'name');
+      
+      if (webResultIdIndex === -1 && oldUrlIndex === -1 && nameIndex === -1) {
+        throw new Error('Sheet must contain either "web_result_id", "old_url" (or "original_link"), or "Name" column for matching.');
       }
 
       const rows: ParsedRow[] = [];
@@ -526,6 +538,11 @@ const BulkWebResultEditor = () => {
         
         if (oldUrlIndex !== -1 && row[oldUrlIndex]) {
           parsedRow.old_url = String(row[oldUrlIndex]).trim();
+        }
+        
+        // Extract Name column for AI matching
+        if (nameIndex !== -1 && row[nameIndex]) {
+          parsedRow.sheet_name = String(row[nameIndex]).trim();
         }
         
         if (parsedRow.new_title || parsedRow.new_url || parsedRow.new_description) {
