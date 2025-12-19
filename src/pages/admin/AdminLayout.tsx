@@ -10,6 +10,7 @@ const tabs = [
   { label: 'Pre-Landings', path: '/admin/prelandings' },
   { label: 'Blogs', path: '/admin/blogs' },
   { label: 'Analytics', path: '/admin/analytics' },
+  { label: 'Bulk Editor', path: '/admin/bulk-web-result-editor' },
 ];
 
 const AdminLayout = () => {

@@ -299,6 +299,47 @@ export type Database = {
         }
         Relationships: []
       }
+      web_result_update_history: {
+        Row: {
+          id: string
+          new_title: string | null
+          new_url: string | null
+          old_title: string | null
+          old_url: string | null
+          updated_at: string
+          updated_by: string | null
+          web_result_id: string
+        }
+        Insert: {
+          id?: string
+          new_title?: string | null
+          new_url?: string | null
+          old_title?: string | null
+          old_url?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          web_result_id: string
+        }
+        Update: {
+          id?: string
+          new_title?: string | null
+          new_url?: string | null
+          old_title?: string | null
+          old_url?: string | null
+          updated_at?: string
+          updated_by?: string | null
+          web_result_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "web_result_update_history_web_result_id_fkey"
+            columns: ["web_result_id"]
+            isOneToOne: false
+            referencedRelation: "web_results"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       web_results: {
         Row: {
           allowed_countries: string[] | null
