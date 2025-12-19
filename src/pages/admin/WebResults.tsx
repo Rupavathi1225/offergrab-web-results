@@ -221,6 +221,8 @@ const WebResults = () => {
         serial_number: idx + 1,
         is_active: true,
         allowed_countries: ['worldwide'],
+        blog_id: search.blog_id, // Link to blog for proper cascade delete
+        related_search_id: search.id, // Link to related search
       }));
 
       const { error } = await supabase.from('web_results').insert(resultsToInsert);

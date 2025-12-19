@@ -343,6 +343,7 @@ export type Database = {
       web_results: {
         Row: {
           allowed_countries: string[] | null
+          blog_id: string | null
           created_at: string
           description: string | null
           fallback_link: string | null
@@ -352,6 +353,7 @@ export type Database = {
           link: string
           logo_url: string | null
           name: string
+          related_search_id: string | null
           serial_number: number
           title: string
           updated_at: string
@@ -359,6 +361,7 @@ export type Database = {
         }
         Insert: {
           allowed_countries?: string[] | null
+          blog_id?: string | null
           created_at?: string
           description?: string | null
           fallback_link?: string | null
@@ -368,6 +371,7 @@ export type Database = {
           link: string
           logo_url?: string | null
           name: string
+          related_search_id?: string | null
           serial_number?: number
           title: string
           updated_at?: string
@@ -375,6 +379,7 @@ export type Database = {
         }
         Update: {
           allowed_countries?: string[] | null
+          blog_id?: string | null
           created_at?: string
           description?: string | null
           fallback_link?: string | null
@@ -384,12 +389,28 @@ export type Database = {
           link?: string
           logo_url?: string | null
           name?: string
+          related_search_id?: string | null
           serial_number?: number
           title?: string
           updated_at?: string
           wr_page?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "web_results_blog_id_fkey"
+            columns: ["blog_id"]
+            isOneToOne: false
+            referencedRelation: "blogs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "web_results_related_search_id_fkey"
+            columns: ["related_search_id"]
+            isOneToOne: false
+            referencedRelation: "related_searches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

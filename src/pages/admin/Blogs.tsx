@@ -150,39 +150,14 @@ const Blogs = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      // First, get related_searches for this blog to find their target_wr values
-      const { data: relatedSearches } = await supabase
-        .from("related_searches")
-        .select("id, target_wr")
-        .eq("blog_id", id);
+      // Delete only web_results that belong to this blog (via blog_id column)
+      // Prelandings will cascade delete via foreign key
+      await supabase.from("web_results").delete().eq("blog_id", id);
       
-      // Delete related_searches for this blog
+      // Delete related_searches for this blog (cascade will also handle this, but explicit is clearer)
       await supabase.from("related_searches").delete().eq("blog_id", id);
       
-      // For each related search, delete web_results and their prelandings on that wr_page
-      if (relatedSearches && relatedSearches.length > 0) {
-        const targetWrPages = [...new Set(relatedSearches.map(rs => rs.target_wr))];
-        
-        for (const wrPage of targetWrPages) {
-          // Get web_results on this wr_page
-          const { data: webResults } = await supabase
-            .from("web_results")
-            .select("id")
-            .eq("wr_page", wrPage);
-          
-          if (webResults && webResults.length > 0) {
-            const webResultIds = webResults.map(wr => wr.id);
-            
-            // Delete prelandings associated with these web_results
-            await supabase.from("prelandings").delete().in("web_result_id", webResultIds);
-            
-            // Delete the web_results
-            await supabase.from("web_results").delete().eq("wr_page", wrPage);
-          }
-        }
-      }
-      
-      // Finally delete the blog
+      // Finally delete the blog - cascades will handle remaining cleanup
       const { error } = await supabase.from("blogs").delete().eq("id", id);
       if (error) throw error;
     },
@@ -486,34 +461,13 @@ const Blogs = () => {
       const blogIds = Array.from(selectedIds);
       
       for (const blogId of blogIds) {
-        // Get related_searches for this blog
-        const { data: relatedSearches } = await supabase
-          .from("related_searches")
-          .select("id, target_wr")
-          .eq("blog_id", blogId);
+        // Delete only web_results that belong to this blog (via blog_id column)
+        await supabase.from("web_results").delete().eq("blog_id", blogId);
         
-        // Delete related_searches
+        // Delete related_searches for this blog
         await supabase.from("related_searches").delete().eq("blog_id", blogId);
         
-        // Delete web_results and prelandings for each target_wr
-        if (relatedSearches && relatedSearches.length > 0) {
-          const targetWrPages = [...new Set(relatedSearches.map(rs => rs.target_wr))];
-          
-          for (const wrPage of targetWrPages) {
-            const { data: webResults } = await supabase
-              .from("web_results")
-              .select("id")
-              .eq("wr_page", wrPage);
-            
-            if (webResults && webResults.length > 0) {
-              const webResultIds = webResults.map(wr => wr.id);
-              await supabase.from("prelandings").delete().in("web_result_id", webResultIds);
-              await supabase.from("web_results").delete().eq("wr_page", wrPage);
-            }
-          }
-        }
-        
-        // Delete the blog
+        // Delete the blog - cascades will handle remaining cleanup
         await supabase.from("blogs").delete().eq("id", blogId);
       }
       
