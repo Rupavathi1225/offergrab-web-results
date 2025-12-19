@@ -111,7 +111,8 @@ const BulkWebResultEditor = () => {
           for (let i = 0; i < Math.min(jsonData.length, 10); i++) {
             const row = jsonData[i];
             if (!row) continue;
-            const rowHeaders = row.map(h => String(h || '').toLowerCase().trim());
+            // Clean headers: lowercase, trim, and remove trailing punctuation
+            const rowHeaders = row.map(h => String(h || '').toLowerCase().trim().replace(/[,;:]+$/, ''));
             const hasNewTitle = rowHeaders.some(h => h === 'new_title');
             const hasNewUrl = rowHeaders.some(h => h === 'new_url');
             
@@ -606,7 +607,8 @@ const BulkWebResultEditor = () => {
       for (let i = 0; i < Math.min(jsonData.length, 10); i++) {
         const row = jsonData[i];
         if (!row) continue;
-        const rowHeaders = row.map(h => String(h || '').toLowerCase().trim());
+        // Clean headers: lowercase, trim, and remove trailing punctuation
+        const rowHeaders = row.map(h => String(h || '').toLowerCase().trim().replace(/[,;:]+$/, ''));
         const hasNewTitle = rowHeaders.some(h => h === 'new_title');
         const hasNewUrl = rowHeaders.some(h => h === 'new_url');
         
@@ -626,15 +628,27 @@ const BulkWebResultEditor = () => {
       const newUrlIndex = headers.findIndex(h => h === 'new_url');
       const newDescriptionIndex = headers.findIndex(h => h === 'new_description' || h === 'web result description');
       
-      // Check for matching columns
+      // Check for matching columns - support multiple header variations
       const webResultIdIndex = headers.findIndex(h => h === 'web_result_id');
-      const oldUrlIndex = headers.findIndex(h => h === 'old_url' || h === 'url_link' || h === 'original_link' || h === 'original link');
+      const oldUrlIndex = headers.findIndex(h => 
+        h === 'old_url' || 
+        h === 'url_link' || 
+        h === 'original_link' || 
+        h === 'original link' ||
+        h === 'link'
+      );
+      
+      // Check for title-based matching (Web Result Title column)
+      const webResultTitleIndex = headers.findIndex(h => h === 'web result title');
       
       // Check for Name column (for AI matching)
       const nameIndex = headers.findIndex(h => h === 'name');
       
-      if (webResultIdIndex === -1 && oldUrlIndex === -1 && nameIndex === -1) {
-        throw new Error('Sheet must contain either "web_result_id", "old_url" (or "original_link"), or "Name" column for matching.');
+      // At least one matching column required
+      const hasMatchingColumn = webResultIdIndex !== -1 || oldUrlIndex !== -1 || nameIndex !== -1 || webResultTitleIndex !== -1;
+      
+      if (!hasMatchingColumn) {
+        throw new Error('Sheet must contain either "web_result_id", "original_link", "Web Result Title", or "Name" column for matching.');
       }
 
       const rows: ParsedRow[] = [];
@@ -664,6 +678,11 @@ const BulkWebResultEditor = () => {
         // Extract Name column for AI matching
         if (nameIndex !== -1 && row[nameIndex]) {
           parsedRow.sheet_name = String(row[nameIndex]).trim();
+        }
+        
+        // Also use Web Result Title as sheet_name if Name column not present
+        if (!parsedRow.sheet_name && webResultTitleIndex !== -1 && row[webResultTitleIndex]) {
+          parsedRow.sheet_name = String(row[webResultTitleIndex]).trim();
         }
         
         if (parsedRow.new_title || parsedRow.new_url || parsedRow.new_description) {
