@@ -538,13 +538,16 @@ const WebResults = () => {
             <Select 
               value={selectedRelatedSearchId} 
               onValueChange={(v) => {
-                setSelectedRelatedSearchId(v === 'all' ? '' : v);
+                const newValue = v === 'all' ? '' : v;
+                setSelectedRelatedSearchId(newValue);
+                // Sync with AI generator
+                setSelectedRelatedSearch(newValue);
                 const search = relatedSearches.find(s => s.id === v);
                 if (search) setSelectedWr(search.target_wr);
               }}
               disabled={!selectedBlogId}
             >
-              <SelectTrigger className="admin-input">
+              <SelectTrigger className={`admin-input ${selectedRelatedSearchId ? 'border-primary bg-primary/10' : ''}`}>
                 <SelectValue placeholder={selectedBlogId ? "Select Related Search" : "Select Blog First"} />
               </SelectTrigger>
               <SelectContent>
@@ -608,6 +611,8 @@ const WebResults = () => {
                   value={selectedRelatedSearch} 
                   onValueChange={(value) => {
                     setSelectedRelatedSearch(value);
+                    // Sync with filter
+                    setSelectedRelatedSearchId(value);
                     const search = relatedSearches.find(s => s.id === value);
                     if (search) setSelectedWr(search.target_wr);
                   }}
