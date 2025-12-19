@@ -150,12 +150,48 @@ const Blogs = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      // First, get related_searches for this blog to find their target_wr values
+      const { data: relatedSearches } = await supabase
+        .from("related_searches")
+        .select("id, target_wr")
+        .eq("blog_id", id);
+      
+      // Delete related_searches for this blog
+      await supabase.from("related_searches").delete().eq("blog_id", id);
+      
+      // For each related search, delete web_results and their prelandings on that wr_page
+      if (relatedSearches && relatedSearches.length > 0) {
+        const targetWrPages = [...new Set(relatedSearches.map(rs => rs.target_wr))];
+        
+        for (const wrPage of targetWrPages) {
+          // Get web_results on this wr_page
+          const { data: webResults } = await supabase
+            .from("web_results")
+            .select("id")
+            .eq("wr_page", wrPage);
+          
+          if (webResults && webResults.length > 0) {
+            const webResultIds = webResults.map(wr => wr.id);
+            
+            // Delete prelandings associated with these web_results
+            await supabase.from("prelandings").delete().in("web_result_id", webResultIds);
+            
+            // Delete the web_results
+            await supabase.from("web_results").delete().eq("wr_page", wrPage);
+          }
+        }
+      }
+      
+      // Finally delete the blog
       const { error } = await supabase.from("blogs").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["blogs"] });
-      toast.success("Blog deleted successfully");
+      queryClient.invalidateQueries({ queryKey: ["related-searches"] });
+      queryClient.invalidateQueries({ queryKey: ["web-results"] });
+      queryClient.invalidateQueries({ queryKey: ["prelandings"] });
+      toast.success("Blog and all related content deleted successfully");
     },
     onError: (error) => {
       toast.error("Failed to delete blog: " + error.message);
@@ -445,16 +481,48 @@ const Blogs = () => {
   };
 
   const bulkDelete = async () => {
-    if (!confirm(`Delete ${selectedIds.size} selected blogs?`)) return;
+    if (!confirm(`Delete ${selectedIds.size} selected blogs? This will also delete all related searches, web results, and prelandings.`)) return;
     try {
-      const { error } = await supabase
-        .from('blogs')
-        .delete()
-        .in('id', Array.from(selectedIds));
-      if (error) throw error;
+      const blogIds = Array.from(selectedIds);
+      
+      for (const blogId of blogIds) {
+        // Get related_searches for this blog
+        const { data: relatedSearches } = await supabase
+          .from("related_searches")
+          .select("id, target_wr")
+          .eq("blog_id", blogId);
+        
+        // Delete related_searches
+        await supabase.from("related_searches").delete().eq("blog_id", blogId);
+        
+        // Delete web_results and prelandings for each target_wr
+        if (relatedSearches && relatedSearches.length > 0) {
+          const targetWrPages = [...new Set(relatedSearches.map(rs => rs.target_wr))];
+          
+          for (const wrPage of targetWrPages) {
+            const { data: webResults } = await supabase
+              .from("web_results")
+              .select("id")
+              .eq("wr_page", wrPage);
+            
+            if (webResults && webResults.length > 0) {
+              const webResultIds = webResults.map(wr => wr.id);
+              await supabase.from("prelandings").delete().in("web_result_id", webResultIds);
+              await supabase.from("web_results").delete().eq("wr_page", wrPage);
+            }
+          }
+        }
+        
+        // Delete the blog
+        await supabase.from("blogs").delete().eq("id", blogId);
+      }
+      
       setSelectedIds(new Set());
       queryClient.invalidateQueries({ queryKey: ["blogs"] });
-      toast.success(`${selectedIds.size} blogs deleted.`);
+      queryClient.invalidateQueries({ queryKey: ["related-searches"] });
+      queryClient.invalidateQueries({ queryKey: ["web-results"] });
+      queryClient.invalidateQueries({ queryKey: ["prelandings"] });
+      toast.success(`${blogIds.length} blogs and related content deleted.`);
     } catch (error) {
       toast.error("Failed to delete.");
     }

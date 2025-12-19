@@ -132,15 +132,27 @@ const BulkWebResultEditor = () => {
           const newUrlIndex = headers.findIndex(h => h === 'new_url');
           const newDescriptionIndex = headers.findIndex(h => h === 'new_description' || h === 'web result description');
           
-          // Check for matching columns
+          // Check for matching columns - support multiple header variations
           const webResultIdIndex = headers.findIndex(h => h === 'web_result_id');
-          const oldUrlIndex = headers.findIndex(h => h === 'old_url' || h === 'url_link' || h === 'original_link' || h === 'original link');
+          const oldUrlIndex = headers.findIndex(h => 
+            h === 'old_url' || 
+            h === 'url_link' || 
+            h === 'original_link' || 
+            h === 'original link' ||
+            h === 'link'
+          );
+          
+          // Check for title-based matching (Web Result Title column)
+          const webResultTitleIndex = headers.findIndex(h => h === 'web result title');
           
           // Check for Name column (for AI matching)
           const nameIndex = headers.findIndex(h => h === 'name');
           
-          if (webResultIdIndex === -1 && oldUrlIndex === -1 && nameIndex === -1) {
-            reject(new Error('File must contain either "web_result_id", "old_url" (or "original_link"), or "Name" column for matching.'));
+          // At least one matching column required
+          const hasMatchingColumn = webResultIdIndex !== -1 || oldUrlIndex !== -1 || nameIndex !== -1 || webResultTitleIndex !== -1;
+          
+          if (!hasMatchingColumn) {
+            reject(new Error('File must contain either "web_result_id", "Original Link", "Web Result Title", or "Name" column for matching.'));
             return;
           }
           
@@ -171,6 +183,11 @@ const BulkWebResultEditor = () => {
             // Extract Name column for AI matching
             if (nameIndex !== -1 && row[nameIndex]) {
               parsedRow.sheet_name = String(row[nameIndex]).trim();
+            }
+            
+            // Also use Web Result Title as sheet_name if Name column not present
+            if (!parsedRow.sheet_name && webResultTitleIndex !== -1 && row[webResultTitleIndex]) {
+              parsedRow.sheet_name = String(row[webResultTitleIndex]).trim();
             }
             
             if (parsedRow.new_title || parsedRow.new_url || parsedRow.new_description) {
@@ -207,11 +224,13 @@ const BulkWebResultEditor = () => {
     const webResultsMap = new Map<string, WebResult>();
     const urlMap = new Map<string, WebResult>();
     const nameMap = new Map<string, WebResult>();
+    const titleMap = new Map<string, WebResult>();
     
     (webResults || []).forEach(wr => {
       webResultsMap.set(wr.id, wr as WebResult);
       urlMap.set(wr.link.toLowerCase(), wr as WebResult);
       nameMap.set(wr.name.toLowerCase(), wr as WebResult);
+      titleMap.set(wr.title.toLowerCase(), wr as WebResult);
     });
     
     return parsedRows.map(row => {
@@ -227,9 +246,14 @@ const BulkWebResultEditor = () => {
         matchedResult = urlMap.get(row.old_url.toLowerCase());
       }
       
-      // Priority 3: Match by sheet_name (Name column)
+      // Priority 3: Match by sheet_name against name
       if (!matchedResult && row.sheet_name) {
         matchedResult = nameMap.get(row.sheet_name.toLowerCase());
+      }
+      
+      // Priority 4: Match by sheet_name against title (for "Web Result Title" column)
+      if (!matchedResult && row.sheet_name) {
+        matchedResult = titleMap.get(row.sheet_name.toLowerCase());
       }
       
       if (matchedResult) {
