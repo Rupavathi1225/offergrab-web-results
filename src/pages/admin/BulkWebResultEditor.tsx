@@ -366,7 +366,7 @@ const BulkWebResultEditor = () => {
           newUrl: parsedRow?.new_url || '',
           newDescription: parsedRow?.new_description || '',
           status: 'matched' as const,
-          selected: matchData.confidence >= 80, // Auto-select high confidence matches
+          selected: true, // Auto-select all matched rows
           confidenceScore: matchData.confidence,
         };
       } else {
@@ -416,11 +416,10 @@ const BulkWebResultEditor = () => {
       setMatchedRows(matched);
       
       const matchedCount = matched.filter(r => r.status === 'matched').length;
-      const highConfidence = matched.filter(r => (r.confidenceScore ?? 0) >= 80).length;
       
       toast({
         title: "AI Matching Complete",
-        description: `Found ${matchedCount} matches. ${highConfidence} with high confidence (auto-selected).`,
+        description: `Found ${matchedCount} matches. All matched rows are auto-selected.`,
       });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'AI matching failed';
