@@ -17,6 +17,7 @@ import WebResults from "./pages/admin/WebResults";
 import PreLandings from "./pages/admin/PreLandings";
 import Blogs from "./pages/admin/Blogs";
 import Analytics from "./pages/admin/Analytics";
+import BulkWebResultEditor from "./pages/admin/BulkWebResultEditor";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -49,6 +50,7 @@ function App() {
               <Route path="prelandings" element={<PreLandings />} />
               <Route path="blogs" element={<Blogs />} />
               <Route path="analytics" element={<Analytics />} />
+              <Route path="bulk-web-result-editor" element={<BulkWebResultEditor />} />
             </Route>
             
             <Route path="*" element={<NotFound />} />
