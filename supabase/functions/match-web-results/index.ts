@@ -13,6 +13,10 @@ serve(async (req) => {
   try {
     const { original_web_results, uploaded_new_names } = await req.json();
 
+    console.log('AI Matching Request - Original names:', original_web_results?.length, 'Uploaded names:', uploaded_new_names?.length);
+    console.log('Original names:', JSON.stringify(original_web_results));
+    console.log('Uploaded names:', JSON.stringify(uploaded_new_names));
+
     if (!original_web_results || !uploaded_new_names) {
       return new Response(
         JSON.stringify({ error: "Missing required fields: original_web_results and uploaded_new_names" }),
@@ -28,43 +32,37 @@ serve(async (req) => {
       );
     }
 
-    const systemPrompt = `You are an automated name-matching engine inside a web system.
-
-SYSTEM CONTEXT:
-• The system already contains a list of ORIGINAL WEB RESULT NAMES.
-• A new sheet is uploaded containing NEW NAMES.
-• Your task is to match each original web result name with the best possible new name from the uploaded sheet.
+    const systemPrompt = `You are a flexible name-matching engine. Your job is to match names between two lists.
 
 TASK:
-For EACH original web result name:
-• Find the SINGLE BEST matching name from the uploaded sheet.
-• Matching must be based ONLY on semantic meaning and intent of the names.
+Match each name from the ORIGINAL list with the BEST matching name from the UPLOADED list.
 
-STRICT RULES (MANDATORY):
-1. Do NOT rewrite, generate, modify, or improve any name.
-2. Do NOT use or consider URLs.
-3. Do NOT require or allow manual input.
-4. Do NOT guess or force matches.
-5. Focus strongly on intent keywords such as: fast, instant, loan, money, no document, apps, online
-6. Treat intent words (fast / instant / no document) as HIGH PRIORITY signals.
-7. Word order does NOT matter; meaning and intent matter most.
-8. Each original web result name can match with ONLY ONE new name.
-9. Each uploaded new name can be used ONLY ONCE.
-10. If no suitable match exists, return "NO MATCH".
+MATCHING RULES:
+1. Be LENIENT - partial matches, abbreviations, and similar-sounding names should match.
+2. Match based on: company names, brand recognition, partial word overlap, similar keywords.
+3. Examples of valid matches:
+   - "Hotstar Official" matches "Hotstar" or "Disney+ Hotstar"
+   - "TechRadar India" matches "TechRadar" 
+   - "Mistplay" matches "Mistplay" or "Mistplay Official"
+   - "Swagbucks" matches "Swagbucks" or "Swagbucks offers"
+4. Each original name should match with EXACTLY ONE uploaded name.
+5. Each uploaded name can only be used ONCE.
+6. ALWAYS try to find a match - only return "NO MATCH" if there's absolutely no similarity.
 
 CONFIDENCE SCORING:
-• Provide a confidence_score between 0 and 100.
-• High intent overlap = high score.
-• Low intent overlap = low score.
+• Exact match = 100
+• Very similar (same brand/company) = 80-99  
+• Partial match (some words overlap) = 50-79
+• Weak match (related category) = 30-49
+• Only return "NO MATCH" if confidence would be below 20
 
-OUTPUT FORMAT (STRICT – JSON ONLY):
+OUTPUT FORMAT (JSON ONLY):
 Return a JSON array where each object contains:
-• original_web_result
-• matched_new_name (or "NO MATCH")
-• confidence_score
+• original_web_result (exactly as provided)
+• matched_new_name (from uploaded list, or "NO MATCH")
+• confidence_score (0-100)
 
-DO NOT include explanations, markdown, comments, or extra text.
-ONLY return valid JSON.`;
+Return ONLY valid JSON, no explanations.`;
 
     const userPrompt = `INPUT:
 
@@ -127,6 +125,9 @@ OUTPUT:`;
 
     try {
       const matches = JSON.parse(content);
+      console.log('AI Matching Results:', JSON.stringify(matches));
+      const matchedCount = matches.filter((m: any) => m.matched_new_name !== "NO MATCH").length;
+      console.log('Matched count:', matchedCount, 'out of', matches.length);
       return new Response(
         JSON.stringify({ matches }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
