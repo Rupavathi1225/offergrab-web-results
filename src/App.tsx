@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Landing from "./pages/Landing";
 import WebResult from "./pages/WebResult";
+import SingleWebResult from "./pages/SingleWebResult";
 import Prelanding from "./pages/Prelanding";
 import LinkRedirect from "./pages/LinkRedirect";
 import BlogPage from "./pages/BlogPage";
@@ -31,8 +32,10 @@ function App() {
             <Route path="/" element={<Navigate to="/landing" replace />} />
             <Route path="/landing" element={<Landing />} />
             <Route path="/webresult/:page" element={<WebResult />} />
-            {/* Masked/short alias for web results pages (used by copied links) */}
+            {/* Masked/short alias for web results pages */}
             <Route path="/wr/:page" element={<WebResult />} />
+            {/* Single web result page (used by copied links) */}
+            <Route path="/r/:wrId" element={<SingleWebResult />} />
             <Route path="/prelanding/:id" element={<Prelanding />} />
             <Route path="/lid" element={<LinkRedirect />} />
             <Route path="/blog/:slug" element={<BlogPage />} />
