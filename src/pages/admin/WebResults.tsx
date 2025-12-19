@@ -30,6 +30,8 @@ interface WebResult {
   fallback_link: string | null;
   is_active: boolean;
   created_at?: string;
+  blog_id?: string | null;
+  related_search_id?: string | null;
 }
 
 interface Blog {
@@ -245,7 +247,18 @@ const WebResults = () => {
     }
 
     try {
-      const { error } = await supabase.from('web_results').insert(newResult);
+      // Attach ownership so future blog deletions only remove their own data
+      const ctxSearch = selectedRelatedSearchId
+        ? relatedSearches.find((s) => s.id === selectedRelatedSearchId)
+        : selectedBlogId
+          ? relatedSearches.find((s) => s.blog_id === selectedBlogId && s.target_wr === newResult.wr_page)
+          : undefined;
+
+      const payload: any = ctxSearch
+        ? { ...newResult, blog_id: ctxSearch.blog_id, related_search_id: ctxSearch.id }
+        : newResult;
+
+      const { error } = await supabase.from('web_results').insert(payload);
       if (error) throw error;
 
       setNewResult(emptyResult);
@@ -317,8 +330,13 @@ const WebResults = () => {
 
   // Get blog and related search info for a web result
   const getWebResultContext = (result: WebResult) => {
-    const search = relatedSearches.find(s => s.target_wr === result.wr_page);
-    const blog = search?.blog_id ? blogs.find(b => b.id === search.blog_id) : null;
+    // Prefer explicit relation when available
+    const search = result.related_search_id
+      ? relatedSearches.find((s) => s.id === result.related_search_id)
+      : relatedSearches.find((s) => s.target_wr === result.wr_page);
+
+    const blogId = result.blog_id ?? search?.blog_id ?? null;
+    const blog = blogId ? blogs.find((b) => b.id === blogId) : null;
     return { search, blog };
   };
 
@@ -441,14 +459,16 @@ const WebResults = () => {
   // Apply blog and related search filters
   let filteredResults = searchFiltered;
   if (selectedBlogId) {
-    const blogSearchIds = relatedSearches.filter(s => s.blog_id === selectedBlogId).map(s => s.target_wr);
-    filteredResults = filteredResults.filter(r => blogSearchIds.includes(r.wr_page));
+    filteredResults = filteredResults.filter((r) => {
+      if (r.blog_id) return r.blog_id === selectedBlogId;
+      const blogWrPages = relatedSearches
+        .filter((s) => s.blog_id === selectedBlogId)
+        .map((s) => s.target_wr);
+      return blogWrPages.includes(r.wr_page);
+    });
   }
   if (selectedRelatedSearchId) {
-    const search = relatedSearches.find(s => s.id === selectedRelatedSearchId);
-    if (search) {
-      filteredResults = filteredResults.filter(r => r.wr_page === search.target_wr);
-    }
+    filteredResults = filteredResults.filter((r) => r.related_search_id === selectedRelatedSearchId);
   }
   if (selectedWr !== 0 && !selectedRelatedSearchId) {
     filteredResults = filteredResults.filter(r => r.wr_page === selectedWr);

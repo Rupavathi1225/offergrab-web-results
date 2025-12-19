@@ -103,6 +103,58 @@ const WebResult = () => {
 
   const fetchData = async () => {
     try {
+      // If user came from a blog, scope results to that blog only
+      if (fromBlog && blogSlug) {
+        const { data: blog, error: blogErr } = await supabase
+          .from("blogs")
+          .select("id")
+          .eq("slug", blogSlug)
+          .maybeSingle();
+        if (blogErr) throw blogErr;
+
+        if (!blog?.id) {
+          setResults([]);
+        } else {
+          const { data: search, error: searchErr } = await supabase
+            .from("related_searches")
+            .select("id")
+            .eq("blog_id", blog.id)
+            .eq("target_wr", wrPage)
+            .maybeSingle();
+          if (searchErr) throw searchErr;
+
+          if (!search?.id) {
+            setResults([]);
+          } else {
+            const [resultsRes, contentRes, prelandingsRes] = await Promise.all([
+              supabase
+                .from("web_results")
+                .select("*")
+                .eq("related_search_id", search.id)
+                .eq("is_active", true)
+                .order("serial_number", { ascending: true }),
+              supabase.from("landing_content").select("site_name").limit(1).maybeSingle(),
+              supabase.from("prelandings").select("id, web_result_id, is_active").eq("is_active", true),
+            ]);
+
+            if (resultsRes.data) setResults(resultsRes.data);
+            if (contentRes.data) setContent(contentRes.data);
+
+            if (prelandingsRes.data) {
+              const prelandingMap: Record<string, Prelanding> = {};
+              prelandingsRes.data.forEach((p: any) => {
+                if (p.web_result_id) {
+                  prelandingMap[p.web_result_id] = { id: p.id, is_active: p.is_active };
+                }
+              });
+              setPrelandings(prelandingMap);
+            }
+          }
+        }
+        return;
+      }
+
+      // Default (no blog context): show global results by page
       const [resultsRes, contentRes, prelandingsRes] = await Promise.all([
         supabase
           .from('web_results')
@@ -116,7 +168,7 @@ const WebResult = () => {
 
       if (resultsRes.data) setResults(resultsRes.data);
       if (contentRes.data) setContent(contentRes.data);
-      
+
       if (prelandingsRes.data) {
         const prelandingMap: Record<string, Prelanding> = {};
         prelandingsRes.data.forEach((p: any) => {

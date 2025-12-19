@@ -150,14 +150,47 @@ const Blogs = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      // Delete only web_results that belong to this blog (via blog_id column)
+      // Find this blog's related searches / pages
+      const { data: relatedSearches, error: rsError } = await supabase
+        .from("related_searches")
+        .select("id, target_wr")
+        .eq("blog_id", id);
+      if (rsError) throw rsError;
+
+      const targetWrPages = Array.from(
+        new Set((relatedSearches || []).map((rs) => rs.target_wr).filter(Boolean))
+      ) as number[];
+
+      // 1) Delete web_results that are explicitly linked to this blog
       // Prelandings will cascade delete via foreign key
       await supabase.from("web_results").delete().eq("blog_id", id);
-      
-      // Delete related_searches for this blog (cascade will also handle this, but explicit is clearer)
+
+      // 2) Legacy cleanup: delete unlinked web_results by wr_page ONLY if that page isn't used by other blogs
+      if (targetWrPages.length > 0) {
+        const { data: otherSearches, error: otherErr } = await supabase
+          .from("related_searches")
+          .select("id, target_wr, blog_id")
+          .in("target_wr", targetWrPages)
+          .neq("blog_id", id);
+        if (otherErr) throw otherErr;
+
+        const pagesUsedByOthers = new Set((otherSearches || []).map((s) => s.target_wr));
+        const safePages = targetWrPages.filter((p) => !pagesUsedByOthers.has(p));
+
+        if (safePages.length > 0) {
+          await supabase
+            .from("web_results")
+            .delete()
+            .in("wr_page", safePages)
+            .is("blog_id", null)
+            .is("related_search_id", null);
+        }
+      }
+
+      // 3) Delete related_searches for this blog (cascades will handle linked web_results)
       await supabase.from("related_searches").delete().eq("blog_id", id);
-      
-      // Finally delete the blog - cascades will handle remaining cleanup
+
+      // 4) Finally delete the blog
       const { error } = await supabase.from("blogs").delete().eq("id", id);
       if (error) throw error;
     },
@@ -459,15 +492,48 @@ const Blogs = () => {
     if (!confirm(`Delete ${selectedIds.size} selected blogs? This will also delete all related searches, web results, and prelandings.`)) return;
     try {
       const blogIds = Array.from(selectedIds);
-      
+
       for (const blogId of blogIds) {
-        // Delete only web_results that belong to this blog (via blog_id column)
+        // Find this blog's related searches / pages
+        const { data: relatedSearches, error: rsError } = await supabase
+          .from("related_searches")
+          .select("id, target_wr")
+          .eq("blog_id", blogId);
+        if (rsError) throw rsError;
+
+        const targetWrPages = Array.from(
+          new Set((relatedSearches || []).map((rs) => rs.target_wr).filter(Boolean))
+        ) as number[];
+
+        // 1) Delete web_results explicitly linked to this blog
         await supabase.from("web_results").delete().eq("blog_id", blogId);
-        
-        // Delete related_searches for this blog
+
+        // 2) Legacy cleanup: delete unlinked web_results by wr_page ONLY if that page isn't used by other blogs
+        if (targetWrPages.length > 0) {
+          const { data: otherSearches, error: otherErr } = await supabase
+            .from("related_searches")
+            .select("id, target_wr, blog_id")
+            .in("target_wr", targetWrPages)
+            .neq("blog_id", blogId);
+          if (otherErr) throw otherErr;
+
+          const pagesUsedByOthers = new Set((otherSearches || []).map((s) => s.target_wr));
+          const safePages = targetWrPages.filter((p) => !pagesUsedByOthers.has(p));
+
+          if (safePages.length > 0) {
+            await supabase
+              .from("web_results")
+              .delete()
+              .in("wr_page", safePages)
+              .is("blog_id", null)
+              .is("related_search_id", null);
+          }
+        }
+
+        // 3) Delete related_searches for this blog
         await supabase.from("related_searches").delete().eq("blog_id", blogId);
-        
-        // Delete the blog - cascades will handle remaining cleanup
+
+        // 4) Delete the blog
         await supabase.from("blogs").delete().eq("id", blogId);
       }
       
