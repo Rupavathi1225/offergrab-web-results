@@ -133,6 +133,51 @@ export type Database = {
           },
         ]
       }
+      fallback_sequence_tracker: {
+        Row: {
+          current_index: number
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          current_index?: number
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          current_index?: number
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      fallback_urls: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          sequence_order: number
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          sequence_order?: number
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          sequence_order?: number
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
       landing_content: {
         Row: {
           created_at: string

@@ -11,6 +11,7 @@ const tabs = [
   { label: 'Blogs', path: '/admin/blogs' },
   { label: 'Analytics', path: '/admin/analytics' },
   { label: 'Bulk Editor', path: '/admin/bulk-web-result-editor' },
+  { label: 'Fallback URLs', path: '/admin/fallback-urls' },
 ];
 
 const AdminLayout = () => {
