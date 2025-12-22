@@ -41,18 +41,22 @@ const FastMoney = () => {
       if (trackerError) throw trackerError;
 
       const currentIndex = tracker?.current_index || 0;
-      const nextIndex = currentIndex % urls.length;
+      const safeIndex = currentIndex % urls.length;
       
       // Get the URL at the current index
-      const selectedUrl = urls[nextIndex]?.url || urls[0]?.url;
+      const selectedUrl = urls[safeIndex]?.url || urls[0]?.url;
       setRedirectUrl(selectedUrl);
 
-      // Update the tracker to next position
+      // Calculate next index for the next visitor
       const newIndex = (currentIndex + 1) % urls.length;
-      await supabase
-        .from("fallback_sequence_tracker")
-        .update({ current_index: newIndex })
-        .neq("id", "00000000-0000-0000-0000-000000000000");
+      
+      // Update the tracker - use the actual tracker ID
+      if (tracker?.id) {
+        await supabase
+          .from("fallback_sequence_tracker")
+          .update({ current_index: newIndex, updated_at: new Date().toISOString() })
+          .eq("id", tracker.id);
+      }
 
       setLoading(false);
     } catch (error) {
