@@ -4,6 +4,7 @@ import { Search, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { initSession, trackClick, getOrCreateSessionId } from "@/lib/tracking";
 import { generateRandomToken } from "@/lib/linkGenerator";
+import { getUserCountryCode, isCountryAllowed } from "@/lib/countryAccess";
 
 interface WebResultItem {
   id: string;
@@ -14,6 +15,8 @@ interface WebResultItem {
   logo_url: string | null;
   is_sponsored: boolean;
   serial_number: number;
+  allowed_countries: string[] | null;
+  fallback_link: string | null;
 }
 
 interface LandingContent {
@@ -73,6 +76,7 @@ const WebResult = () => {
   const [prelandings, setPrelandings] = useState<Record<string, Prelanding>>({});
   const [loading, setLoading] = useState(true);
   const [maskedNames, setMaskedNames] = useState<string[]>([]);
+  const [userCountryCode, setUserCountryCode] = useState<string>('XX');
 
   // Get blog context from navigation state
   const fromBlog = location.state?.fromBlog;
@@ -92,6 +96,8 @@ const WebResult = () => {
     document.title = `Web Results - Page ${wrPage}`;
     initSession();
     fetchData();
+    // Get user's country code for access checking
+    getUserCountryCode().then(code => setUserCountryCode(code));
   }, [wrPage]);
 
   // Generate unique masked names when results change
@@ -194,6 +200,17 @@ const WebResult = () => {
     
     // Track click (don't await to avoid delay)
     trackClick('web_result', result.id, result.title, `/webresult/${wrPage}`, lid, result.link);
+    
+    // Check country access
+    const allowed = isCountryAllowed(result.allowed_countries, userCountryCode);
+    console.log('Country check:', userCountryCode, 'Allowed countries:', result.allowed_countries, 'Is allowed:', allowed);
+    
+    if (!allowed) {
+      // User's country is not allowed - redirect to FastMoney with fallback URL
+      const fallbackUrl = result.fallback_link || result.link;
+      navigate(`/fastmoney?fallback=${encodeURIComponent(fallbackUrl)}`);
+      return;
+    }
     
     if (prelanding && prelanding.is_active) {
       // Navigate to prelanding page - pass blog context if coming from blog
