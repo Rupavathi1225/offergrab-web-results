@@ -1,32 +1,75 @@
 import { useEffect, useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
 import { DollarSign, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 const FastMoney = () => {
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const [countdown, setCountdown] = useState(3);
+  const [countdown, setCountdown] = useState(5);
   const [clicked, setClicked] = useState(false);
-  
-  const fallbackUrl = searchParams.get('fallback') || '/landing';
+  const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     document.title = "FastMoney - Redirecting...";
+    fetchNextUrl();
   }, []);
 
+  const fetchNextUrl = async () => {
+    try {
+      // Get all active URLs in sequence order
+      const { data: urls, error: urlsError } = await supabase
+        .from("fallback_urls")
+        .select("*")
+        .eq("is_active", true)
+        .order("sequence_order", { ascending: true });
+
+      if (urlsError) throw urlsError;
+
+      if (!urls || urls.length === 0) {
+        // No URLs configured, use default
+        setRedirectUrl("https://google.com");
+        setLoading(false);
+        return;
+      }
+
+      // Get current sequence tracker
+      const { data: tracker, error: trackerError } = await supabase
+        .from("fallback_sequence_tracker")
+        .select("*")
+        .limit(1)
+        .maybeSingle();
+
+      if (trackerError) throw trackerError;
+
+      const currentIndex = tracker?.current_index || 0;
+      const nextIndex = currentIndex % urls.length;
+      
+      // Get the URL at the current index
+      const selectedUrl = urls[nextIndex]?.url || urls[0]?.url;
+      setRedirectUrl(selectedUrl);
+
+      // Update the tracker to next position
+      const newIndex = (currentIndex + 1) % urls.length;
+      await supabase
+        .from("fallback_sequence_tracker")
+        .update({ current_index: newIndex })
+        .neq("id", "00000000-0000-0000-0000-000000000000");
+
+      setLoading(false);
+    } catch (error) {
+      console.error("Error fetching redirect URL:", error);
+      setRedirectUrl("https://google.com");
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    if (clicked) return;
+    if (loading || clicked || !redirectUrl) return;
 
     const timer = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          // Auto redirect to fallback URL
-          if (fallbackUrl.startsWith('http')) {
-            window.location.href = fallbackUrl;
-          } else {
-            navigate(fallbackUrl);
-          }
+          window.location.href = redirectUrl;
           return 0;
         }
         return prev - 1;
@@ -34,15 +77,12 @@ const FastMoney = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [fallbackUrl, navigate, clicked]);
+  }, [loading, redirectUrl, clicked]);
 
   const handleClick = () => {
+    if (!redirectUrl) return;
     setClicked(true);
-    if (fallbackUrl.startsWith('http')) {
-      window.location.href = fallbackUrl;
-    } else {
-      navigate(fallbackUrl);
-    }
+    window.location.href = redirectUrl;
   };
 
   return (
@@ -67,7 +107,7 @@ const FastMoney = () => {
         <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
           <p className="text-emerald-100 mb-3">Redirecting you in</p>
           <div className="text-6xl font-bold text-yellow-400 animate-pulse">
-            {countdown}
+            {loading ? <Loader2 className="h-16 w-16 animate-spin mx-auto" /> : countdown}
           </div>
           <p className="text-emerald-200 mt-3 text-sm">seconds</p>
         </div>
@@ -75,7 +115,8 @@ const FastMoney = () => {
         {/* Click to redirect button */}
         <button
           onClick={handleClick}
-          className="bg-gradient-to-r from-yellow-400 to-amber-500 text-green-900 font-bold py-4 px-8 rounded-full text-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 flex items-center justify-center gap-2 mx-auto"
+          disabled={loading}
+          className="bg-gradient-to-r from-yellow-400 to-amber-500 text-green-900 font-bold py-4 px-8 rounded-full text-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 flex items-center justify-center gap-2 mx-auto disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {clicked ? (
             <>

@@ -98,9 +98,8 @@ const SingleWebResult = () => {
     const allowed = isCountryAllowed(result.allowed_countries, userCountryCode);
     
     if (!allowed) {
-      // User's country is not allowed - redirect to FastMoney with fallback URL
-      const fallbackUrl = result.fallback_link || result.link;
-      navigate(`/fastmoney?fallback=${encodeURIComponent(fallbackUrl)}`);
+      // User's country is not allowed - open FastMoney in new tab
+      window.open('/fastmoney', '_blank', 'noopener,noreferrer');
       return;
     }
     
