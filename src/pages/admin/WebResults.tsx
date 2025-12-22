@@ -11,7 +11,7 @@ import { toast } from "@/hooks/use-toast";
 import { Plus, Save, Trash2, Edit2, X, Globe, Sparkles, Loader2, Search, Copy, ChevronDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { countries } from "@/lib/countries";
+import { countries, getCountryName } from "@/lib/countries";
 import BulkActionToolbar from "@/components/admin/BulkActionToolbar";
 import { convertToCSV, downloadCSV } from "@/lib/csvExport";
 import { generateMaskedLink, formatDate, formatWebResultForCopy, generateRandomToken } from "@/lib/linkGenerator";
@@ -78,7 +78,7 @@ const WebResults = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedResults, setGeneratedResults] = useState<GeneratedWebResult[]>([]);
   
-  // Copy fields selection (horizontal row for spreadsheet) - 6 fields only
+  // Copy fields selection (horizontal row for spreadsheet) - 7 fields including country
   const [copyFields, setCopyFields] = useState({
     title: true,
     description: true,
@@ -86,6 +86,7 @@ const WebResults = () => {
     relatedSearch: true,
     originalLink: true,
     date: true,
+    country: true,
   });
 
   const emptyResult: Omit<WebResult, 'id'> = {
@@ -346,12 +347,18 @@ const WebResults = () => {
     setShowCopyDialog(true);
   };
 
+  // Helper to get country names from allowed_countries
+  const getCountryDisplayNames = (allowedCountries: string[] | null | undefined): string => {
+    if (!allowedCountries || allowedCountries.length === 0) return 'N/A';
+    return allowedCountries.map(code => getCountryName(code)).join(', ');
+  };
+
   const handleCopyWithOptions = () => {
     if (!copyTarget) return;
     
     const { search, blog } = getWebResultContext(copyTarget);
     
-    // Build headers and values arrays based on selected fields - 6 fields only
+    // Build headers and values arrays based on selected fields - 7 fields including country
     const headers: string[] = [];
     const values: string[] = [];
     
@@ -379,6 +386,10 @@ const WebResults = () => {
       headers.push('Date');
       values.push(copyTarget.created_at ? formatDate(copyTarget.created_at) : formatDate(new Date().toISOString()));
     }
+    if (copyFields.country) {
+      headers.push('Country');
+      values.push(getCountryDisplayNames(copyTarget.allowed_countries));
+    }
     
     // Create two rows: headers and values
     const copyText = headers.join('\t') + '\n' + values.join('\t');
@@ -389,7 +400,7 @@ const WebResults = () => {
   };
 
   // Quick copy single field
-  const quickCopy = (result: WebResult, field: 'title' | 'description' | 'originalLink' | 'blogName' | 'relatedSearch' | 'date' | 'name' | 'all') => {
+  const quickCopy = (result: WebResult, field: 'title' | 'description' | 'originalLink' | 'blogName' | 'relatedSearch' | 'date' | 'name' | 'country' | 'all') => {
     const { search, blog } = getWebResultContext(result);
     const maskedLink = generateMaskedLink({
       blogId: blog?.id,
@@ -400,8 +411,8 @@ const WebResults = () => {
     let copyText = '';
     
     if (field === 'all') {
-      // Copy headers row + data row (6 columns only: Title, Description, Blog, Related Search, Original Link, Date)
-      const headers = ['Web Result Title', 'Web Result Description', 'Blog', 'Related Search', 'Original Link', 'Date'];
+      // Copy headers row + data row (7 columns: Title, Description, Blog, Related Search, Original Link, Date, Country)
+      const headers = ['Web Result Title', 'Web Result Description', 'Blog', 'Related Search', 'Original Link', 'Date', 'Country'];
       const values = [
         result.title || '',
         result.description || '',
@@ -409,6 +420,7 @@ const WebResults = () => {
         search?.title || 'N/A',
         result.link || '',
         result.created_at ? formatDate(result.created_at) : formatDate(new Date().toISOString()),
+        getCountryDisplayNames(result.allowed_countries),
       ];
       copyText = headers.join('\t') + '\n' + values.join('\t');
     } else if (field === 'title') {
@@ -425,6 +437,8 @@ const WebResults = () => {
       copyText = result.created_at ? formatDate(result.created_at) : formatDate(new Date().toISOString());
     } else if (field === 'name') {
       copyText = result.name || '';
+    } else if (field === 'country') {
+      copyText = getCountryDisplayNames(result.allowed_countries);
     }
     
     navigator.clipboard.writeText(copyText);
@@ -999,6 +1013,7 @@ const WebResults = () => {
                 <th>Title</th>
                 <th>Blog</th>
                 <th>Related Search</th>
+                <th>Country</th>
                 <th>Page</th>
                 <th>Date</th>
                 <th>Status</th>
@@ -1035,6 +1050,9 @@ const WebResults = () => {
                     <td className="max-w-xs truncate">{result.title}</td>
                     <td className="text-xs text-muted-foreground">{blog?.title || 'N/A'}</td>
                     <td className="text-xs text-muted-foreground max-w-[120px] truncate">{search?.title || 'N/A'}</td>
+                    <td className="text-xs text-muted-foreground max-w-[150px] truncate" title={getCountryDisplayNames(result.allowed_countries)}>
+                      {getCountryDisplayNames(result.allowed_countries)}
+                    </td>
                     <td><span className="badge-primary">wr={result.wr_page}</span></td>
                     <td className="text-xs text-muted-foreground">
                       {result.created_at ? formatDate(result.created_at) : 'N/A'}
@@ -1075,6 +1093,9 @@ const WebResults = () => {
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => quickCopy(result, 'originalLink')}>
                               Copy Original Link
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => quickCopy(result, 'country')}>
+                              Copy Country
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => quickCopy(result, 'date')}>
                               Copy Date

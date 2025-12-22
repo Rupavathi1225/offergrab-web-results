@@ -11,6 +11,23 @@ import { Upload, FileSpreadsheet, AlertCircle, CheckCircle2, XCircle, Loader2, L
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import * as XLSX from "xlsx";
+import { countries, getCountryName } from "@/lib/countries";
+
+// Helper to get country code from name (case insensitive)
+const getCountryCode = (nameOrCode: string): string | null => {
+  const normalized = nameOrCode.toLowerCase().trim();
+  const country = countries.find(c => 
+    c.code.toLowerCase() === normalized || 
+    c.name.toLowerCase() === normalized
+  );
+  return country?.code || null;
+};
+
+// Helper to get display names from allowed_countries
+const getCountryDisplayNames = (allowedCountries: string[] | null | undefined): string => {
+  if (!allowedCountries || allowedCountries.length === 0) return 'N/A';
+  return allowedCountries.map(code => getCountryName(code)).join(', ');
+};
 
 interface ParsedRow {
   rowIndex: number;
@@ -20,6 +37,7 @@ interface ParsedRow {
   new_title: string;
   new_url: string;
   new_description?: string;
+  new_country?: string; // Country column for updating allowed_countries
 }
 
 interface MatchedRow {
@@ -28,9 +46,11 @@ interface MatchedRow {
   currentTitle: string;
   currentUrl: string;
   currentDescription: string;
+  currentCountry: string;
   newTitle: string;
   newUrl: string;
   newDescription: string;
+  newCountry: string;
   status: 'matched' | 'not_found' | 'error';
   errorMessage?: string;
   selected: boolean;
@@ -43,6 +63,7 @@ interface WebResult {
   title: string;
   link: string;
   description: string | null;
+  allowed_countries: string[] | null;
 }
 
 interface AIMatch {
@@ -132,6 +153,7 @@ const BulkWebResultEditor = () => {
           const newTitleIndex = headers.findIndex(h => h === 'new_title');
           const newUrlIndex = headers.findIndex(h => h === 'new_url');
           const newDescriptionIndex = headers.findIndex(h => h === 'new_description' || h === 'web result description');
+          const newCountryIndex = headers.findIndex(h => h === 'new_country' || h === 'country');
           
           // Check for matching columns - support multiple header variations
           const webResultIdIndex = headers.findIndex(h => h === 'web_result_id');
@@ -171,6 +193,10 @@ const BulkWebResultEditor = () => {
             
             if (newDescriptionIndex !== -1 && row[newDescriptionIndex]) {
               parsedRow.new_description = String(row[newDescriptionIndex]).trim();
+            }
+            
+            if (newCountryIndex !== -1 && row[newCountryIndex]) {
+              parsedRow.new_country = String(row[newCountryIndex]).trim();
             }
             
             if (webResultIdIndex !== -1 && row[webResultIdIndex]) {
@@ -216,7 +242,7 @@ const BulkWebResultEditor = () => {
     // Fetch all web results
     const { data: webResults, error } = await supabase
       .from('web_results')
-      .select('id, name, title, link, description');
+      .select('id, name, title, link, description, allowed_countries');
     
     if (error) {
       throw new Error('Failed to fetch web results from database.');
@@ -264,9 +290,11 @@ const BulkWebResultEditor = () => {
           currentTitle: matchedResult.title,
           currentUrl: matchedResult.link,
           currentDescription: matchedResult.description || '',
+          currentCountry: getCountryDisplayNames(matchedResult.allowed_countries),
           newTitle: row.new_title,
           newUrl: row.new_url,
           newDescription: row.new_description || '',
+          newCountry: row.new_country || '',
           status: 'matched' as const,
           selected: true, // Auto-select matched rows
         };
@@ -277,9 +305,11 @@ const BulkWebResultEditor = () => {
           currentTitle: '-',
           currentUrl: row.old_url || row.web_result_id || row.sheet_name || '-',
           currentDescription: '-',
+          currentCountry: '-',
           newTitle: row.new_title,
           newUrl: row.new_url,
           newDescription: row.new_description || '',
+          newCountry: row.new_country || '',
           status: 'not_found' as const,
           errorMessage: 'No matching web result found',
           selected: false,
@@ -292,7 +322,7 @@ const BulkWebResultEditor = () => {
     // Fetch all web results
     const { data: webResults, error } = await supabase
       .from('web_results')
-      .select('id, name, title, link, description');
+      .select('id, name, title, link, description, allowed_countries');
     
     if (error) {
       throw new Error('Failed to fetch web results from database.');
@@ -362,9 +392,11 @@ const BulkWebResultEditor = () => {
           currentTitle: wr.title,
           currentUrl: wr.link,
           currentDescription: wr.description || '',
+          currentCountry: getCountryDisplayNames((wr as any).allowed_countries),
           newTitle: parsedRow?.new_title || '',
           newUrl: parsedRow?.new_url || '',
           newDescription: parsedRow?.new_description || '',
+          newCountry: parsedRow?.new_country || '',
           status: 'matched' as const,
           selected: true, // Auto-select all matched rows
           confidenceScore: matchData.confidence,
@@ -376,9 +408,11 @@ const BulkWebResultEditor = () => {
           currentTitle: wr.title,
           currentUrl: wr.link,
           currentDescription: wr.description || '',
+          currentCountry: getCountryDisplayNames((wr as any).allowed_countries),
           newTitle: '',
           newUrl: '',
           newDescription: '',
+          newCountry: '',
           status: 'not_found' as const,
           errorMessage: 'No matching name found in uploaded data',
           selected: false,
@@ -461,7 +495,7 @@ const BulkWebResultEditor = () => {
       // Fetch web result by name
       const { data: webResults, error } = await supabase
         .from('web_results')
-        .select('id, name, title, link, description')
+        .select('id, name, title, link, description, allowed_countries')
         .ilike('name', manualName.trim());
 
       if (error) throw new Error('Failed to search web results.');
@@ -484,9 +518,11 @@ const BulkWebResultEditor = () => {
         currentTitle: wr.title,
         currentUrl: wr.link,
         currentDescription: wr.description || '',
+        currentCountry: getCountryDisplayNames((wr as any).allowed_countries),
         newTitle: manualNewTitle.trim(),
         newUrl: manualNewUrl.trim(),
         newDescription: manualNewDescription.trim(),
+        newCountry: '', // Manual entry doesn't support country yet
         status: 'matched',
         selected: true,
         confidenceScore: 100, // Manual match = 100% confidence
@@ -762,13 +798,21 @@ const BulkWebResultEditor = () => {
         }
         
         // Then update the web_result
-        const updateData: Record<string, string> = {
+        const updateData: Record<string, any> = {
           updated_at: new Date().toISOString(),
         };
         
         if (row.newTitle) updateData.title = row.newTitle;
         if (row.newUrl) updateData.link = row.newUrl;
         if (row.newDescription) updateData.description = row.newDescription;
+        
+        // Handle country update - convert name to code if needed
+        if (row.newCountry) {
+          const countryCode = getCountryCode(row.newCountry);
+          if (countryCode) {
+            updateData.allowed_countries = [countryCode];
+          }
+        }
         
         const { error: updateError } = await supabase
           .from('web_results')
@@ -784,7 +828,7 @@ const BulkWebResultEditor = () => {
         // Update row status
         setMatchedRows(prev => prev.map(r => 
           r.rowIndex === row.rowIndex
-            ? { ...r, status: 'matched' as const, selected: false, currentTitle: row.newTitle, currentUrl: row.newUrl }
+            ? { ...r, status: 'matched' as const, selected: false, currentTitle: row.newTitle || r.currentTitle, currentUrl: row.newUrl || r.currentUrl, currentCountry: row.newCountry || r.currentCountry }
             : r
         ));
       } catch (error) {
@@ -1077,9 +1121,11 @@ const BulkWebResultEditor = () => {
                     <TableHead>Current Title</TableHead>
                     <TableHead>Current URL</TableHead>
                     <TableHead>Current Description</TableHead>
+                    <TableHead>Current Country</TableHead>
                     <TableHead>New Title</TableHead>
                     <TableHead>New URL</TableHead>
                     <TableHead>New Description</TableHead>
+                    <TableHead>New Country</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1136,6 +1182,9 @@ const BulkWebResultEditor = () => {
                       <TableCell className="max-w-32 truncate" title={row.currentDescription}>
                         {row.currentDescription || '-'}
                       </TableCell>
+                      <TableCell className="max-w-32 truncate" title={row.currentCountry}>
+                        {row.currentCountry || '-'}
+                      </TableCell>
                       <TableCell className="max-w-48 truncate font-medium text-primary" title={row.newTitle}>
                         {row.newTitle || '-'}
                       </TableCell>
@@ -1144,6 +1193,9 @@ const BulkWebResultEditor = () => {
                       </TableCell>
                       <TableCell className="max-w-32 truncate font-medium text-primary" title={row.newDescription}>
                         {row.newDescription || '-'}
+                      </TableCell>
+                      <TableCell className="max-w-32 truncate font-medium text-primary" title={row.newCountry}>
+                        {row.newCountry || '-'}
                       </TableCell>
                     </TableRow>
                   ))}
