@@ -540,8 +540,8 @@ const WebResults = () => {
   const copySelected = () => {
     const selected = filteredResults.filter(r => selectedIds.has(r.id));
     
-    // Headers row - only 6 fields as specified
-    const headers = ['Web Result Title', 'Web Result Description', 'Blog', 'Related Search', 'Original Link', 'Date'];
+    // Headers row - 7 fields including country
+    const headers = ['Web Result Title', 'Web Result Description', 'Blog', 'Related Search', 'Original Link', 'Date', 'Country'];
     
     // Data rows for each selected result
     const dataRows = selected.map(r => {
@@ -553,7 +553,8 @@ const WebResults = () => {
         blog?.title || '',
         search?.title || '',
         r.link || '',
-        new Date(r.created_at).toLocaleDateString()
+        r.created_at ? formatDate(r.created_at) : formatDate(new Date().toISOString()),
+        getCountryDisplayNames(r.allowed_countries),
       ].join('\t');
     });
     
