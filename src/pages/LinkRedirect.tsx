@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { trackClick, initSession } from "@/lib/tracking";
+import { getUserCountryCode, isCountryAllowed } from "@/lib/countryAccess";
 
 const LinkRedirect = () => {
   const [searchParams] = useSearchParams();
@@ -43,6 +44,17 @@ const LinkRedirect = () => {
 
       // Track the click
       await trackClick('web_result', result.id, result.title, `/lid=${lid}`, lidNum, result.link);
+
+      // Check country access
+      const userCountryCode = await getUserCountryCode();
+      const allowed = isCountryAllowed(result.allowed_countries, userCountryCode);
+      
+      if (!allowed) {
+        // User's country is not allowed - redirect to FastMoney with fallback URL
+        const fallbackUrl = result.fallback_link || result.link;
+        navigate(`/fastmoney?fallback=${encodeURIComponent(fallbackUrl)}`);
+        return;
+      }
 
       // Check for prelanding
       const { data: prelanding } = await supabase

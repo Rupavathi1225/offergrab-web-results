@@ -3,6 +3,7 @@ import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, ExternalLink } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { initSession, trackClick } from "@/lib/tracking";
+import { getUserCountryCode, isCountryAllowed } from "@/lib/countryAccess";
 
 interface WebResultItem {
   id: string;
@@ -14,6 +15,8 @@ interface WebResultItem {
   is_sponsored: boolean;
   serial_number: number;
   wr_page: number;
+  allowed_countries: string[] | null;
+  fallback_link: string | null;
 }
 
 interface LandingContent {
@@ -35,10 +38,12 @@ const SingleWebResult = () => {
   const [prelanding, setPrelanding] = useState<Prelanding | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [userCountryCode, setUserCountryCode] = useState<string>('XX');
 
   useEffect(() => {
     initSession();
     fetchData();
+    getUserCountryCode().then(code => setUserCountryCode(code));
   }, [wrId]);
 
   const fetchData = async () => {
@@ -88,6 +93,16 @@ const SingleWebResult = () => {
     
     // Track click
     trackClick('web_result', result.id, result.title, `/wr/${wrId}`, 1, result.link);
+    
+    // Check country access
+    const allowed = isCountryAllowed(result.allowed_countries, userCountryCode);
+    
+    if (!allowed) {
+      // User's country is not allowed - redirect to FastMoney with fallback URL
+      const fallbackUrl = result.fallback_link || result.link;
+      navigate(`/fastmoney?fallback=${encodeURIComponent(fallbackUrl)}`);
+      return;
+    }
     
     if (prelanding && prelanding.is_active) {
       navigate(`/prelanding/${prelanding.id}`, {
