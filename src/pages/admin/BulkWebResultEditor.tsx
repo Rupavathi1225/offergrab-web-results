@@ -13,14 +13,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import * as XLSX from "xlsx";
 import { countries, getCountryName } from "@/lib/countries";
 
-// Helper to get country code from name (case insensitive)
+// Helper to get country code from name or code (case insensitive)
 const getCountryCode = (nameOrCode: string): string | null => {
-  const normalized = nameOrCode.toLowerCase().trim();
-  const country = countries.find(c => 
-    c.code.toLowerCase() === normalized || 
-    c.name.toLowerCase() === normalized
-  );
-  return country?.code || null;
+  if (!nameOrCode) return null;
+  const normalized = nameOrCode.trim();
+  // First try exact match on code (case insensitive)
+  const byCode = countries.find(c => c.code.toLowerCase() === normalized.toLowerCase());
+  if (byCode) return byCode.code;
+  // Then try match on name (case insensitive)
+  const byName = countries.find(c => c.name.toLowerCase() === normalized.toLowerCase());
+  if (byName) return byName.code;
+  return null;
 };
 
 // Helper to get display names from allowed_countries
@@ -217,7 +220,7 @@ const BulkWebResultEditor = () => {
               parsedRow.sheet_name = String(row[webResultTitleIndex]).trim();
             }
             
-            if (parsedRow.new_title || parsedRow.new_url || parsedRow.new_description) {
+            if (parsedRow.new_title || parsedRow.new_url || parsedRow.new_description || parsedRow.new_country) {
               rows.push(parsedRow);
             }
           }
@@ -828,9 +831,10 @@ const BulkWebResultEditor = () => {
         if (row.newUrl) updateData.link = row.newUrl;
         if (row.newDescription) updateData.description = row.newDescription;
         
-        // Handle country update - convert name to code if needed
+        // Handle country update - convert name or code to proper code
         if (row.newCountry) {
           const countryCode = getCountryCode(row.newCountry);
+          console.log('Country update:', { input: row.newCountry, resolved: countryCode });
           if (countryCode) {
             updateData.allowed_countries = [countryCode];
           }
