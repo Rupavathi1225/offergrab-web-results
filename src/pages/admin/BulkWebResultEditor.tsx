@@ -611,18 +611,35 @@ const BulkWebResultEditor = () => {
     setIsLoading(true);
 
     try {
-      // Fetch as CSV from public export URL
+      // Fetch as CSV from public export URL with no-cors fallback
       const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
-      const response = await fetch(csvUrl);
       
-      if (!response.ok) {
-        throw new Error("Failed to fetch Google Sheet. Make sure the sheet is publicly accessible (Anyone with the link can view).");
+      let csvText: string;
+      try {
+        const response = await fetch(csvUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'text/csv,application/csv,text/plain,*/*',
+          },
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        
+        csvText = await response.text();
+      } catch (fetchError) {
+        console.error('Direct fetch failed:', fetchError);
+        throw new Error("Failed to fetch Google Sheet. Please ensure:\n1. The sheet is publicly accessible (Share → Anyone with the link can view)\n2. Try downloading as CSV and use 'Upload File' tab instead.");
       }
-
-      const csvText = await response.text();
       
       if (!csvText.trim()) {
         throw new Error("Google Sheet is empty.");
+      }
+
+      // Check if we got an error page (HTML) instead of CSV
+      if (csvText.includes('<!DOCTYPE html>') || csvText.includes('<html')) {
+        throw new Error("Google Sheet is not publicly accessible. Please set sharing to 'Anyone with the link can view'.");
       }
 
       // Parse CSV using XLSX
@@ -662,6 +679,7 @@ const BulkWebResultEditor = () => {
       const newTitleIndex = headers.findIndex(h => h === 'new_title');
       const newUrlIndex = headers.findIndex(h => h === 'new_url');
       const newDescriptionIndex = headers.findIndex(h => h === 'new_description' || h === 'web result description');
+      const newCountryIndex = headers.findIndex(h => h === 'new_country' || h === 'country');
       
       // Check for matching columns - support multiple header variations
       const webResultIdIndex = headers.findIndex(h => h === 'web_result_id');
@@ -702,6 +720,10 @@ const BulkWebResultEditor = () => {
           parsedRow.new_description = String(row[newDescriptionIndex]).trim();
         }
         
+        if (newCountryIndex !== -1 && row[newCountryIndex]) {
+          parsedRow.new_country = String(row[newCountryIndex]).trim();
+        }
+        
         if (webResultIdIndex !== -1 && row[webResultIdIndex]) {
           parsedRow.web_result_id = String(row[webResultIdIndex]).trim();
         }
@@ -720,7 +742,7 @@ const BulkWebResultEditor = () => {
           parsedRow.sheet_name = String(row[webResultTitleIndex]).trim();
         }
         
-        if (parsedRow.new_title || parsedRow.new_url || parsedRow.new_description) {
+        if (parsedRow.new_title || parsedRow.new_url || parsedRow.new_description || parsedRow.new_country) {
           rows.push(parsedRow);
         }
       }
