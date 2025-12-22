@@ -1216,8 +1216,8 @@ const BulkWebResultEditor = () => {
                       <TableCell className="max-w-32 truncate font-medium text-primary" title={row.newDescription}>
                         {row.newDescription || '-'}
                       </TableCell>
-                      <TableCell className="max-w-32 truncate font-medium text-primary" title={row.newCountry}>
-                        {row.newCountry || '-'}
+                      <TableCell className="max-w-32 truncate font-medium text-primary" title={row.newCountry ? getCountryName(row.newCountry.toUpperCase()) : ''}>
+                        {row.newCountry ? getCountryName(row.newCountry.toUpperCase()) : '-'}
                       </TableCell>
                     </TableRow>
                   ))}
