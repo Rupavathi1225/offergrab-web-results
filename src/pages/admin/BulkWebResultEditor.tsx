@@ -156,8 +156,11 @@ const BulkWebResultEditor = () => {
           const newTitleIndex = headers.findIndex(h => h === 'new_title');
           const newUrlIndex = headers.findIndex(h => h === 'new_url');
           const newDescriptionIndex = headers.findIndex(h => h === 'new_description' || h === 'web result description');
-          const newCountryIndex = headers.findIndex(h => h === 'new_country' || h === 'country');
-          
+          // Prefer new_country over country (since sheets often include both)
+          const newCountryIndex = (() => {
+            const idx = headers.findIndex(h => h === 'new_country');
+            return idx !== -1 ? idx : headers.findIndex(h => h === 'country');
+          })();
           // Check for matching columns - support multiple header variations
           const webResultIdIndex = headers.findIndex(h => h === 'web_result_id');
           const oldUrlIndex = headers.findIndex(h => 
@@ -682,7 +685,11 @@ const BulkWebResultEditor = () => {
       const newTitleIndex = headers.findIndex(h => h === 'new_title');
       const newUrlIndex = headers.findIndex(h => h === 'new_url');
       const newDescriptionIndex = headers.findIndex(h => h === 'new_description' || h === 'web result description');
-      const newCountryIndex = headers.findIndex(h => h === 'new_country' || h === 'country');
+      // Prefer new_country over country (since sheets often include both)
+      const newCountryIndex = (() => {
+        const idx = headers.findIndex(h => h === 'new_country');
+        return idx !== -1 ? idx : headers.findIndex(h => h === 'country');
+      })();
       
       // Check for matching columns - support multiple header variations
       const webResultIdIndex = headers.findIndex(h => h === 'web_result_id');
