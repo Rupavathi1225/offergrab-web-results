@@ -66,8 +66,8 @@ const Landing2 = () => {
   // Fetch fallback URL for auto-redirect (country-filtered)
   useEffect(() => {
     const fetchNextUrl = async () => {
-      // Wait for country detection (don't proceed if still XX unless timeout)
-      if (userCountry === "XX") return;
+      // If country lookup fails and stays "XX", we only allow "worldwide" URLs (safe default)
+      const effectiveCountry = userCountry === "XX" ? "WORLDWIDE_ONLY" : userCountry.toUpperCase();
       
       try {
         const { data: allUrls, error: urlsError } = await supabase
@@ -86,13 +86,17 @@ const Landing2 = () => {
         // Check if URL is allowed for user's country
         const isAllowedForUser = (url: FallbackUrl) => {
           const countries = url.allowed_countries || ["worldwide"];
-          const userCountryUpper = userCountry.toUpperCase();
-          
-          return countries.some(c => {
+
+          // If we couldn't detect country, only allow worldwide URLs
+          if (effectiveCountry === "WORLDWIDE_ONLY") {
+            return countries.some((c) => c.toLowerCase() === "worldwide");
+          }
+
+          return countries.some((c) => {
             const countryLower = c.toLowerCase();
             const countryUpper = c.toUpperCase();
             // Allow if "worldwide" or exact country match
-            return countryLower === "worldwide" || countryUpper === userCountryUpper;
+            return countryLower === "worldwide" || countryUpper === effectiveCountry;
           });
         };
 
@@ -107,7 +111,7 @@ const Landing2 = () => {
         }
 
         // Use country-specific storage key for cycling through allowed URLs only
-        const storageKey = `fallback_allowed_index_${userCountry}`;
+        const storageKey = `fallback_allowed_index_${effectiveCountry === "WORLDWIDE_ONLY" ? "XX" : effectiveCountry}`;
         let currentIndex = parseInt(localStorage.getItem(storageKey) || "0", 10);
         
         // Ensure index is within bounds of allowed URLs
