@@ -25,7 +25,7 @@ const Landing2 = () => {
           .eq("status", "published")
           .eq("is_active", true)
           .order("created_at", { ascending: true })
-          .limit(2);
+          .limit(5);
 
         if (error) throw error;
         setBlogs(data || []);
