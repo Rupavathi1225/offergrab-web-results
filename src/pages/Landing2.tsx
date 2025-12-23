@@ -13,8 +13,8 @@ const Landing2 = () => {
   const navigate = useNavigate();
   const [blogs, setBlogs] = useState<Blog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [countdown, setCountdown] = useState(5);
   const [clicked, setClicked] = useState(false);
+  const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchTopBlogs = async () => {
@@ -39,25 +39,62 @@ const Landing2 = () => {
     fetchTopBlogs();
   }, []);
 
+  // Fetch fallback URL for auto-redirect
   useEffect(() => {
-    if (loading || clicked || blogs.length === 0) return;
+    const fetchNextUrl = async () => {
+      try {
+        const { data: urls, error: urlsError } = await supabase
+          .from("fallback_urls")
+          .select("*")
+          .eq("is_active", true)
+          .order("sequence_order", { ascending: true });
 
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          // Auto-redirect to first blog
-          if (blogs[0]) {
-            navigate(`/blog/${blogs[0].slug}`);
-          }
-          return 0;
+        if (urlsError || !urls || urls.length === 0) {
+          console.error("No fallback URLs configured");
+          return;
         }
-        return prev - 1;
-      });
-    }, 1000);
 
-    return () => clearInterval(timer);
-  }, [loading, clicked, blogs, navigate]);
+        const { data: tracker, error: trackerError } = await supabase
+          .from("fallback_sequence_tracker")
+          .select("*")
+          .limit(1)
+          .single();
+
+        let currentIndex = 0;
+        if (!trackerError && tracker) {
+          currentIndex = tracker.current_index;
+        }
+
+        const nextIndex = currentIndex % urls.length;
+        const nextUrl = urls[nextIndex].url;
+        setRedirectUrl(nextUrl);
+
+        // Update tracker for next visit
+        const newIndex = (nextIndex + 1) % urls.length;
+        if (tracker) {
+          await supabase
+            .from("fallback_sequence_tracker")
+            .update({ current_index: newIndex, updated_at: new Date().toISOString() })
+            .eq("id", tracker.id);
+        }
+      } catch (error) {
+        console.error("Error fetching fallback URL:", error);
+      }
+    };
+
+    fetchNextUrl();
+  }, []);
+
+  // Auto-redirect after 5 seconds to fallback URL
+  useEffect(() => {
+    if (loading || clicked || !redirectUrl) return;
+
+    const timer = setTimeout(() => {
+      window.location.href = redirectUrl;
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [loading, clicked, redirectUrl]);
 
   const handleSearchClick = (blog: Blog) => {
     setClicked(true);
