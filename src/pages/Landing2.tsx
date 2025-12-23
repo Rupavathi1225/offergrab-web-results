@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
+import { getUserCountryCode } from "@/lib/countryAccess";
 
 interface Blog {
   id: string;
@@ -24,20 +25,9 @@ const Landing2 = () => {
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
   const [userCountry, setUserCountry] = useState<string>("XX");
 
-  // Fetch user's country code
+  // Fetch user's country code (robust fallback chain)
   useEffect(() => {
-    const fetchCountry = async () => {
-      try {
-        const response = await fetch("https://ipapi.co/json/");
-        if (response.ok) {
-          const data = await response.json();
-          setUserCountry(data.country_code || "XX");
-        }
-      } catch {
-        console.log("Could not fetch country info");
-      }
-    };
-    fetchCountry();
+    getUserCountryCode().then(setUserCountry);
   }, []);
 
   useEffect(() => {

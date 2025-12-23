@@ -134,15 +134,20 @@ const WebResult = () => {
         const isSheetsUrl = (u: string) => u.includes("docs.google.com/spreadsheets");
         const isAllowedForUser = (url: FallbackUrl) => {
           const countries = url.allowed_countries || ["worldwide"];
-          if (userCountryCode === "XX") return true; // country unknown -> try sequence as-is
+          const normalized = countries.map((c) => (c || "").trim().toLowerCase());
+
+          // Country unknown -> only allow worldwide URLs (prevents AT/AZ etc. leaking through)
+          if (userCountryCode === "XX") return normalized.includes("worldwide") || normalized.includes("ww");
+
           const normalizedUserCountry = userCountryCode.toUpperCase();
-          return countries.some(c => {
-            const normalizedC = c.toLowerCase();
-            return normalizedC === "worldwide" || c.toUpperCase() === normalizedUserCountry;
+          return countries.some((c) => {
+            const normalizedC = (c || "").trim().toLowerCase();
+            return normalizedC === "worldwide" || normalizedC === "ww" || (c || "").trim().toUpperCase() === normalizedUserCountry;
           });
         };
 
-        const storageKey = userCountryCode === "XX" ? "fallback_index_global" : `fallback_index_${userCountryCode}`;
+        const storageKey =
+          userCountryCode === "XX" ? "fallback_index_global" : `fallback_index_${userCountryCode}`;
         let startIndex = parseInt(localStorage.getItem(storageKey) || "0", 10);
         startIndex = ((startIndex % allUrls.length) + allUrls.length) % allUrls.length;
 
