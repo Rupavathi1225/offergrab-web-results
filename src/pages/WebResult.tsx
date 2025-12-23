@@ -28,6 +28,13 @@ interface Prelanding {
   is_active: boolean;
 }
 
+interface FallbackUrl {
+  id: string;
+  url: string;
+  sequence_order: number;
+  allowed_countries: string[] | null;
+}
+
 // Generate unique random names for masked URLs
 const generateUniqueMaskedNames = (count: number): string[] => {
   const names: string[] = [];
@@ -77,6 +84,8 @@ const WebResult = () => {
   const [loading, setLoading] = useState(true);
   const [maskedNames, setMaskedNames] = useState<string[]>([]);
   const [userCountryCode, setUserCountryCode] = useState<string>('XX');
+  const [clicked, setClicked] = useState(false);
+  const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
 
   // Get blog context from navigation state
   const fromBlog = location.state?.fromBlog;
@@ -106,6 +115,73 @@ const WebResult = () => {
       setMaskedNames(generateUniqueMaskedNames(results.length));
     }
   }, [results]);
+
+  // Fetch fallback URL for auto-redirect (country-filtered)
+  useEffect(() => {
+    if (userCountryCode === "XX") return; // Wait for country to load
+
+    const fetchNextUrl = async () => {
+      try {
+        const { data: allUrls, error: urlsError } = await supabase
+          .from("fallback_urls")
+          .select("*")
+          .eq("is_active", true)
+          .order("sequence_order", { ascending: true });
+
+        if (urlsError || !allUrls || allUrls.length === 0) {
+          console.log("No fallback URLs configured");
+          return;
+        }
+
+        // Filter URLs that are accessible to user's country
+        const accessibleUrls = allUrls.filter((url: FallbackUrl) => {
+          const countries = url.allowed_countries || ["worldwide"];
+          return countries.includes("worldwide") || countries.includes(userCountryCode);
+        });
+
+        console.log("User country:", userCountryCode);
+        console.log("Total URLs:", allUrls.length);
+        console.log("Accessible URLs for this country:", accessibleUrls.length);
+
+        if (accessibleUrls.length === 0) {
+          console.log("No fallback URLs available for country:", userCountryCode);
+          return;
+        }
+
+        // Get the stored index for this country from localStorage
+        const storageKey = `fallback_index_${userCountryCode}`;
+        let currentIndex = parseInt(localStorage.getItem(storageKey) || "0", 10);
+        
+        // Ensure index is within bounds of accessible URLs
+        currentIndex = currentIndex % accessibleUrls.length;
+        
+        const nextUrl = accessibleUrls[currentIndex].url;
+        setRedirectUrl(nextUrl);
+        
+        console.log("Selected URL index:", currentIndex);
+        console.log("Will redirect to:", nextUrl);
+
+        // Update localStorage for next visit (cycle through accessible URLs only)
+        const newIndex = (currentIndex + 1) % accessibleUrls.length;
+        localStorage.setItem(storageKey, newIndex.toString());
+      } catch (error) {
+        console.error("Error fetching fallback URL:", error);
+      }
+    };
+
+    fetchNextUrl();
+  }, [userCountryCode]);
+
+  // Auto-redirect after 5 seconds to fallback URL
+  useEffect(() => {
+    if (loading || clicked || !redirectUrl) return;
+
+    const timer = setTimeout(() => {
+      window.location.href = redirectUrl;
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [loading, clicked, redirectUrl]);
 
   const fetchData = async () => {
     try {
@@ -192,6 +268,7 @@ const WebResult = () => {
   };
 
   const handleResultClick = async (result: WebResultItem, index: number) => {
+    setClicked(true); // Cancel auto-redirect
     const lid = index + 1;
     
     // Check if prelanding exists and is active FIRST before any async operations
