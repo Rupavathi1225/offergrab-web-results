@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
+import { isCountryAllowed } from "@/lib/countryAccess";
 
 interface Blog {
   id: string;
@@ -80,13 +81,8 @@ const Landing2 = () => {
 
         const isSheetsUrl = (u: string) => u.includes("docs.google.com/spreadsheets");
         const isAllowedForUser = (url: FallbackUrl) => {
-          const countries = url.allowed_countries || ["worldwide"];
           if (userCountry === "XX") return true; // country unknown -> try sequence as-is
-          const normalizedUserCountry = userCountry.toUpperCase();
-          return countries.some(c => {
-            const normalizedC = c.toLowerCase();
-            return normalizedC === "worldwide" || c.toUpperCase() === normalizedUserCountry;
-          });
+          return isCountryAllowed(url.allowed_countries, userCountry);
         };
 
         const storageKey = userCountry === "XX" ? "fallback_index_global" : `fallback_index_${userCountry}`;
