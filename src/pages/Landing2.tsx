@@ -106,13 +106,6 @@ const Landing2 = () => {
           ))}
         </div>
 
-        {/* Progress bar */}
-        <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-          <div 
-            className="h-full bg-primary transition-all duration-1000 ease-linear"
-            style={{ width: `${(countdown / 5) * 100}%` }}
-          />
-        </div>
       </div>
     </div>
   );
