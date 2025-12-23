@@ -80,6 +80,7 @@ const Landing2 = () => {
 
         // If we can't detect country (XX), only allow worldwide URLs
         const accessibleUrls = allUrls.filter((url: FallbackUrl) => {
+          if (url.url.includes("docs.google.com/spreadsheets")) return false;
           const countries = url.allowed_countries || ["worldwide"];
           if (userCountry === "XX") return countries.includes("worldwide");
           return countries.includes("worldwide") || countries.includes(userCountry);

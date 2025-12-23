@@ -28,16 +28,26 @@ interface FallbackUrl {
 const getCountryCode = (input: string): string | null => {
   const normalized = input.trim().toLowerCase();
   if (normalized === "worldwide") return "worldwide";
-  
+
   // Check if it's already a valid code
-  const byCode = countries.find(c => c.code.toLowerCase() === normalized);
+  const byCode = countries.find((c) => c.code.toLowerCase() === normalized);
   if (byCode) return byCode.code;
-  
+
   // Check by name
-  const byName = countries.find(c => c.name.toLowerCase() === normalized);
+  const byName = countries.find((c) => c.name.toLowerCase() === normalized);
   if (byName) return byName.code;
-  
+
   return null;
+};
+
+// Prevent accidentally saving Google Sheets links as fallback redirect URLs
+const isBlockedFallbackUrl = (url: string): boolean => {
+  try {
+    const u = new URL(url);
+    return u.hostname === "docs.google.com" && u.pathname.includes("/spreadsheets/");
+  } catch {
+    return false;
+  }
 };
 
 interface SheetPreviewData {
@@ -159,7 +169,7 @@ const FallbackUrls = () => {
       toast.error("Please enter a URL");
       return;
     }
-    
+
     try {
       new URL(newUrl);
     } catch {
@@ -167,11 +177,16 @@ const FallbackUrls = () => {
       return;
     }
 
+    if (isBlockedFallbackUrl(newUrl)) {
+      toast.error("Google Sheets links are not allowed as fallback URLs");
+      return;
+    }
+
     if (selectedCountries.length === 0) {
       toast.error("Please select at least one country");
       return;
     }
-    
+
     addUrlMutation.mutate({ url: newUrl.trim(), countries: selectedCountries });
   };
 
@@ -248,6 +263,13 @@ const FallbackUrls = () => {
           new URL(urlValue);
         } catch {
           console.log("Skipping row - invalid URL:", urlValue);
+          skippedCount++;
+          continue;
+        }
+
+        // Block Google Sheets URLs from being saved as fallback redirects
+        if (isBlockedFallbackUrl(urlValue)) {
+          console.log("Skipping row - Google Sheets URL:", urlValue);
           skippedCount++;
           continue;
         }
@@ -355,6 +377,11 @@ const FallbackUrls = () => {
         try {
           new URL(urlValue);
         } catch {
+          continue;
+        }
+
+        // Block Google Sheets URLs from being saved as fallback redirects
+        if (isBlockedFallbackUrl(urlValue)) {
           continue;
         }
 
