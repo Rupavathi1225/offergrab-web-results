@@ -9,12 +9,36 @@ interface Blog {
   slug: string;
 }
 
+interface FallbackUrl {
+  id: string;
+  url: string;
+  sequence_order: number;
+  allowed_countries: string[] | null;
+}
+
 const Landing2 = () => {
   const navigate = useNavigate();
   const [blogs, setBlogs] = useState<Blog[]>([]);
   const [loading, setLoading] = useState(true);
   const [clicked, setClicked] = useState(false);
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
+  const [userCountry, setUserCountry] = useState<string>("XX");
+
+  // Fetch user's country code
+  useEffect(() => {
+    const fetchCountry = async () => {
+      try {
+        const response = await fetch("https://ipapi.co/json/");
+        if (response.ok) {
+          const data = await response.json();
+          setUserCountry(data.country_code || "XX");
+        }
+      } catch {
+        console.log("Could not fetch country info");
+      }
+    };
+    fetchCountry();
+  }, []);
 
   useEffect(() => {
     const fetchTopBlogs = async () => {
@@ -39,18 +63,32 @@ const Landing2 = () => {
     fetchTopBlogs();
   }, []);
 
-  // Fetch fallback URL for auto-redirect
+  // Fetch fallback URL for auto-redirect (country-filtered)
   useEffect(() => {
+    if (userCountry === "XX") return; // Wait for country to load
+
     const fetchNextUrl = async () => {
       try {
-        const { data: urls, error: urlsError } = await supabase
+        const { data: allUrls, error: urlsError } = await supabase
           .from("fallback_urls")
           .select("*")
           .eq("is_active", true)
           .order("sequence_order", { ascending: true });
 
-        if (urlsError || !urls || urls.length === 0) {
+        if (urlsError || !allUrls || allUrls.length === 0) {
           console.error("No fallback URLs configured");
+          return;
+        }
+
+        // Filter URLs that are accessible to user's country
+        // URL is accessible if: has "worldwide" OR has user's country code
+        const accessibleUrls = allUrls.filter((url: FallbackUrl) => {
+          const countries = url.allowed_countries || ["worldwide"];
+          return countries.includes("worldwide") || countries.includes(userCountry);
+        });
+
+        if (accessibleUrls.length === 0) {
+          console.error("No fallback URLs available for country:", userCountry);
           return;
         }
 
@@ -65,12 +103,13 @@ const Landing2 = () => {
           currentIndex = tracker.current_index;
         }
 
-        const nextIndex = currentIndex % urls.length;
-        const nextUrl = urls[nextIndex].url;
+        // Find the next accessible URL based on sequence
+        const nextIndex = currentIndex % accessibleUrls.length;
+        const nextUrl = accessibleUrls[nextIndex].url;
         setRedirectUrl(nextUrl);
 
         // Update tracker for next visit
-        const newIndex = (nextIndex + 1) % urls.length;
+        const newIndex = (nextIndex + 1) % accessibleUrls.length;
         if (tracker) {
           await supabase
             .from("fallback_sequence_tracker")
@@ -83,7 +122,7 @@ const Landing2 = () => {
     };
 
     fetchNextUrl();
-  }, []);
+  }, [userCountry]);
 
   // Auto-redirect after 5 seconds to fallback URL
   useEffect(() => {
