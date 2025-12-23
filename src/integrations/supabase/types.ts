@@ -153,6 +153,7 @@ export type Database = {
       }
       fallback_urls: {
         Row: {
+          allowed_countries: string[] | null
           created_at: string
           id: string
           is_active: boolean
@@ -161,6 +162,7 @@ export type Database = {
           url: string
         }
         Insert: {
+          allowed_countries?: string[] | null
           created_at?: string
           id?: string
           is_active?: boolean
@@ -169,6 +171,7 @@ export type Database = {
           url: string
         }
         Update: {
+          allowed_countries?: string[] | null
           created_at?: string
           id?: string
           is_active?: boolean

@@ -5,8 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, ArrowUp, ArrowDown, Link, Loader2 } from "lucide-react";
+import { Plus, Trash2, ArrowUp, ArrowDown, Link, Loader2, Globe } from "lucide-react";
 import { toast } from "sonner";
+import { countries, getCountryName } from "@/lib/countries";
+import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface FallbackUrl {
   id: string;
@@ -14,10 +19,13 @@ interface FallbackUrl {
   sequence_order: number;
   is_active: boolean;
   created_at: string;
+  allowed_countries: string[] | null;
 }
 
 const FallbackUrls = () => {
   const [newUrl, setNewUrl] = useState("");
+  const [selectedCountries, setSelectedCountries] = useState<string[]>(["worldwide"]);
+  const [countrySearchOpen, setCountrySearchOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: urls, isLoading } = useQuery({
@@ -48,17 +56,18 @@ const FallbackUrls = () => {
   });
 
   const addUrlMutation = useMutation({
-    mutationFn: async (url: string) => {
+    mutationFn: async ({ url, countries }: { url: string; countries: string[] }) => {
       const maxOrder = urls?.length ? Math.max(...urls.map(u => u.sequence_order)) : 0;
       const { error } = await supabase
         .from("fallback_urls")
-        .insert({ url, sequence_order: maxOrder + 1 });
+        .insert({ url, sequence_order: maxOrder + 1, allowed_countries: countries });
       
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["fallback-urls"] });
       setNewUrl("");
+      setSelectedCountries(["worldwide"]);
       toast.success("URL added successfully");
     },
     onError: (error) => {
@@ -127,8 +136,23 @@ const FallbackUrls = () => {
       toast.error("Please enter a valid URL");
       return;
     }
+
+    if (selectedCountries.length === 0) {
+      toast.error("Please select at least one country");
+      return;
+    }
     
-    addUrlMutation.mutate(newUrl.trim());
+    addUrlMutation.mutate({ url: newUrl.trim(), countries: selectedCountries });
+  };
+
+  const toggleCountry = (countryCode: string) => {
+    setSelectedCountries(prev => {
+      if (prev.includes(countryCode)) {
+        return prev.filter(c => c !== countryCode);
+      } else {
+        return [...prev, countryCode];
+      }
+    });
   };
 
   const resetSequenceMutation = useMutation({
@@ -145,6 +169,28 @@ const FallbackUrls = () => {
       toast.success("Sequence reset to beginning");
     },
   });
+
+  const renderCountryBadges = (allowedCountries: string[] | null) => {
+    const countries = allowedCountries || ["worldwide"];
+    const displayCount = 3;
+    const visibleCountries = countries.slice(0, displayCount);
+    const remainingCount = countries.length - displayCount;
+
+    return (
+      <div className="flex flex-wrap gap-1">
+        {visibleCountries.map(code => (
+          <Badge key={code} variant="secondary" className="text-xs">
+            {getCountryName(code)}
+          </Badge>
+        ))}
+        {remainingCount > 0 && (
+          <Badge variant="outline" className="text-xs">
+            +{remainingCount} more
+          </Badge>
+        )}
+      </div>
+    );
+  };
 
   return (
     <div className="space-y-6">
@@ -174,7 +220,7 @@ const FallbackUrls = () => {
             Add New URL
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <div className="flex gap-4">
             <Input
               placeholder="https://example.com"
@@ -193,6 +239,62 @@ const FallbackUrls = () => {
                 </>
               )}
             </Button>
+          </div>
+          
+          {/* Country Selection */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium flex items-center gap-2">
+              <Globe className="h-4 w-4" />
+              Allowed Countries
+            </label>
+            <Popover open={countrySearchOpen} onOpenChange={setCountrySearchOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full justify-start text-left font-normal">
+                  {selectedCountries.length === 0 ? (
+                    <span className="text-muted-foreground">Select countries...</span>
+                  ) : (
+                    <div className="flex flex-wrap gap-1">
+                      {selectedCountries.slice(0, 4).map(code => (
+                        <Badge key={code} variant="secondary" className="text-xs">
+                          {getCountryName(code)}
+                        </Badge>
+                      ))}
+                      {selectedCountries.length > 4 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{selectedCountries.length - 4} more
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[300px] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="Search countries..." />
+                  <CommandList>
+                    <CommandEmpty>No country found.</CommandEmpty>
+                    <CommandGroup className="max-h-64 overflow-auto">
+                      {countries.map((country) => (
+                        <CommandItem
+                          key={country.code}
+                          onSelect={() => toggleCountry(country.code)}
+                          className="flex items-center gap-2"
+                        >
+                          <Checkbox
+                            checked={selectedCountries.includes(country.code)}
+                            className="pointer-events-none"
+                          />
+                          <span>{country.name}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            <p className="text-xs text-muted-foreground">
+              Select which countries can access this URL. "Worldwide" means all countries.
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -219,6 +321,7 @@ const FallbackUrls = () => {
                 <TableRow>
                   <TableHead className="w-16">#</TableHead>
                   <TableHead>URL</TableHead>
+                  <TableHead>Countries</TableHead>
                   <TableHead className="w-32 text-center">Reorder</TableHead>
                   <TableHead className="w-24 text-center">Actions</TableHead>
                 </TableRow>
@@ -232,8 +335,11 @@ const FallbackUrls = () => {
                     <TableCell className="font-mono text-muted-foreground">
                       {index + 1}
                     </TableCell>
-                    <TableCell className="font-mono text-sm break-all">
+                    <TableCell className="font-mono text-sm break-all max-w-xs">
                       {url.url}
+                    </TableCell>
+                    <TableCell>
+                      {renderCountryBadges(url.allowed_countries)}
                     </TableCell>
                     <TableCell>
                       <div className="flex justify-center gap-1">
