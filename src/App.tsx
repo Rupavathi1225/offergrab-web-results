@@ -11,6 +11,7 @@ import LinkRedirect from "./pages/LinkRedirect";
 import BlogPage from "./pages/BlogPage";
 import BlogByNumber from "./pages/BlogByNumber";
 import FastMoney from "./pages/FastMoney";
+import Landing2 from "./pages/Landing2";
 import AdminLayout from "./pages/admin/AdminLayout";
 import LandingContent from "./pages/admin/LandingContent";
 import SearchButtons from "./pages/admin/SearchButtons";
@@ -44,6 +45,7 @@ function App() {
             <Route path="/blog/:slug" element={<BlogPage />} />
             <Route path="/p" element={<BlogByNumber />} />
             <Route path="/fastmoney" element={<FastMoney />} />
+            <Route path="/landing2" element={<Landing2 />} />
             {/* Admin Routes */}
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<LandingContent />} />

@@ -206,8 +206,8 @@ const WebResult = () => {
     console.log('Country check:', userCountryCode, 'Allowed countries:', result.allowed_countries, 'Is allowed:', allowed);
     
     if (!allowed) {
-      // User's country is not allowed - open FastMoney in new tab
-      window.open('/fastmoney', '_blank', 'noopener,noreferrer');
+      // User's country is not allowed - open Landing2 in new tab
+      window.open('/landing2', '_blank', 'noopener,noreferrer');
       return;
     }
     
