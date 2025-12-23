@@ -1,17 +1,19 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, ArrowUp, ArrowDown, Link, Loader2, Globe } from "lucide-react";
+import { Plus, Trash2, ArrowUp, ArrowDown, Link, Loader2, Globe, FileSpreadsheet, Upload, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { countries, getCountryName } from "@/lib/countries";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Checkbox } from "@/components/ui/checkbox";
+import * as XLSX from "xlsx";
+import { format } from "date-fns";
 
 interface FallbackUrl {
   id: string;
@@ -22,10 +24,28 @@ interface FallbackUrl {
   allowed_countries: string[] | null;
 }
 
+// Helper to convert country name to code
+const getCountryCode = (input: string): string | null => {
+  const normalized = input.trim().toLowerCase();
+  if (normalized === "worldwide") return "worldwide";
+  
+  // Check if it's already a valid code
+  const byCode = countries.find(c => c.code.toLowerCase() === normalized);
+  if (byCode) return byCode.code;
+  
+  // Check by name
+  const byName = countries.find(c => c.name.toLowerCase() === normalized);
+  if (byName) return byName.code;
+  
+  return null;
+};
+
 const FallbackUrls = () => {
   const [newUrl, setNewUrl] = useState("");
   const [selectedCountries, setSelectedCountries] = useState<string[]>(["worldwide"]);
   const [countrySearchOpen, setCountrySearchOpen] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
   const { data: urls, isLoading } = useQuery({
@@ -170,11 +190,103 @@ const FallbackUrls = () => {
     },
   });
 
+  // Google Sheets import handler
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json<{ url?: string; URL?: string; link?: string; Link?: string; allowed_countries?: string; countries?: string; Countries?: string }>(worksheet);
+
+      console.log("Parsed sheet data:", jsonData);
+
+      if (jsonData.length === 0) {
+        toast.error("No data found in the sheet");
+        return;
+      }
+
+      const maxOrder = urls?.length ? Math.max(...urls.map(u => u.sequence_order)) : 0;
+      let addedCount = 0;
+      let skippedCount = 0;
+
+      for (let i = 0; i < jsonData.length; i++) {
+        const row = jsonData[i];
+        const urlValue = row.url || row.URL || row.link || row.Link;
+        const countriesValue = row.allowed_countries || row.countries || row.Countries || "";
+
+        if (!urlValue) {
+          console.log("Skipping row - no URL:", row);
+          skippedCount++;
+          continue;
+        }
+
+        // Validate URL
+        try {
+          new URL(urlValue);
+        } catch {
+          console.log("Skipping row - invalid URL:", urlValue);
+          skippedCount++;
+          continue;
+        }
+
+        // Parse comma-separated countries
+        const countryInputs = countriesValue
+          .split(",")
+          .map((c: string) => c.trim())
+          .filter(Boolean);
+
+        let countryCodes: string[] = ["worldwide"];
+        if (countryInputs.length > 0) {
+          const resolvedCodes = countryInputs
+            .map((input: string) => getCountryCode(input))
+            .filter((code): code is string => code !== null);
+          if (resolvedCodes.length > 0) {
+            countryCodes = resolvedCodes;
+          }
+        }
+
+        console.log("Importing URL:", { url: urlValue, countries: countryCodes });
+
+        const { error } = await supabase
+          .from("fallback_urls")
+          .insert({
+            url: urlValue.trim(),
+            sequence_order: maxOrder + addedCount + 1,
+            allowed_countries: countryCodes,
+          });
+
+        if (error) {
+          console.error("Failed to insert URL:", error);
+          skippedCount++;
+        } else {
+          addedCount++;
+        }
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["fallback-urls"] });
+      toast.success(`Imported ${addedCount} URLs${skippedCount > 0 ? `, skipped ${skippedCount}` : ""}`);
+    } catch (error) {
+      console.error("Failed to parse sheet:", error);
+      toast.error("Failed to parse the file. Please check the format.");
+    } finally {
+      setIsImporting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
+
   const renderCountryBadges = (allowedCountries: string[] | null) => {
-    const countries = allowedCountries || ["worldwide"];
+    const countryList = allowedCountries || ["worldwide"];
     const displayCount = 3;
-    const visibleCountries = countries.slice(0, displayCount);
-    const remainingCount = countries.length - displayCount;
+    const visibleCountries = countryList.slice(0, displayCount);
+    const remainingCount = countryList.length - displayCount;
 
     return (
       <div className="flex flex-wrap gap-1">
@@ -190,6 +302,11 @@ const FallbackUrls = () => {
         )}
       </div>
     );
+  };
+
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    return format(date, "MMM dd, yyyy HH:mm");
   };
 
   return (
@@ -299,6 +416,55 @@ const FallbackUrls = () => {
         </CardContent>
       </Card>
 
+      {/* Google Sheets Import */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileSpreadsheet className="h-5 w-5" />
+            Import from Google Sheets / Excel
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Upload an Excel/CSV file with columns: <code className="bg-muted px-1 rounded">url</code> and <code className="bg-muted px-1 rounded">allowed_countries</code> (comma-separated country names)
+          </p>
+          <div className="flex items-center gap-4">
+            <input
+              type="file"
+              ref={fileInputRef}
+              accept=".xlsx,.xls,.csv"
+              onChange={handleFileUpload}
+              className="hidden"
+            />
+            <Button
+              variant="outline"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isImporting}
+            >
+              {isImporting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload Sheet
+                </>
+              )}
+            </Button>
+          </div>
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p><strong>Example format:</strong></p>
+            <div className="bg-muted p-2 rounded font-mono text-xs">
+              | url | allowed_countries |<br />
+              | https://example.com | India, United States, UK |<br />
+              | https://other.com | worldwide |
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -322,6 +488,12 @@ const FallbackUrls = () => {
                   <TableHead className="w-16">#</TableHead>
                   <TableHead>URL</TableHead>
                   <TableHead>Countries</TableHead>
+                  <TableHead className="w-40">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-4 w-4" />
+                      Added
+                    </div>
+                  </TableHead>
                   <TableHead className="w-32 text-center">Reorder</TableHead>
                   <TableHead className="w-24 text-center">Actions</TableHead>
                 </TableRow>
@@ -340,6 +512,9 @@ const FallbackUrls = () => {
                     </TableCell>
                     <TableCell>
                       {renderCountryBadges(url.allowed_countries)}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatDateTime(url.created_at)}
                     </TableCell>
                     <TableCell>
                       <div className="flex justify-center gap-1">
