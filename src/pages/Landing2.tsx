@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Search } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 interface Blog {
   id: string;
@@ -84,11 +84,8 @@ const Landing2 = () => {
     <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-xl space-y-6">
         {/* Header */}
-        <div className="text-center space-y-2">
+        <div className="text-center mb-6">
           <h1 className="text-2xl font-bold text-foreground">Related Searches</h1>
-          <p className="text-sm text-muted-foreground">
-            Redirecting in <span className="font-bold text-primary">{countdown}</span> seconds...
-          </p>
         </div>
 
         {/* Related Searches */}
@@ -99,9 +96,6 @@ const Landing2 = () => {
               onClick={() => handleSearchClick(blog)}
               className="w-full flex items-center gap-3 p-4 bg-card border border-border rounded-lg hover:bg-accent hover:border-primary/50 transition-all duration-200 text-left group"
             >
-              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                <Search className="h-5 w-5 text-primary" />
-              </div>
               <div className="flex-1 min-w-0">
                 <p className="text-foreground font-medium truncate">{blog.title}</p>
                 <p className="text-xs text-muted-foreground">
