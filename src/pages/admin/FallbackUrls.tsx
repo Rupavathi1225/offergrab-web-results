@@ -212,7 +212,7 @@ const FallbackUrls = () => {
       const workbook = XLSX.read(data);
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-      const jsonData = XLSX.utils.sheet_to_json<{ url?: string; URL?: string; link?: string; Link?: string; allowed_countries?: string; countries?: string; Countries?: string }>(worksheet);
+      const jsonData = XLSX.utils.sheet_to_json<Record<string, string>>(worksheet);
 
       console.log("Parsed sheet data:", jsonData);
 
@@ -227,8 +227,15 @@ const FallbackUrls = () => {
 
       for (let i = 0; i < jsonData.length; i++) {
         const row = jsonData[i];
-        const urlValue = row.url || row.URL || row.link || row.Link;
-        const countriesValue = row.allowed_countries || row.countries || row.Countries || "";
+        
+        // Normalize keys by trimming whitespace
+        const normalizedRow: Record<string, string> = {};
+        for (const key of Object.keys(row)) {
+          normalizedRow[key.trim().toLowerCase()] = row[key];
+        }
+
+        const urlValue = normalizedRow["url"] || normalizedRow["link"] || "";
+        const countriesValue = normalizedRow["allowed_countries"] || normalizedRow["countries"] || "";
 
         if (!urlValue) {
           console.log("Skipping row - no URL:", row);
@@ -321,7 +328,7 @@ const FallbackUrls = () => {
       const workbook = XLSX.read(csvText, { type: "string" });
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-      const jsonData = XLSX.utils.sheet_to_json<{ url?: string; URL?: string; link?: string; Link?: string; allowed_countries?: string; countries?: string; Countries?: string }>(worksheet);
+      const jsonData = XLSX.utils.sheet_to_json<Record<string, string>>(worksheet);
 
       console.log("Parsed Google Sheet data:", jsonData);
 
@@ -333,8 +340,14 @@ const FallbackUrls = () => {
       const previewData: SheetPreviewData[] = [];
 
       for (const row of jsonData) {
-        const urlValue = row.url || row.URL || row.link || row.Link;
-        const countriesValue = row.allowed_countries || row.countries || row.Countries || "";
+        // Normalize keys by trimming whitespace
+        const normalizedRow: Record<string, string> = {};
+        for (const key of Object.keys(row)) {
+          normalizedRow[key.trim().toLowerCase()] = row[key];
+        }
+
+        const urlValue = normalizedRow["url"] || normalizedRow["link"] || "";
+        const countriesValue = normalizedRow["allowed_countries"] || normalizedRow["countries"] || "";
 
         if (!urlValue) continue;
 
