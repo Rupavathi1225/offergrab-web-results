@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, ArrowUp, ArrowDown, Link, Loader2, Globe, FileSpreadsheet, Upload, Calendar } from "lucide-react";
+import { Plus, Trash2, ArrowUp, ArrowDown, Link, Loader2, Globe, FileSpreadsheet, Upload, Calendar, Eye, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { countries, getCountryName } from "@/lib/countries";
 import { Badge } from "@/components/ui/badge";
@@ -40,12 +40,21 @@ const getCountryCode = (input: string): string | null => {
   return null;
 };
 
+interface SheetPreviewData {
+  url: string;
+  countries: string[];
+  countryNames: string;
+}
+
 const FallbackUrls = () => {
   const [newUrl, setNewUrl] = useState("");
   const [selectedCountries, setSelectedCountries] = useState<string[]>(["worldwide"]);
   const [countrySearchOpen, setCountrySearchOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [isFetchingPreview, setIsFetchingPreview] = useState(false);
   const [sheetUrl, setSheetUrl] = useState("");
+  const [sheetPreviewData, setSheetPreviewData] = useState<SheetPreviewData[]>([]);
+  const [showPreview, setShowPreview] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -283,8 +292,8 @@ const FallbackUrls = () => {
     }
   };
 
-  // Import from Google Sheets URL
-  const handleSheetUrlImport = async () => {
+  // Fetch and preview Google Sheet data
+  const handleSheetUrlPreview = async () => {
     if (!sheetUrl.trim()) {
       toast.error("Please enter a Google Sheets URL");
       return;
@@ -300,7 +309,7 @@ const FallbackUrls = () => {
     const sheetId = sheetIdMatch[1];
     const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
 
-    setIsImporting(true);
+    setIsFetchingPreview(true);
 
     try {
       const response = await fetch(csvUrl);
@@ -321,27 +330,18 @@ const FallbackUrls = () => {
         return;
       }
 
-      const maxOrder = urls?.length ? Math.max(...urls.map(u => u.sequence_order)) : 0;
-      let addedCount = 0;
-      let skippedCount = 0;
+      const previewData: SheetPreviewData[] = [];
 
-      for (let i = 0; i < jsonData.length; i++) {
-        const row = jsonData[i];
+      for (const row of jsonData) {
         const urlValue = row.url || row.URL || row.link || row.Link;
         const countriesValue = row.allowed_countries || row.countries || row.Countries || "";
 
-        if (!urlValue) {
-          console.log("Skipping row - no URL:", row);
-          skippedCount++;
-          continue;
-        }
+        if (!urlValue) continue;
 
         // Validate URL
         try {
           new URL(urlValue);
         } catch {
-          console.log("Skipping row - invalid URL:", urlValue);
-          skippedCount++;
           continue;
         }
 
@@ -361,14 +361,49 @@ const FallbackUrls = () => {
           }
         }
 
-        console.log("Importing URL:", { url: urlValue, countries: countryCodes });
+        previewData.push({
+          url: urlValue.trim(),
+          countries: countryCodes,
+          countryNames: countryCodes.map(c => getCountryName(c)).join(", "),
+        });
+      }
+
+      if (previewData.length === 0) {
+        toast.error("No valid URLs found in the sheet");
+        return;
+      }
+
+      setSheetPreviewData(previewData);
+      setShowPreview(true);
+      toast.success(`Found ${previewData.length} URLs in the sheet`);
+    } catch (error) {
+      console.error("Failed to fetch/parse Google Sheet:", error);
+      toast.error("Failed to fetch sheet. Make sure it's publicly accessible (File > Share > Anyone with the link).");
+    } finally {
+      setIsFetchingPreview(false);
+    }
+  };
+
+  // Import previewed data
+  const handleConfirmImport = async () => {
+    if (sheetPreviewData.length === 0) return;
+
+    setIsImporting(true);
+
+    try {
+      const maxOrder = urls?.length ? Math.max(...urls.map(u => u.sequence_order)) : 0;
+      let addedCount = 0;
+      let skippedCount = 0;
+
+      for (let i = 0; i < sheetPreviewData.length; i++) {
+        const item = sheetPreviewData[i];
 
         const { error } = await supabase
           .from("fallback_urls")
           .insert({
-            url: urlValue.trim(),
+            url: item.url,
             sequence_order: maxOrder + addedCount + 1,
-            allowed_countries: countryCodes,
+            allowed_countries: item.countries,
           });
 
         if (error) {
@@ -381,13 +416,21 @@ const FallbackUrls = () => {
 
       queryClient.invalidateQueries({ queryKey: ["fallback-urls"] });
       setSheetUrl("");
+      setSheetPreviewData([]);
+      setShowPreview(false);
       toast.success(`Imported ${addedCount} URLs${skippedCount > 0 ? `, skipped ${skippedCount}` : ""}`);
     } catch (error) {
-      console.error("Failed to fetch/parse Google Sheet:", error);
-      toast.error("Failed to import. Make sure the sheet is publicly accessible (File > Share > Anyone with the link).");
+      console.error("Failed to import:", error);
+      toast.error("Failed to import URLs");
     } finally {
       setIsImporting(false);
     }
+  };
+
+  // Cancel preview
+  const handleCancelPreview = () => {
+    setSheetPreviewData([]);
+    setShowPreview(false);
   };
 
   const renderCountryBadges = (allowedCountries: string[] | null) => {
@@ -546,25 +589,95 @@ const FallbackUrls = () => {
                 value={sheetUrl}
                 onChange={(e) => setSheetUrl(e.target.value)}
                 className="flex-1"
+                disabled={showPreview}
               />
-              <Button
-                onClick={handleSheetUrlImport}
-                disabled={isImporting || !sheetUrl.trim()}
-              >
-                {isImporting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    <Link className="h-4 w-4 mr-2" />
-                    Import
-                  </>
-                )}
-              </Button>
+              {!showPreview ? (
+                <Button
+                  onClick={handleSheetUrlPreview}
+                  disabled={isFetchingPreview || !sheetUrl.trim()}
+                >
+                  {isFetchingPreview ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Eye className="h-4 w-4 mr-2" />
+                      Preview Data
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleConfirmImport}
+                    disabled={isImporting}
+                    className="bg-green-600 hover:bg-green-700"
+                  >
+                    {isImporting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        <Check className="h-4 w-4 mr-2" />
+                        Confirm Import
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleCancelPreview}
+                    disabled={isImporting}
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Cancel
+                  </Button>
+                </div>
+              )}
             </div>
             <p className="text-xs text-muted-foreground">
               Make sure the sheet is publicly accessible: <strong>File → Share → Anyone with the link</strong>
             </p>
           </div>
+
+          {/* Preview Table */}
+          {showPreview && sheetPreviewData.length > 0 && (
+            <div className="border rounded-lg overflow-hidden">
+              <div className="bg-muted px-4 py-2 border-b">
+                <h4 className="font-medium text-sm">Preview: {sheetPreviewData.length} URLs found</h4>
+              </div>
+              <div className="max-h-64 overflow-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12">#</TableHead>
+                      <TableHead>URL</TableHead>
+                      <TableHead>Countries</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {sheetPreviewData.map((item, index) => (
+                      <TableRow key={index}>
+                        <TableCell className="font-mono text-muted-foreground">{index + 1}</TableCell>
+                        <TableCell className="font-mono text-sm break-all max-w-xs">{item.url}</TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-1">
+                            {item.countries.slice(0, 3).map(code => (
+                              <Badge key={code} variant="secondary" className="text-xs">
+                                {getCountryName(code)}
+                              </Badge>
+                            ))}
+                            {item.countries.length > 3 && (
+                              <Badge variant="outline" className="text-xs">
+                                +{item.countries.length - 3} more
+                              </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+          )}
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
