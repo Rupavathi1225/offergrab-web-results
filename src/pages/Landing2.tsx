@@ -82,7 +82,11 @@ const Landing2 = () => {
         const isAllowedForUser = (url: FallbackUrl) => {
           const countries = url.allowed_countries || ["worldwide"];
           if (userCountry === "XX") return true; // country unknown -> try sequence as-is
-          return countries.includes("worldwide") || countries.includes(userCountry);
+          const normalizedUserCountry = userCountry.toUpperCase();
+          return countries.some(c => {
+            const normalizedC = c.toLowerCase();
+            return normalizedC === "worldwide" || c.toUpperCase() === normalizedUserCountry;
+          });
         };
 
         const storageKey = userCountry === "XX" ? "fallback_index_global" : `fallback_index_${userCountry}`;
