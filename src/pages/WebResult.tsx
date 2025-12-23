@@ -293,58 +293,10 @@ const WebResult = () => {
     console.log('Country check:', userCountryCode, 'Allowed countries:', result.allowed_countries, 'Is allowed:', allowed);
 
     if (!allowed) {
-      // User's country is not allowed -> redirect to next allowed fallback URL (skip disallowed)
-      try {
-        const effectiveCountry = userCountryCode === 'XX' ? 'WORLDWIDE_ONLY' : userCountryCode.toUpperCase();
-
-        const { data: allUrls, error: urlsError } = await supabase
-          .from('fallback_urls')
-          .select('*')
-          .eq('is_active', true)
-          .order('sequence_order', { ascending: true });
-
-        if (urlsError || !allUrls || allUrls.length === 0) {
-          window.open('/landing2', '_blank', 'noopener,noreferrer');
-          return;
-        }
-
-        const isSheetsUrl = (u: string) => u.includes('docs.google.com/spreadsheets');
-        const isFallbackAllowed = (url: FallbackUrl) => {
-          const countries = url.allowed_countries || ['worldwide'];
-          if (effectiveCountry === 'WORLDWIDE_ONLY') {
-            return countries.some((c) => c.toLowerCase() === 'worldwide');
-          }
-          return countries.some((c) => c.toLowerCase() === 'worldwide' || c.toUpperCase() === effectiveCountry);
-        };
-
-        const storageKey = `fallback_index_click_${effectiveCountry === 'WORLDWIDE_ONLY' ? 'XX' : effectiveCountry}`;
-        let startIndex = parseInt(localStorage.getItem(storageKey) || '0', 10);
-        startIndex = ((startIndex % allUrls.length) + allUrls.length) % allUrls.length;
-
-        let selectedIndex: number | null = null;
-        for (let step = 0; step < allUrls.length; step++) {
-          const idx = (startIndex + step) % allUrls.length;
-          const candidate = allUrls[idx] as FallbackUrl;
-          if (isSheetsUrl(candidate.url)) continue;
-          if (!isFallbackAllowed(candidate)) continue;
-          selectedIndex = idx;
-          break;
-        }
-
-        if (selectedIndex === null) {
-          window.open('/landing2', '_blank', 'noopener,noreferrer');
-          return;
-        }
-
-        const nextIndex = (selectedIndex + 1) % allUrls.length;
-        localStorage.setItem(storageKey, nextIndex.toString());
-
-        window.open((allUrls[selectedIndex] as FallbackUrl).url, '_blank', 'noopener,noreferrer');
-        return;
-      } catch (e) {
-        window.open('/landing2', '_blank', 'noopener,noreferrer');
-        return;
-      }
+      // User's country is not allowed -> show Landing2 first.
+      // Landing2 will auto-redirect (after 5s) to the next allowed fallback URL.
+      window.open('/landing2', '_blank', 'noopener,noreferrer');
+      return;
     }
     if (prelanding && prelanding.is_active) {
       // Navigate to prelanding page - pass blog context if coming from blog
