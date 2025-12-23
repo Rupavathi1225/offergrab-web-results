@@ -131,39 +131,40 @@ const WebResult = () => {
           return;
         }
 
-        // If we can't detect country (XX), only allow worldwide URLs
-        const accessibleUrls = allUrls.filter((url: FallbackUrl) => {
-          if (url.url.includes("docs.google.com/spreadsheets")) return false;
+        const isSheetsUrl = (u: string) => u.includes("docs.google.com/spreadsheets");
+        const isAllowedForUser = (url: FallbackUrl) => {
           const countries = url.allowed_countries || ["worldwide"];
-          if (userCountryCode === "XX") return countries.includes("worldwide");
+          if (userCountryCode === "XX") return true; // country unknown -> try sequence as-is
           return countries.includes("worldwide") || countries.includes(userCountryCode);
-        });
+        };
 
-        console.log("User country:", userCountryCode);
-        console.log("Total URLs:", allUrls.length);
-        console.log("Accessible URLs for this country:", accessibleUrls.length);
+        const storageKey = userCountryCode === "XX" ? "fallback_index_global" : `fallback_index_${userCountryCode}`;
+        let startIndex = parseInt(localStorage.getItem(storageKey) || "0", 10);
+        startIndex = ((startIndex % allUrls.length) + allUrls.length) % allUrls.length;
 
-        if (accessibleUrls.length === 0) {
-          console.log("No fallback URLs available for country:", userCountryCode);
+        let selectedIndex: number | null = null;
+        for (let step = 0; step < allUrls.length; step++) {
+          const idx = (startIndex + step) % allUrls.length;
+          const candidate = allUrls[idx] as FallbackUrl;
+          if (isSheetsUrl(candidate.url)) continue;
+          if (!isAllowedForUser(candidate)) continue;
+          selectedIndex = idx;
+          setRedirectUrl(candidate.url);
+          break;
+        }
+
+        if (selectedIndex === null) {
+          console.log("No fallback URL available for country:", userCountryCode);
           return;
         }
 
-        // Get the stored index for this country from localStorage
-        const storageKey = `fallback_index_${userCountryCode}`;
-        let currentIndex = parseInt(localStorage.getItem(storageKey) || "0", 10);
+        // Next visit starts after the chosen one
+        const nextIndex = (selectedIndex + 1) % allUrls.length;
+        localStorage.setItem(storageKey, nextIndex.toString());
 
-        // Ensure index is within bounds of accessible URLs
-        currentIndex = currentIndex % accessibleUrls.length;
-
-        const nextUrl = accessibleUrls[currentIndex].url;
-        setRedirectUrl(nextUrl);
-
-        console.log("Selected URL index:", currentIndex);
-        console.log("Will redirect to:", nextUrl);
-
-        // Update localStorage for next visit (cycle through accessible URLs only)
-        const newIndex = (currentIndex + 1) % accessibleUrls.length;
-        localStorage.setItem(storageKey, newIndex.toString());
+        console.log("User country:", userCountryCode);
+        console.log("Selected fallback index:", selectedIndex);
+        console.log("Will redirect to:", (allUrls[selectedIndex] as FallbackUrl).url);
       } catch (error) {
         console.error("Error fetching fallback URL:", error);
       }
