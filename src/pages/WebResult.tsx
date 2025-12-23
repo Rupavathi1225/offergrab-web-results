@@ -133,8 +133,13 @@ const WebResult = () => {
 
         const isSheetsUrl = (u: string) => u.includes("docs.google.com/spreadsheets");
         const isAllowedForUser = (url: FallbackUrl) => {
+          const countries = url.allowed_countries || ["worldwide"];
           if (userCountryCode === "XX") return true; // country unknown -> try sequence as-is
-          return isCountryAllowed(url.allowed_countries, userCountryCode);
+          const normalizedUserCountry = userCountryCode.toUpperCase();
+          return countries.some(c => {
+            const normalizedC = c.toLowerCase();
+            return normalizedC === "worldwide" || c.toUpperCase() === normalizedUserCountry;
+          });
         };
 
         const storageKey = userCountryCode === "XX" ? "fallback_index_global" : `fallback_index_${userCountryCode}`;
