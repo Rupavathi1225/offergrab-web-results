@@ -66,6 +66,9 @@ const Landing2 = () => {
   // Fetch fallback URL for auto-redirect (country-filtered)
   useEffect(() => {
     const fetchNextUrl = async () => {
+      // Wait for country detection (don't proceed if still XX unless timeout)
+      if (userCountry === "XX") return;
+      
       try {
         const { data: allUrls, error: urlsError } = await supabase
           .from("fallback_urls")
@@ -79,43 +82,48 @@ const Landing2 = () => {
         }
 
         const isSheetsUrl = (u: string) => u.includes("docs.google.com/spreadsheets");
+        
+        // Check if URL is allowed for user's country
         const isAllowedForUser = (url: FallbackUrl) => {
           const countries = url.allowed_countries || ["worldwide"];
-          if (userCountry === "XX") return true; // country unknown -> try sequence as-is
-          const normalizedUserCountry = userCountry.toUpperCase();
+          const userCountryUpper = userCountry.toUpperCase();
+          
           return countries.some(c => {
-            const normalizedC = c.toLowerCase();
-            return normalizedC === "worldwide" || c.toUpperCase() === normalizedUserCountry;
+            const countryLower = c.toLowerCase();
+            const countryUpper = c.toUpperCase();
+            // Allow if "worldwide" or exact country match
+            return countryLower === "worldwide" || countryUpper === userCountryUpper;
           });
         };
 
-        const storageKey = userCountry === "XX" ? "fallback_index_global" : `fallback_index_${userCountry}`;
-        let startIndex = parseInt(localStorage.getItem(storageKey) || "0", 10);
-        startIndex = ((startIndex % allUrls.length) + allUrls.length) % allUrls.length;
+        // Filter to only URLs allowed for this user's country (excluding sheets)
+        const allowedUrls = allUrls.filter((url: FallbackUrl) => 
+          !isSheetsUrl(url.url) && isAllowedForUser(url)
+        );
 
-        let selectedIndex: number | null = null;
-        for (let step = 0; step < allUrls.length; step++) {
-          const idx = (startIndex + step) % allUrls.length;
-          const candidate = allUrls[idx] as FallbackUrl;
-          if (isSheetsUrl(candidate.url)) continue;
-          if (!isAllowedForUser(candidate)) continue;
-          selectedIndex = idx;
-          setRedirectUrl(candidate.url);
-          break;
-        }
-
-        if (selectedIndex === null) {
+        if (allowedUrls.length === 0) {
           console.error("No fallback URL available for country:", userCountry);
           return;
         }
 
-        // Next visit starts after the chosen one
-        const nextIndex = (selectedIndex + 1) % allUrls.length;
+        // Use country-specific storage key for cycling through allowed URLs only
+        const storageKey = `fallback_allowed_index_${userCountry}`;
+        let currentIndex = parseInt(localStorage.getItem(storageKey) || "0", 10);
+        
+        // Ensure index is within bounds of allowed URLs
+        currentIndex = currentIndex % allowedUrls.length;
+        
+        const selectedUrl = allowedUrls[currentIndex] as FallbackUrl;
+        setRedirectUrl(selectedUrl.url);
+
+        // Move to next allowed URL for next visit
+        const nextIndex = (currentIndex + 1) % allowedUrls.length;
         localStorage.setItem(storageKey, nextIndex.toString());
 
         console.log("User country:", userCountry);
-        console.log("Selected fallback index:", selectedIndex);
-        console.log("Redirecting to:", (allUrls[selectedIndex] as FallbackUrl).url);
+        console.log("Allowed URLs count:", allowedUrls.length);
+        console.log("Selected index:", currentIndex);
+        console.log("Redirecting to:", selectedUrl.url);
       } catch (error) {
         console.error("Error fetching fallback URL:", error);
       }
