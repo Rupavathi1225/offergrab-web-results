@@ -81,41 +81,38 @@ const Landing2 = () => {
         }
 
         // Filter URLs that are accessible to user's country
-        // URL is accessible if: has "worldwide" OR has user's country code
+        // URL is accessible ONLY if: has "worldwide" OR has user's country code
+        // URLs without user's country are completely skipped
         const accessibleUrls = allUrls.filter((url: FallbackUrl) => {
           const countries = url.allowed_countries || ["worldwide"];
           return countries.includes("worldwide") || countries.includes(userCountry);
         });
+
+        console.log("User country:", userCountry);
+        console.log("Total URLs:", allUrls.length);
+        console.log("Accessible URLs for this country:", accessibleUrls.length);
 
         if (accessibleUrls.length === 0) {
           console.error("No fallback URLs available for country:", userCountry);
           return;
         }
 
-        const { data: tracker, error: trackerError } = await supabase
-          .from("fallback_sequence_tracker")
-          .select("*")
-          .limit(1)
-          .single();
-
-        let currentIndex = 0;
-        if (!trackerError && tracker) {
-          currentIndex = tracker.current_index;
-        }
-
-        // Find the next accessible URL based on sequence
-        const nextIndex = currentIndex % accessibleUrls.length;
-        const nextUrl = accessibleUrls[nextIndex].url;
+        // Get the stored index for this country from localStorage
+        const storageKey = `fallback_index_${userCountry}`;
+        let currentIndex = parseInt(localStorage.getItem(storageKey) || "0", 10);
+        
+        // Ensure index is within bounds of accessible URLs
+        currentIndex = currentIndex % accessibleUrls.length;
+        
+        const nextUrl = accessibleUrls[currentIndex].url;
         setRedirectUrl(nextUrl);
+        
+        console.log("Selected URL index:", currentIndex);
+        console.log("Redirecting to:", nextUrl);
 
-        // Update tracker for next visit
-        const newIndex = (nextIndex + 1) % accessibleUrls.length;
-        if (tracker) {
-          await supabase
-            .from("fallback_sequence_tracker")
-            .update({ current_index: newIndex, updated_at: new Date().toISOString() })
-            .eq("id", tracker.id);
-        }
+        // Update localStorage for next visit (cycle through accessible URLs only)
+        const newIndex = (currentIndex + 1) % accessibleUrls.length;
+        localStorage.setItem(storageKey, newIndex.toString());
       } catch (error) {
         console.error("Error fetching fallback URL:", error);
       }
