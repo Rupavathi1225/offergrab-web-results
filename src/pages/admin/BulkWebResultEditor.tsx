@@ -838,12 +838,15 @@ const BulkWebResultEditor = () => {
         if (row.newUrl) updateData.link = row.newUrl;
         if (row.newDescription) updateData.description = row.newDescription;
         
-        // Handle country update - convert name or code to proper code
+        // Handle country update - convert comma-separated names/codes to proper codes array
         if (row.newCountry) {
-          const countryCode = getCountryCode(row.newCountry);
-          console.log('Country update:', { input: row.newCountry, resolved: countryCode });
-          if (countryCode) {
-            updateData.allowed_countries = [countryCode];
+          const countryInputs = row.newCountry.split(',').map(c => c.trim()).filter(Boolean);
+          const countryCodes = countryInputs
+            .map(input => getCountryCode(input))
+            .filter((code): code is string => code !== null);
+          console.log('Country update:', { input: row.newCountry, parsed: countryInputs, resolved: countryCodes });
+          if (countryCodes.length > 0) {
+            updateData.allowed_countries = countryCodes;
           }
         }
         
