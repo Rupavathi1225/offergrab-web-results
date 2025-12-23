@@ -45,6 +45,7 @@ const FallbackUrls = () => {
   const [selectedCountries, setSelectedCountries] = useState<string[]>(["worldwide"]);
   const [countrySearchOpen, setCountrySearchOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [sheetUrl, setSheetUrl] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -282,6 +283,113 @@ const FallbackUrls = () => {
     }
   };
 
+  // Import from Google Sheets URL
+  const handleSheetUrlImport = async () => {
+    if (!sheetUrl.trim()) {
+      toast.error("Please enter a Google Sheets URL");
+      return;
+    }
+
+    // Extract sheet ID from various Google Sheets URL formats
+    const sheetIdMatch = sheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    if (!sheetIdMatch) {
+      toast.error("Invalid Google Sheets URL. Please use a valid URL.");
+      return;
+    }
+
+    const sheetId = sheetIdMatch[1];
+    const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
+
+    setIsImporting(true);
+
+    try {
+      const response = await fetch(csvUrl);
+      if (!response.ok) {
+        throw new Error("Failed to fetch sheet. Make sure it's publicly accessible.");
+      }
+
+      const csvText = await response.text();
+      const workbook = XLSX.read(csvText, { type: "string" });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json<{ url?: string; URL?: string; link?: string; Link?: string; allowed_countries?: string; countries?: string; Countries?: string }>(worksheet);
+
+      console.log("Parsed Google Sheet data:", jsonData);
+
+      if (jsonData.length === 0) {
+        toast.error("No data found in the sheet");
+        return;
+      }
+
+      const maxOrder = urls?.length ? Math.max(...urls.map(u => u.sequence_order)) : 0;
+      let addedCount = 0;
+      let skippedCount = 0;
+
+      for (let i = 0; i < jsonData.length; i++) {
+        const row = jsonData[i];
+        const urlValue = row.url || row.URL || row.link || row.Link;
+        const countriesValue = row.allowed_countries || row.countries || row.Countries || "";
+
+        if (!urlValue) {
+          console.log("Skipping row - no URL:", row);
+          skippedCount++;
+          continue;
+        }
+
+        // Validate URL
+        try {
+          new URL(urlValue);
+        } catch {
+          console.log("Skipping row - invalid URL:", urlValue);
+          skippedCount++;
+          continue;
+        }
+
+        // Parse comma-separated countries
+        const countryInputs = countriesValue
+          .split(",")
+          .map((c: string) => c.trim())
+          .filter(Boolean);
+
+        let countryCodes: string[] = ["worldwide"];
+        if (countryInputs.length > 0) {
+          const resolvedCodes = countryInputs
+            .map((input: string) => getCountryCode(input))
+            .filter((code): code is string => code !== null);
+          if (resolvedCodes.length > 0) {
+            countryCodes = resolvedCodes;
+          }
+        }
+
+        console.log("Importing URL:", { url: urlValue, countries: countryCodes });
+
+        const { error } = await supabase
+          .from("fallback_urls")
+          .insert({
+            url: urlValue.trim(),
+            sequence_order: maxOrder + addedCount + 1,
+            allowed_countries: countryCodes,
+          });
+
+        if (error) {
+          console.error("Failed to insert URL:", error);
+          skippedCount++;
+        } else {
+          addedCount++;
+        }
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["fallback-urls"] });
+      setSheetUrl("");
+      toast.success(`Imported ${addedCount} URLs${skippedCount > 0 ? `, skipped ${skippedCount}` : ""}`);
+    } catch (error) {
+      console.error("Failed to fetch/parse Google Sheet:", error);
+      toast.error("Failed to import. Make sure the sheet is publicly accessible (File > Share > Anyone with the link).");
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   const renderCountryBadges = (allowedCountries: string[] | null) => {
     const countryList = allowedCountries || ["worldwide"];
     const displayCount = 3;
@@ -426,8 +534,48 @@ const FallbackUrls = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Upload an Excel/CSV file with columns: <code className="bg-muted px-1 rounded">url</code> and <code className="bg-muted px-1 rounded">allowed_countries</code> (comma-separated country names)
+            Import URLs with columns: <code className="bg-muted px-1 rounded">url</code> and <code className="bg-muted px-1 rounded">allowed_countries</code> (comma-separated country names)
           </p>
+          
+          {/* Google Sheets URL Input */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Google Sheets URL</label>
+            <div className="flex gap-2">
+              <Input
+                placeholder="https://docs.google.com/spreadsheets/d/..."
+                value={sheetUrl}
+                onChange={(e) => setSheetUrl(e.target.value)}
+                className="flex-1"
+              />
+              <Button
+                onClick={handleSheetUrlImport}
+                disabled={isImporting || !sheetUrl.trim()}
+              >
+                {isImporting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <>
+                    <Link className="h-4 w-4 mr-2" />
+                    Import
+                  </>
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Make sure the sheet is publicly accessible: <strong>File → Share → Anyone with the link</strong>
+            </p>
+          </div>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">Or upload file</span>
+            </div>
+          </div>
+
+          {/* File Upload */}
           <div className="flex items-center gap-4">
             <input
               type="file"
@@ -449,13 +597,14 @@ const FallbackUrls = () => {
               ) : (
                 <>
                   <Upload className="h-4 w-4 mr-2" />
-                  Upload Sheet
+                  Upload Excel/CSV
                 </>
               )}
             </Button>
           </div>
+
           <div className="text-xs text-muted-foreground space-y-1">
-            <p><strong>Example format:</strong></p>
+            <p><strong>Expected format:</strong></p>
             <div className="bg-muted p-2 rounded font-mono text-xs">
               | url | allowed_countries |<br />
               | https://example.com | India, United States, UK |<br />
