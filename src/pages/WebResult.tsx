@@ -118,8 +118,6 @@ const WebResult = () => {
 
   // Fetch fallback URL for auto-redirect (country-filtered)
   useEffect(() => {
-    if (userCountryCode === "XX") return; // Wait for country to load
-
     const fetchNextUrl = async () => {
       try {
         const { data: allUrls, error: urlsError } = await supabase
@@ -133,9 +131,10 @@ const WebResult = () => {
           return;
         }
 
-        // Filter URLs that are accessible to user's country
+        // If we can't detect country (XX), only allow worldwide URLs
         const accessibleUrls = allUrls.filter((url: FallbackUrl) => {
           const countries = url.allowed_countries || ["worldwide"];
+          if (userCountryCode === "XX") return countries.includes("worldwide");
           return countries.includes("worldwide") || countries.includes(userCountryCode);
         });
 
@@ -151,13 +150,13 @@ const WebResult = () => {
         // Get the stored index for this country from localStorage
         const storageKey = `fallback_index_${userCountryCode}`;
         let currentIndex = parseInt(localStorage.getItem(storageKey) || "0", 10);
-        
+
         // Ensure index is within bounds of accessible URLs
         currentIndex = currentIndex % accessibleUrls.length;
-        
+
         const nextUrl = accessibleUrls[currentIndex].url;
         setRedirectUrl(nextUrl);
-        
+
         console.log("Selected URL index:", currentIndex);
         console.log("Will redirect to:", nextUrl);
 
