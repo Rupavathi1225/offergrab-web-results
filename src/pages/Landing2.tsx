@@ -182,31 +182,55 @@ const Landing2 = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 flex flex-col items-center justify-center p-4">
-      <div className="w-full max-w-xl space-y-6">
-        {/* Header */}
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-foreground">Related Searches</h1>
-        </div>
+    <div className="min-h-screen relative overflow-hidden flex flex-col items-center justify-center p-4">
+      {/* Creative background with purple, yellow dots, black and red accents */}
+      <div className="absolute inset-0 bg-gradient-to-br from-purple-900 via-purple-800 to-purple-950" />
+      
+      {/* Yellow dots pattern */}
+      <div className="absolute inset-0 opacity-60">
+        {[...Array(40)].map((_, i) => (
+          <div
+            key={`yellow-${i}`}
+            className="absolute rounded-full bg-yellow-400"
+            style={{
+              width: `${Math.random() * 8 + 4}px`,
+              height: `${Math.random() * 8 + 4}px`,
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              animation: `pulse ${2 + Math.random() * 3}s ease-in-out infinite`,
+              animationDelay: `${Math.random() * 2}s`,
+            }}
+          />
+        ))}
+      </div>
 
-        {/* Related Searches */}
+      {/* Black accent blobs */}
+      <div className="absolute top-0 left-0 w-64 h-64 bg-black/40 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
+      <div className="absolute bottom-0 right-0 w-48 h-48 bg-black/30 rounded-full blur-3xl translate-x-1/4 translate-y-1/4" />
+
+      {/* Red accent glows */}
+      <div className="absolute top-1/4 right-10 w-32 h-32 bg-red-600/30 rounded-full blur-2xl" />
+      <div className="absolute bottom-1/3 left-16 w-24 h-24 bg-red-500/25 rounded-full blur-2xl" />
+
+      {/* Content */}
+      <div className="relative z-10 w-full max-w-xl space-y-4">
+        {/* Search Results */}
         <div className="space-y-3">
-          {blogs.map((blog, index) => (
+          {blogs.map((blog) => (
             <button
               key={blog.id}
               onClick={() => handleSearchClick(blog)}
-              className="w-full flex items-center gap-3 p-4 bg-card border border-border rounded-lg hover:bg-accent hover:border-primary/50 transition-all duration-200 text-left group"
+              className="w-full flex items-center gap-3 p-4 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl hover:bg-white/20 hover:border-yellow-400/50 hover:shadow-lg hover:shadow-purple-500/20 transition-all duration-300 text-left group"
             >
               <div className="flex-1 min-w-0">
-                <p className="text-foreground font-medium truncate">{blog.title}</p>
-                <p className="text-xs text-muted-foreground">
-                  {index === 0 ? "Top Result" : "Related"}
+                <p className="text-white font-medium truncate group-hover:text-yellow-300 transition-colors">
+                  {blog.title}
                 </p>
               </div>
+              <div className="w-2 h-2 rounded-full bg-yellow-400 opacity-0 group-hover:opacity-100 transition-opacity" />
             </button>
           ))}
         </div>
-
       </div>
     </div>
   );
