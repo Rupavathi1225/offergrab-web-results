@@ -110,7 +110,8 @@ export const trackClick = async (
   const sessionId = getOrCreateSessionId();
 
   try {
-    await supabase.from('clicks').insert({
+    console.log('Tracking click:', { clickType, sessionId, itemName, page });
+    const { data, error } = await supabase.from('clicks').insert({
       session_id: sessionId,
       click_type: clickType,
       item_id: itemId,
@@ -118,7 +119,13 @@ export const trackClick = async (
       page,
       lid,
       original_link: originalLink,
-    });
+    }).select();
+    
+    if (error) {
+      console.error('Error inserting click:', error);
+    } else {
+      console.log('Click tracked successfully:', data);
+    }
   } catch (error) {
     console.error('Error tracking click:', error);
   }

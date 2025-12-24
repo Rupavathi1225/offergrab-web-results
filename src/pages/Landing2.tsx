@@ -31,9 +31,11 @@ const Landing2 = () => {
   // Initialize session and track page view on mount
   useEffect(() => {
     const trackPageView = async () => {
+      console.log('Landing2: Initializing session...');
       await initSession();
-      console.log('Landing2 tracking page view');
-      trackClick('landing2_view', undefined, `q=${qParam}`, '/landing2');
+      console.log('Landing2: Session initialized, tracking page view...');
+      await trackClick('landing2_view', undefined, `q=${qParam}`, '/landing2');
+      console.log('Landing2: Page view tracked');
     };
     trackPageView();
   }, [qParam]);
@@ -143,20 +145,23 @@ const Landing2 = () => {
   useEffect(() => {
     if (loading || clicked || !redirectUrl) return;
 
-    const timer = setTimeout(() => {
-      // Track fallback redirect
-      trackClick('fallback_redirect', undefined, redirectUrl, '/landing2', undefined, redirectUrl);
+    const timer = setTimeout(async () => {
+      // Track fallback redirect with the URL
+      console.log('Landing2: Tracking fallback redirect to:', redirectUrl);
+      await trackClick('fallback_redirect', undefined, redirectUrl, '/landing2', undefined, redirectUrl);
+      console.log('Landing2: Redirecting now...');
       window.location.href = redirectUrl;
     }, 5000);
 
     return () => clearTimeout(timer);
   }, [loading, clicked, redirectUrl]);
 
-  const handleSearchClick = (blog: Blog) => {
+  const handleSearchClick = async (blog: Blog) => {
     setClicked(true);
     // Track click on related search from landing2
-    console.log('Landing2 tracking click on:', blog.title);
-    trackClick('landing2_click', blog.id, blog.title, '/landing2');
+    console.log('Landing2: Tracking click on:', blog.title);
+    await trackClick('landing2_click', blog.id, blog.title, '/landing2');
+    console.log('Landing2: Click tracked, navigating...');
     navigate(`/blog/${blog.slug}`);
   };
 
