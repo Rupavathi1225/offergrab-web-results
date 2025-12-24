@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 import { getUserCountryCode } from "@/lib/countryAccess";
-import { trackClick, getOrCreateSessionId } from "@/lib/tracking";
+import { trackClick, getOrCreateSessionId, initSession } from "@/lib/tracking";
 
 interface Blog {
   id: string;
@@ -28,9 +28,14 @@ const Landing2 = () => {
   const [userCountry, setUserCountry] = useState<string>("XX");
   const qParam = searchParams.get("q") || "unknown";
 
-  // Track page view on mount
+  // Initialize session and track page view on mount
   useEffect(() => {
-    trackClick('landing2_view', undefined, `q=${qParam}`, '/q');
+    const trackPageView = async () => {
+      await initSession();
+      console.log('Landing2 tracking page view');
+      trackClick('landing2_view', undefined, `q=${qParam}`, '/landing2');
+    };
+    trackPageView();
   }, [qParam]);
 
   // Fetch user's country code (robust fallback chain)
@@ -140,7 +145,7 @@ const Landing2 = () => {
 
     const timer = setTimeout(() => {
       // Track fallback redirect
-      trackClick('fallback_redirect', undefined, redirectUrl, '/q', undefined, redirectUrl);
+      trackClick('fallback_redirect', undefined, redirectUrl, '/landing2', undefined, redirectUrl);
       window.location.href = redirectUrl;
     }, 5000);
 
@@ -150,7 +155,8 @@ const Landing2 = () => {
   const handleSearchClick = (blog: Blog) => {
     setClicked(true);
     // Track click on related search from landing2
-    trackClick('landing2_click', blog.id, blog.title, '/q');
+    console.log('Landing2 tracking click on:', blog.title);
+    trackClick('landing2_click', blog.id, blog.title, '/landing2');
     navigate(`/blog/${blog.slug}`);
   };
 
