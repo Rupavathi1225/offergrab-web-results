@@ -184,8 +184,8 @@ const Analytics = () => {
     { icon: Eye, label: 'Page Views', value: stats.totalPageViews },
     { icon: Globe, label: 'Unique Countries', value: stats.uniqueCountries },
     { icon: MousePointer, label: 'Total Clicks', value: stats.totalClicks },
-    { icon: Eye, label: '/q Views', value: stats.landing2Views },
-    { icon: Search, label: '/q Clicks', value: stats.landing2Clicks },
+    { icon: Eye, label: '/landing2 Views', value: stats.landing2Views },
+    { icon: Search, label: '/landing2 Clicks', value: stats.landing2Clicks },
     { icon: Link, label: 'Fallback Redirects', value: stats.fallbackRedirects },
   ];
 
@@ -271,8 +271,8 @@ const Analytics = () => {
                 <th>Clicks</th>
                 <th>Related Searches</th>
                 <th>Result Clicks</th>
-                <th>/q Views</th>
-                <th>/q Clicks</th>
+                <th>/landing2 Views</th>
+                <th>/landing2 Clicks</th>
                 <th>Fallback Redirects</th>
                 <th>Last Active</th>
               </tr>
@@ -400,8 +400,8 @@ const Analytics = () => {
             <DialogTitle>
               {breakdownType === 'related_search' ? 'Related Searches' : 
                breakdownType === 'web_result' ? 'Result Clicks' :
-               breakdownType === 'landing2_view' ? '/q Page Views' :
-               breakdownType === 'landing2_click' ? '/q Clicks' :
+               breakdownType === 'landing2_view' ? '/landing2 Views' :
+               breakdownType === 'landing2_click' ? '/landing2 Clicks' :
                breakdownType === 'fallback_redirect' ? 'Fallback Redirects' : 'Clicks'} Breakdown
             </DialogTitle>
             <p className="text-sm text-muted-foreground">
