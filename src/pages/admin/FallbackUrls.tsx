@@ -1,19 +1,22 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, ArrowUp, ArrowDown, Link, Loader2, Globe, FileSpreadsheet, Upload, Calendar, Eye, Check, X } from "lucide-react";
+import { Plus, Trash2, ArrowUp, ArrowDown, Link, Loader2, Globe, FileSpreadsheet, Upload, Calendar, Eye, Check, X, Filter, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
 import { countries, getCountryName } from "@/lib/countries";
 import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import * as XLSX from "xlsx";
-import { format } from "date-fns";
+import { format, isWithinInterval, startOfDay, endOfDay, parseISO } from "date-fns";
+import { cn } from "@/lib/utils";
+import { DateRange } from "react-day-picker";
 
 interface FallbackUrl {
   id: string;
@@ -68,6 +71,12 @@ const FallbackUrls = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
+  // Filter states
+  const [filterCountries, setFilterCountries] = useState<string[]>([]);
+  const [filterCountryOpen, setFilterCountryOpen] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+
   const { data: urls, isLoading } = useQuery({
     queryKey: ["fallback-urls"],
     queryFn: async () => {
@@ -80,6 +89,56 @@ const FallbackUrls = () => {
       return data as FallbackUrl[];
     },
   });
+
+  // Filter the URLs based on selected filters
+  const filteredUrls = useMemo(() => {
+    if (!urls) return [];
+    
+    return urls.filter((url) => {
+      // Country filter
+      if (filterCountries.length > 0) {
+        const urlCountries = url.allowed_countries || ["worldwide"];
+        const hasMatchingCountry = filterCountries.some((fc) =>
+          urlCountries.some((uc) => uc.toLowerCase() === fc.toLowerCase())
+        );
+        if (!hasMatchingCountry) return false;
+      }
+
+      // Date range filter
+      if (dateRange?.from) {
+        const urlDate = parseISO(url.created_at);
+        const fromDate = startOfDay(dateRange.from);
+        const toDate = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from);
+        
+        if (!isWithinInterval(urlDate, { start: fromDate, end: toDate })) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [urls, filterCountries, dateRange]);
+
+  const toggleFilterCountry = (countryCode: string) => {
+    setFilterCountries((prev) => {
+      if (prev.includes(countryCode)) {
+        return prev.filter((c) => c !== countryCode);
+      } else {
+        return [...prev, countryCode];
+      }
+    });
+  };
+
+  const removeFilterCountry = (countryCode: string) => {
+    setFilterCountries((prev) => prev.filter((c) => c !== countryCode));
+  };
+
+  const clearAllFilters = () => {
+    setFilterCountries([]);
+    setDateRange(undefined);
+  };
+
+  const hasActiveFilters = filterCountries.length > 0 || dateRange?.from;
 
   const { data: tracker } = useQuery({
     queryKey: ["fallback-tracker"],
@@ -521,6 +580,160 @@ const FallbackUrls = () => {
         )}
       </div>
 
+      {/* Filters Section */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Filter className="h-5 w-5" />
+            Filters
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap gap-4">
+            {/* Country Filter */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                Filter by Country
+              </label>
+              <Popover open={filterCountryOpen} onOpenChange={setFilterCountryOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="min-w-[200px] justify-start text-left font-normal">
+                    {filterCountries.length === 0 ? (
+                      <span className="text-muted-foreground">Select countries...</span>
+                    ) : (
+                      <span>{filterCountries.length} selected</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] p-0 z-50 bg-popover" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search countries..." />
+                    <CommandList>
+                      <CommandEmpty>No country found.</CommandEmpty>
+                      <CommandGroup className="max-h-64 overflow-auto">
+                        {countries.map((country) => (
+                          <CommandItem
+                            key={country.code}
+                            onSelect={() => toggleFilterCountry(country.code)}
+                            className="flex items-center gap-2"
+                          >
+                            <Checkbox
+                              checked={filterCountries.includes(country.code)}
+                              className="pointer-events-none"
+                            />
+                            <span>{country.name}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Date Range Filter */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <CalendarIcon className="h-4 w-4" />
+                Filter by Date
+              </label>
+              <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "min-w-[240px] justify-start text-left font-normal",
+                      !dateRange?.from && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {dateRange?.from ? (
+                      dateRange.to ? (
+                        <>
+                          {format(dateRange.from, "LLL dd, y")} -{" "}
+                          {format(dateRange.to, "LLL dd, y")}
+                        </>
+                      ) : (
+                        format(dateRange.from, "LLL dd, y")
+                      )
+                    ) : (
+                      <span>Pick a date range</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 z-50 bg-popover" align="start">
+                  <CalendarComponent
+                    initialFocus
+                    mode="range"
+                    defaultMonth={dateRange?.from}
+                    selected={dateRange}
+                    onSelect={setDateRange}
+                    numberOfMonths={2}
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Clear Filters Button */}
+            {hasActiveFilters && (
+              <div className="flex items-end">
+                <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-muted-foreground">
+                  <X className="h-4 w-4 mr-1" />
+                  Clear all filters
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Selected Filters Display */}
+          {hasActiveFilters && (
+            <div className="flex flex-wrap gap-2 pt-2 border-t">
+              {filterCountries.map((code) => (
+                <Badge
+                  key={code}
+                  variant="secondary"
+                  className="flex items-center gap-1 pr-1"
+                >
+                  {getCountryName(code)}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-4 w-4 p-0 hover:bg-transparent"
+                    onClick={() => removeFilterCountry(code)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </Badge>
+              ))}
+              {dateRange?.from && (
+                <Badge variant="secondary" className="flex items-center gap-1 pr-1">
+                  {dateRange.to
+                    ? `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd, y")}`
+                    : format(dateRange.from, "MMM dd, y")}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-4 w-4 p-0 hover:bg-transparent"
+                    onClick={() => setDateRange(undefined)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </Badge>
+              )}
+            </div>
+          )}
+
+          {/* Filter Results Count */}
+          {hasActiveFilters && (
+            <p className="text-sm text-muted-foreground">
+              Showing {filteredUrls.length} of {urls?.length || 0} URLs
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -771,7 +984,7 @@ const FallbackUrls = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Link className="h-5 w-5" />
-            URL Sequence ({urls?.length || 0} URLs)
+            URL Sequence ({hasActiveFilters ? `${filteredUrls.length} of ${urls?.length || 0}` : `${urls?.length || 0}`} URLs)
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -782,6 +995,10 @@ const FallbackUrls = () => {
           ) : urls?.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               No URLs added yet. Add URLs above to enable sequential redirects.
+            </div>
+          ) : filteredUrls.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No URLs match the selected filters.
             </div>
           ) : (
             <Table>
@@ -801,57 +1018,60 @@ const FallbackUrls = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {urls?.map((url, index) => (
-                  <TableRow 
-                    key={url.id}
-                    className={tracker && (tracker.current_index % urls.length) === index ? "bg-primary/10" : ""}
-                  >
-                    <TableCell className="font-mono text-muted-foreground">
-                      {index + 1}
-                    </TableCell>
-                    <TableCell className="font-mono text-sm break-all max-w-xs">
-                      {url.url}
-                    </TableCell>
-                    <TableCell>
-                      {renderCountryBadges(url.allowed_countries)}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {formatDateTime(url.created_at)}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex justify-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => reorderMutation.mutate({ id: url.id, direction: "up" })}
-                          disabled={index === 0}
-                        >
-                          <ArrowUp className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => reorderMutation.mutate({ id: url.id, direction: "down" })}
-                          disabled={index === urls.length - 1}
-                        >
-                          <ArrowDown className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex justify-center">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => deleteUrlMutation.mutate(url.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {filteredUrls.map((url) => {
+                  const originalIndex = urls?.findIndex((u) => u.id === url.id) ?? 0;
+                  return (
+                    <TableRow 
+                      key={url.id}
+                      className={tracker && urls && (tracker.current_index % urls.length) === originalIndex ? "bg-primary/10" : ""}
+                    >
+                      <TableCell className="font-mono text-muted-foreground">
+                        {originalIndex + 1}
+                      </TableCell>
+                      <TableCell className="font-mono text-sm break-all max-w-xs">
+                        {url.url}
+                      </TableCell>
+                      <TableCell>
+                        {renderCountryBadges(url.allowed_countries)}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatDateTime(url.created_at)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex justify-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => reorderMutation.mutate({ id: url.id, direction: "up" })}
+                            disabled={originalIndex === 0}
+                          >
+                            <ArrowUp className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => reorderMutation.mutate({ id: url.id, direction: "down" })}
+                            disabled={urls && originalIndex === urls.length - 1}
+                          >
+                            <ArrowDown className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex justify-center">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => deleteUrlMutation.mutate(url.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
