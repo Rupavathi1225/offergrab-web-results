@@ -293,9 +293,10 @@ const WebResult = () => {
     console.log('Country check:', userCountryCode, 'Allowed countries:', result.allowed_countries, 'Is allowed:', allowed);
 
     if (!allowed) {
-      // User's country is not allowed -> show Landing2 first.
-      // Landing2 will auto-redirect (after 5s) to the next allowed fallback URL.
-      window.open('/landing2', '_blank', 'noopener,noreferrer');
+      // User's country is not allowed -> show /q page first.
+      // /q will auto-redirect (after 5s) to the next allowed fallback URL.
+      const randomId = Math.random().toString(36).substring(2, 10);
+      window.open(`/q?q=${randomId}`, '_blank', 'noopener,noreferrer');
       return;
     }
     if (prelanding && prelanding.is_active) {

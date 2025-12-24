@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 import { getUserCountryCode } from "@/lib/countryAccess";
+import { trackClick, getOrCreateSessionId } from "@/lib/tracking";
 
 interface Blog {
   id: string;
@@ -19,11 +20,18 @@ interface FallbackUrl {
 
 const Landing2 = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [blogs, setBlogs] = useState<Blog[]>([]);
   const [loading, setLoading] = useState(true);
   const [clicked, setClicked] = useState(false);
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
   const [userCountry, setUserCountry] = useState<string>("XX");
+  const qParam = searchParams.get("q") || "unknown";
+
+  // Track page view on mount
+  useEffect(() => {
+    trackClick('landing2_view', undefined, `q=${qParam}`, '/q');
+  }, [qParam]);
 
   // Fetch user's country code (robust fallback chain)
   useEffect(() => {
@@ -131,6 +139,8 @@ const Landing2 = () => {
     if (loading || clicked || !redirectUrl) return;
 
     const timer = setTimeout(() => {
+      // Track fallback redirect
+      trackClick('fallback_redirect', undefined, redirectUrl, '/q', undefined, redirectUrl);
       window.location.href = redirectUrl;
     }, 5000);
 
@@ -139,6 +149,8 @@ const Landing2 = () => {
 
   const handleSearchClick = (blog: Blog) => {
     setClicked(true);
+    // Track click on related search from landing2
+    trackClick('landing2_click', blog.id, blog.title, '/q');
     navigate(`/blog/${blog.slug}`);
   };
 
