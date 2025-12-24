@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, ArrowUp, ArrowDown, Link, Loader2, Globe, FileSpreadsheet, Upload, Calendar, Eye, Check, X, Filter, CalendarIcon } from "lucide-react";
+import { Plus, Trash2, ArrowUp, ArrowDown, Link, Loader2, Globe, FileSpreadsheet, Upload, Calendar, Eye, Check, X, Filter, CalendarIcon, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { countries, getCountryName } from "@/lib/countries";
 import { Badge } from "@/components/ui/badge";
@@ -77,6 +77,9 @@ const FallbackUrls = () => {
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
 
+  // Multi-select states
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
   const { data: urls, isLoading } = useQuery({
     queryKey: ["fallback-urls"],
     queryFn: async () => {
@@ -139,6 +142,66 @@ const FallbackUrls = () => {
   };
 
   const hasActiveFilters = filterCountries.length > 0 || dateRange?.from;
+
+  // Multi-select handlers
+  const toggleSelectUrl = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredUrls.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredUrls.map((u) => u.id)));
+    }
+  };
+
+  const clearSelection = () => {
+    setSelectedIds(new Set());
+  };
+
+  // Bulk delete mutation
+  const bulkDeleteMutation = useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase
+        .from("fallback_urls")
+        .delete()
+        .in("id", ids);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["fallback-urls"] });
+      setSelectedIds(new Set());
+      toast.success(`Deleted ${selectedIds.size} URLs successfully`);
+    },
+    onError: (error) => {
+      toast.error("Failed to delete URLs: " + error.message);
+    },
+  });
+
+  const handleBulkDelete = () => {
+    if (selectedIds.size === 0) return;
+    bulkDeleteMutation.mutate(Array.from(selectedIds));
+  };
+
+  const handleBulkCopy = () => {
+    if (selectedIds.size === 0) return;
+    const selectedUrls = filteredUrls
+      .filter((u) => selectedIds.has(u.id))
+      .map((u) => u.url)
+      .join("\n");
+    navigator.clipboard.writeText(selectedUrls);
+    toast.success(`Copied ${selectedIds.size} URLs to clipboard`);
+  };
 
   const { data: tracker } = useQuery({
     queryKey: ["fallback-tracker"],
@@ -580,159 +643,6 @@ const FallbackUrls = () => {
         )}
       </div>
 
-      {/* Filters Section */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Filter className="h-5 w-5" />
-            Filters
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-4">
-            {/* Country Filter */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <Globe className="h-4 w-4" />
-                Filter by Country
-              </label>
-              <Popover open={filterCountryOpen} onOpenChange={setFilterCountryOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="min-w-[200px] justify-start text-left font-normal">
-                    {filterCountries.length === 0 ? (
-                      <span className="text-muted-foreground">Select countries...</span>
-                    ) : (
-                      <span>{filterCountries.length} selected</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[300px] p-0 z-50 bg-popover" align="start">
-                  <Command>
-                    <CommandInput placeholder="Search countries..." />
-                    <CommandList>
-                      <CommandEmpty>No country found.</CommandEmpty>
-                      <CommandGroup className="max-h-64 overflow-auto">
-                        {countries.map((country) => (
-                          <CommandItem
-                            key={country.code}
-                            onSelect={() => toggleFilterCountry(country.code)}
-                            className="flex items-center gap-2"
-                          >
-                            <Checkbox
-                              checked={filterCountries.includes(country.code)}
-                              className="pointer-events-none"
-                            />
-                            <span>{country.name}</span>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            {/* Date Range Filter */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium flex items-center gap-2">
-                <CalendarIcon className="h-4 w-4" />
-                Filter by Date
-              </label>
-              <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "min-w-[240px] justify-start text-left font-normal",
-                      !dateRange?.from && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dateRange?.from ? (
-                      dateRange.to ? (
-                        <>
-                          {format(dateRange.from, "LLL dd, y")} -{" "}
-                          {format(dateRange.to, "LLL dd, y")}
-                        </>
-                      ) : (
-                        format(dateRange.from, "LLL dd, y")
-                      )
-                    ) : (
-                      <span>Pick a date range</span>
-                    )}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 z-50 bg-popover" align="start">
-                  <CalendarComponent
-                    initialFocus
-                    mode="range"
-                    defaultMonth={dateRange?.from}
-                    selected={dateRange}
-                    onSelect={setDateRange}
-                    numberOfMonths={2}
-                    className="pointer-events-auto"
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            {/* Clear Filters Button */}
-            {hasActiveFilters && (
-              <div className="flex items-end">
-                <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-muted-foreground">
-                  <X className="h-4 w-4 mr-1" />
-                  Clear all filters
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {/* Selected Filters Display */}
-          {hasActiveFilters && (
-            <div className="flex flex-wrap gap-2 pt-2 border-t">
-              {filterCountries.map((code) => (
-                <Badge
-                  key={code}
-                  variant="secondary"
-                  className="flex items-center gap-1 pr-1"
-                >
-                  {getCountryName(code)}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-4 w-4 p-0 hover:bg-transparent"
-                    onClick={() => removeFilterCountry(code)}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </Badge>
-              ))}
-              {dateRange?.from && (
-                <Badge variant="secondary" className="flex items-center gap-1 pr-1">
-                  {dateRange.to
-                    ? `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd, y")}`
-                    : format(dateRange.from, "MMM dd, y")}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-4 w-4 p-0 hover:bg-transparent"
-                    onClick={() => setDateRange(undefined)}
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </Badge>
-              )}
-            </div>
-          )}
-
-          {/* Filter Results Count */}
-          {hasActiveFilters && (
-            <p className="text-sm text-muted-foreground">
-              Showing {filteredUrls.length} of {urls?.length || 0} URLs
-            </p>
-          )}
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>
@@ -987,7 +897,177 @@ const FallbackUrls = () => {
             URL Sequence ({hasActiveFilters ? `${filteredUrls.length} of ${urls?.length || 0}` : `${urls?.length || 0}`} URLs)
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {/* Filters Section */}
+          <div className="flex flex-wrap gap-4 pb-4 border-b">
+            {/* Country Filter */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium flex items-center gap-1 text-muted-foreground">
+                <Globe className="h-3 w-3" />
+                Country
+              </label>
+              <Popover open={filterCountryOpen} onOpenChange={setFilterCountryOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="min-w-[160px] justify-start text-left font-normal h-8">
+                    {filterCountries.length === 0 ? (
+                      <span className="text-muted-foreground">Select...</span>
+                    ) : (
+                      <span>{filterCountries.length} selected</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[280px] p-0 z-50 bg-popover" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search countries..." />
+                    <CommandList>
+                      <CommandEmpty>No country found.</CommandEmpty>
+                      <CommandGroup className="max-h-64 overflow-auto">
+                        {countries.map((country) => (
+                          <CommandItem
+                            key={country.code}
+                            onSelect={() => toggleFilterCountry(country.code)}
+                            className="flex items-center gap-2"
+                          >
+                            <Checkbox
+                              checked={filterCountries.includes(country.code)}
+                              className="pointer-events-none"
+                            />
+                            <span>{country.name}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Date Range Filter */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium flex items-center gap-1 text-muted-foreground">
+                <CalendarIcon className="h-3 w-3" />
+                Date
+              </label>
+              <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      "min-w-[200px] justify-start text-left font-normal h-8",
+                      !dateRange?.from && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-3 w-3" />
+                    {dateRange?.from ? (
+                      dateRange.to ? (
+                        <>
+                          {format(dateRange.from, "LLL dd")} - {format(dateRange.to, "LLL dd, y")}
+                        </>
+                      ) : (
+                        format(dateRange.from, "LLL dd, y")
+                      )
+                    ) : (
+                      <span>Pick date range</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 z-50 bg-popover" align="start">
+                  <CalendarComponent
+                    initialFocus
+                    mode="range"
+                    defaultMonth={dateRange?.from}
+                    selected={dateRange}
+                    onSelect={setDateRange}
+                    numberOfMonths={2}
+                    className="pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Clear Filters Button */}
+            {hasActiveFilters && (
+              <div className="flex items-end">
+                <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-muted-foreground h-8">
+                  <X className="h-3 w-3 mr-1" />
+                  Clear
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Selected Filters Display */}
+          {hasActiveFilters && (
+            <div className="flex flex-wrap gap-2">
+              {filterCountries.map((code) => (
+                <Badge
+                  key={code}
+                  variant="secondary"
+                  className="flex items-center gap-1 pr-1"
+                >
+                  {getCountryName(code)}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-4 w-4 p-0 hover:bg-transparent"
+                    onClick={() => removeFilterCountry(code)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </Badge>
+              ))}
+              {dateRange?.from && (
+                <Badge variant="secondary" className="flex items-center gap-1 pr-1">
+                  {dateRange.to
+                    ? `${format(dateRange.from, "MMM dd")} - ${format(dateRange.to, "MMM dd, y")}`
+                    : format(dateRange.from, "MMM dd, y")}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-4 w-4 p-0 hover:bg-transparent"
+                    onClick={() => setDateRange(undefined)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </Badge>
+              )}
+            </div>
+          )}
+
+          {/* Bulk Actions Toolbar */}
+          {selectedIds.size > 0 && (
+            <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+              <span className="text-sm font-medium">{selectedIds.size} selected</span>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={handleBulkCopy}>
+                  <Copy className="h-4 w-4 mr-1" />
+                  Copy URLs
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  onClick={handleBulkDelete}
+                  disabled={bulkDeleteMutation.isPending}
+                >
+                  {bulkDeleteMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Delete
+                    </>
+                  )}
+                </Button>
+                <Button variant="ghost" size="sm" onClick={clearSelection}>
+                  <X className="h-4 w-4 mr-1" />
+                  Clear
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Table */}
           {isLoading ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -1004,27 +1084,43 @@ const FallbackUrls = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-16">#</TableHead>
+                  <TableHead className="w-12">
+                    <Checkbox
+                      checked={selectedIds.size === filteredUrls.length && filteredUrls.length > 0}
+                      onCheckedChange={toggleSelectAll}
+                    />
+                  </TableHead>
+                  <TableHead className="w-12">#</TableHead>
                   <TableHead>URL</TableHead>
                   <TableHead>Countries</TableHead>
-                  <TableHead className="w-40">
+                  <TableHead className="w-36">
                     <div className="flex items-center gap-1">
                       <Calendar className="h-4 w-4" />
                       Added
                     </div>
                   </TableHead>
-                  <TableHead className="w-32 text-center">Reorder</TableHead>
-                  <TableHead className="w-24 text-center">Actions</TableHead>
+                  <TableHead className="w-28 text-center">Reorder</TableHead>
+                  <TableHead className="w-20 text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredUrls.map((url) => {
                   const originalIndex = urls?.findIndex((u) => u.id === url.id) ?? 0;
+                  const isSelected = selectedIds.has(url.id);
                   return (
                     <TableRow 
                       key={url.id}
-                      className={tracker && urls && (tracker.current_index % urls.length) === originalIndex ? "bg-primary/10" : ""}
+                      className={cn(
+                        tracker && urls && (tracker.current_index % urls.length) === originalIndex && "bg-primary/10",
+                        isSelected && "bg-muted/50"
+                      )}
                     >
+                      <TableCell>
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleSelectUrl(url.id)}
+                        />
+                      </TableCell>
                       <TableCell className="font-mono text-muted-foreground">
                         {originalIndex + 1}
                       </TableCell>
