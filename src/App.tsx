@@ -45,7 +45,7 @@ function App() {
             <Route path="/blog/:slug" element={<BlogPage />} />
             <Route path="/p" element={<BlogByNumber />} />
             <Route path="/fastmoney" element={<FastMoney />} />
-            <Route path="/landing2" element={<Landing2 />} />
+            <Route path="/q" element={<Landing2 />} />
             {/* Admin Routes */}
             <Route path="/admin" element={<AdminLayout />}>
               <Route index element={<LandingContent />} />

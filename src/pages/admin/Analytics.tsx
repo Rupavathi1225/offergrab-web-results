@@ -53,6 +53,9 @@ interface Stats {
   desktopUsers: number;
   relatedSearchClicks: number;
   resultClicks: number;
+  landing2Views: number;
+  landing2Clicks: number;
+  fallbackRedirects: number;
 }
 
 const Analytics = () => {
@@ -67,12 +70,15 @@ const Analytics = () => {
     desktopUsers: 0,
     relatedSearchClicks: 0,
     resultClicks: 0,
+    landing2Views: 0,
+    landing2Clicks: 0,
+    fallbackRedirects: 0,
   });
   const [loading, setLoading] = useState(true);
   const [filterCountry, setFilterCountry] = useState('all');
   const [filterSource, setFilterSource] = useState('all');
   const [breakdownSession, setBreakdownSession] = useState<string | null>(null);
-  const [breakdownType, setBreakdownType] = useState<'related_search' | 'web_result' | null>(null);
+  const [breakdownType, setBreakdownType] = useState<'related_search' | 'web_result' | 'landing2_view' | 'landing2_click' | 'fallback_redirect' | null>(null);
   const [breakdownClicks, setBreakdownClicks] = useState<Click[]>([]);
 
   useEffect(() => {
@@ -103,6 +109,9 @@ const Analytics = () => {
         desktopUsers: sessionsData.filter(s => s.device === 'desktop').length,
         relatedSearchClicks: clicksData.filter(c => c.click_type === 'related_search').length,
         resultClicks: clicksData.filter(c => c.click_type === 'web_result').length,
+        landing2Views: clicksData.filter(c => c.click_type === 'landing2_view').length,
+        landing2Clicks: clicksData.filter(c => c.click_type === 'landing2_click').length,
+        fallbackRedirects: clicksData.filter(c => c.click_type === 'fallback_redirect').length,
       });
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -131,6 +140,9 @@ const Analytics = () => {
         desktopUsers: 0,
         relatedSearchClicks: 0,
         resultClicks: 0,
+        landing2Views: 0,
+        landing2Clicks: 0,
+        fallbackRedirects: 0,
       });
 
       toast({ title: "Cleared!", description: "All analytics data has been cleared." });
@@ -140,7 +152,7 @@ const Analytics = () => {
     }
   };
 
-  const openBreakdown = (sessionId: string, type: 'related_search' | 'web_result') => {
+  const openBreakdown = (sessionId: string, type: 'related_search' | 'web_result' | 'landing2_view' | 'landing2_click' | 'fallback_redirect') => {
     const sessionClicks = clicks.filter(
       c => c.session_id === sessionId && c.click_type === type
     );
@@ -172,6 +184,9 @@ const Analytics = () => {
     { icon: Eye, label: 'Page Views', value: stats.totalPageViews },
     { icon: Globe, label: 'Unique Countries', value: stats.uniqueCountries },
     { icon: MousePointer, label: 'Total Clicks', value: stats.totalClicks },
+    { icon: Eye, label: '/q Views', value: stats.landing2Views },
+    { icon: Search, label: '/q Clicks', value: stats.landing2Clicks },
+    { icon: Link, label: 'Fallback Redirects', value: stats.fallbackRedirects },
   ];
 
   if (loading) {
@@ -256,6 +271,9 @@ const Analytics = () => {
                 <th>Clicks</th>
                 <th>Related Searches</th>
                 <th>Result Clicks</th>
+                <th>/q Views</th>
+                <th>/q Clicks</th>
+                <th>Fallback Redirects</th>
                 <th>Last Active</th>
               </tr>
             </thead>
@@ -263,7 +281,10 @@ const Analytics = () => {
               {filteredSessions.map((session) => {
                 const rsClicks = getSessionClicks(session.session_id, 'related_search');
                 const wrClicks = getSessionClicks(session.session_id, 'web_result');
-                const totalClicks = rsClicks.length + wrClicks.length;
+                const l2Views = getSessionClicks(session.session_id, 'landing2_view');
+                const l2Clicks = getSessionClicks(session.session_id, 'landing2_click');
+                const fbRedirects = getSessionClicks(session.session_id, 'fallback_redirect');
+                const totalClicks = rsClicks.length + wrClicks.length + l2Clicks.length;
                 
                 return (
                   <tr key={session.id}>
@@ -318,6 +339,45 @@ const Analytics = () => {
                         </div>
                       ) : '-'}
                     </td>
+                    <td>
+                      {l2Views.length > 0 ? (
+                        <div>
+                          <span className="badge-primary">Total: {l2Views.length}</span>
+                          <button
+                            onClick={() => openBreakdown(session.session_id, 'landing2_view')}
+                            className="text-primary text-xs ml-2 hover:underline"
+                          >
+                            ▼ View
+                          </button>
+                        </div>
+                      ) : '-'}
+                    </td>
+                    <td>
+                      {l2Clicks.length > 0 ? (
+                        <div>
+                          <span className="badge-warning">Total: {l2Clicks.length}</span>
+                          <button
+                            onClick={() => openBreakdown(session.session_id, 'landing2_click')}
+                            className="text-primary text-xs ml-2 hover:underline"
+                          >
+                            ▼ View
+                          </button>
+                        </div>
+                      ) : '-'}
+                    </td>
+                    <td>
+                      {fbRedirects.length > 0 ? (
+                        <div>
+                          <span className="badge-success">Total: {fbRedirects.length}</span>
+                          <button
+                            onClick={() => openBreakdown(session.session_id, 'fallback_redirect')}
+                            className="text-primary text-xs ml-2 hover:underline"
+                          >
+                            ▼ View
+                          </button>
+                        </div>
+                      ) : '-'}
+                    </td>
                     <td className="text-xs text-muted-foreground">
                       {new Date(session.last_active).toLocaleString()}
                     </td>
@@ -338,7 +398,11 @@ const Analytics = () => {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
-              {breakdownType === 'related_search' ? 'Related Searches' : 'Result Clicks'} Breakdown
+              {breakdownType === 'related_search' ? 'Related Searches' : 
+               breakdownType === 'web_result' ? 'Result Clicks' :
+               breakdownType === 'landing2_view' ? '/q Page Views' :
+               breakdownType === 'landing2_click' ? '/q Clicks' :
+               breakdownType === 'fallback_redirect' ? 'Fallback Redirects' : 'Clicks'} Breakdown
             </DialogTitle>
             <p className="text-sm text-muted-foreground">
               Session: {breakdownSession?.substring(0, 12)}... | 
