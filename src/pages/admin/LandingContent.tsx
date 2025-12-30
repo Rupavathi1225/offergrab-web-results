@@ -5,12 +5,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { Save } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 interface Content {
   id: string;
   site_name: string;
   headline: string;
   description: string;
+  redirect_enabled: boolean;
+  redirect_delay_seconds: number;
 }
 
 const LandingContent = () => {
@@ -50,6 +54,8 @@ const LandingContent = () => {
           site_name: content.site_name,
           headline: content.headline,
           description: content.description,
+          redirect_enabled: content.redirect_enabled,
+          redirect_delay_seconds: content.redirect_delay_seconds,
         })
         .eq('id', content.id);
 
@@ -113,6 +119,40 @@ const LandingContent = () => {
             className="admin-input min-h-[100px]"
             placeholder="Describe your site..."
           />
+        </div>
+
+        <div className="border-t border-border pt-6 space-y-4">
+          <h3 className="text-lg font-semibold text-foreground">Redirect Settings</h3>
+          
+          <div className="flex items-center justify-between p-4 bg-secondary/30 rounded-lg">
+            <div className="space-y-1">
+              <Label htmlFor="redirect-toggle" className="text-foreground font-medium">
+                Enable Auto-Redirect
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                When enabled, users will be redirected after the timer expires
+              </p>
+            </div>
+            <Switch
+              id="redirect-toggle"
+              checked={content.redirect_enabled}
+              onCheckedChange={(checked) => setContent({ ...content, redirect_enabled: checked })}
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-foreground mb-2">
+              Redirect Delay (seconds)
+            </label>
+            <Input
+              type="number"
+              min={1}
+              max={60}
+              value={content.redirect_delay_seconds}
+              onChange={(e) => setContent({ ...content, redirect_delay_seconds: parseInt(e.target.value) || 5 })}
+              className="admin-input w-32"
+            />
+          </div>
         </div>
 
         <Button onClick={handleSave} disabled={saving}>

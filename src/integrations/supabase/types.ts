@@ -187,6 +187,8 @@ export type Database = {
           description: string
           headline: string
           id: string
+          redirect_delay_seconds: number
+          redirect_enabled: boolean
           site_name: string
           updated_at: string
         }
@@ -195,6 +197,8 @@ export type Database = {
           description?: string
           headline?: string
           id?: string
+          redirect_delay_seconds?: number
+          redirect_enabled?: boolean
           site_name?: string
           updated_at?: string
         }
@@ -203,6 +207,8 @@ export type Database = {
           description?: string
           headline?: string
           id?: string
+          redirect_delay_seconds?: number
+          redirect_enabled?: boolean
           site_name?: string
           updated_at?: string
         }
