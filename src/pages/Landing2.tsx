@@ -26,6 +26,8 @@ const Landing2 = () => {
   const [clicked, setClicked] = useState(false);
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
   const [userCountry, setUserCountry] = useState<string>("XX");
+  const [redirectEnabled, setRedirectEnabled] = useState(false);
+  const [redirectDelay, setRedirectDelay] = useState(5);
   const qParam = searchParams.get("q") || "unknown";
 
   // Initialize session and track page view on mount
@@ -46,26 +48,39 @@ const Landing2 = () => {
   }, []);
 
   useEffect(() => {
-    const fetchTopBlogs = async () => {
+    const fetchData = async () => {
       try {
-        const { data, error } = await supabase
-          .from("blogs")
-          .select("id, title, slug")
-          .eq("status", "published")
-          .eq("is_active", true)
-          .order("created_at", { ascending: true })
-          .limit(5);
+        // Fetch blogs and redirect settings in parallel
+        const [blogsRes, settingsRes] = await Promise.all([
+          supabase
+            .from("blogs")
+            .select("id, title, slug")
+            .eq("status", "published")
+            .eq("is_active", true)
+            .order("created_at", { ascending: true })
+            .limit(5),
+          supabase
+            .from("landing_content")
+            .select("redirect_enabled, redirect_delay_seconds")
+            .limit(1)
+            .maybeSingle()
+        ]);
 
-        if (error) throw error;
-        setBlogs(data || []);
+        if (blogsRes.error) throw blogsRes.error;
+        setBlogs(blogsRes.data || []);
+
+        if (settingsRes.data) {
+          setRedirectEnabled(settingsRes.data.redirect_enabled);
+          setRedirectDelay(settingsRes.data.redirect_delay_seconds);
+        }
       } catch (error) {
-        console.error("Error fetching blogs:", error);
+        console.error("Error fetching data:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchTopBlogs();
+    fetchData();
   }, []);
 
   // Fetch fallback URL for auto-redirect (country-filtered)
@@ -141,9 +156,10 @@ const Landing2 = () => {
     fetchNextUrl();
   }, [userCountry]);
 
-  // Auto-redirect after 5 seconds to fallback URL
+  // Auto-redirect after delay ONLY if redirect is enabled
   useEffect(() => {
-    if (loading || clicked || !redirectUrl) return;
+    // Only redirect if toggle is ON, not loading, not clicked, and URL is available
+    if (!redirectEnabled || loading || clicked || !redirectUrl) return;
 
     const timer = setTimeout(async () => {
       // Track fallback redirect with the URL
@@ -151,10 +167,10 @@ const Landing2 = () => {
       await trackClick('fallback_redirect', undefined, redirectUrl, '/landing2', undefined, redirectUrl);
       console.log('Landing2: Redirecting now...');
       window.location.href = redirectUrl;
-    }, 5000);
+    }, redirectDelay * 1000);
 
     return () => clearTimeout(timer);
-  }, [loading, clicked, redirectUrl]);
+  }, [redirectEnabled, loading, clicked, redirectUrl, redirectDelay]);
 
   const handleSearchClick = async (blog: Blog) => {
     setClicked(true);

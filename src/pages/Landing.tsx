@@ -3,11 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { initSession, trackClick } from "@/lib/tracking";
+import { getUserCountryCode } from "@/lib/countryAccess";
 
 interface LandingContent {
   site_name: string;
   headline: string;
   description: string;
+  redirect_enabled: boolean;
+  redirect_delay_seconds: number;
 }
 
 interface RelatedSearch {
@@ -22,10 +25,13 @@ const Landing = () => {
   const [content, setContent] = useState<LandingContent | null>(null);
   const [searches, setSearches] = useState<RelatedSearch[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userCountry, setUserCountry] = useState<string>("XX");
+  const [clicked, setClicked] = useState(false);
 
   useEffect(() => {
     initSession();
     fetchData();
+    getUserCountryCode().then(setUserCountry);
   }, []);
 
   const fetchData = async () => {
@@ -83,7 +89,50 @@ const Landing = () => {
     }
   };
 
+  // Country-based redirect to /q page ONLY if redirect is enabled
+  useEffect(() => {
+    if (!content?.redirect_enabled || loading || clicked) return;
+
+    // Check if user should be redirected based on country
+    const checkCountryRedirect = async () => {
+      try {
+        // Get web results to check allowed countries
+        const { data: webResults } = await supabase
+          .from("web_results")
+          .select("allowed_countries")
+          .eq("is_active", true)
+          .limit(1)
+          .maybeSingle();
+
+        if (!webResults) return;
+
+        const allowedCountries = webResults.allowed_countries || ["worldwide"];
+        const effectiveCountry = userCountry.toUpperCase();
+
+        // Check if user's country is allowed
+        const isAllowed = allowedCountries.some((c: string) => {
+          const countryLower = c.toLowerCase();
+          const countryUpper = c.toUpperCase();
+          return countryLower === "worldwide" || countryUpper === effectiveCountry;
+        });
+
+        // If country not allowed, redirect to /q after delay
+        if (!isAllowed) {
+          const timer = setTimeout(() => {
+            navigate("/q?q=redirect");
+          }, content.redirect_delay_seconds * 1000);
+          return () => clearTimeout(timer);
+        }
+      } catch (error) {
+        console.error("Error checking country redirect:", error);
+      }
+    };
+
+    checkCountryRedirect();
+  }, [content, loading, clicked, userCountry, navigate]);
+
   const handleSearchClick = (search: RelatedSearch) => {
+    setClicked(true);
     trackClick('related_search', search.id, search.title, '/landing');
     navigate(`/webresult/${search.target_wr}`);
   };
