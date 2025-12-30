@@ -32,6 +32,7 @@ const LandingContent = () => {
       const { data, error } = await supabase
         .from("landing_content")
         .select("*")
+        .order("updated_at", { ascending: false })
         .limit(1)
         .maybeSingle();
 
@@ -53,16 +54,27 @@ const LandingContent = () => {
 
     setSavingRedirect(true);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("landing_content")
         .update({ redirect_enabled: nextEnabled })
-        .eq("id", content.id);
+        .eq("id", content.id)
+        .select("redirect_enabled, updated_at")
+        .single();
 
       if (error) throw error;
 
+      setContent((c) =>
+        c
+          ? {
+              ...c,
+              redirect_enabled: data.redirect_enabled,
+            }
+          : c,
+      );
+
       toast({
         title: "Redirect setting saved",
-        description: nextEnabled ? "Auto-redirect is ON." : "Auto-redirect is OFF.",
+        description: data.redirect_enabled ? "Auto-redirect is ON." : "Auto-redirect is OFF.",
       });
     } catch (error) {
       console.error("Error saving redirect_enabled:", error);
