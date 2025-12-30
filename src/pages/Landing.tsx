@@ -147,7 +147,12 @@ const Landing = () => {
         localStorage.setItem(storageKey, ((currentIndex + 1) % allowedUrls.length).toString());
 
         timer = window.setTimeout(() => {
-          window.location.href = selectedUrl.url;
+          // In previews the app runs in an iframe; use top-level navigation (not a popup).
+          if (window.self !== window.top) {
+            window.top.location.href = selectedUrl.url;
+          } else {
+            window.location.href = selectedUrl.url;
+          }
         }, content.redirect_delay_seconds * 1000);
       } catch (error) {
         console.error("Error checking country redirect:", error);

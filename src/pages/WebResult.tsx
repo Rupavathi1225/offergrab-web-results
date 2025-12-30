@@ -21,6 +21,7 @@ interface WebResultItem {
 
 interface LandingContent {
   site_name: string;
+  redirect_enabled?: boolean;
 }
 
 interface Prelanding {
@@ -225,7 +226,11 @@ const WebResult = () => {
                 .eq("related_search_id", search.id)
                 .eq("is_active", true)
                 .order("serial_number", { ascending: true }),
-              supabase.from("landing_content").select("site_name").limit(1).maybeSingle(),
+              supabase
+                .from("landing_content")
+                .select("site_name, redirect_enabled")
+                .limit(1)
+                .maybeSingle(),
               supabase.from("prelandings").select("id, web_result_id, is_active").eq("is_active", true),
             ]);
 
@@ -254,7 +259,7 @@ const WebResult = () => {
           .eq('wr_page', wrPage)
           .eq('is_active', true)
           .order('serial_number', { ascending: true }),
-        supabase.from('landing_content').select('site_name').limit(1).maybeSingle(),
+        supabase.from('landing_content').select('site_name, redirect_enabled').limit(1).maybeSingle(),
         supabase.from('prelandings').select('id, web_result_id, is_active').eq('is_active', true),
       ]);
 
@@ -293,10 +298,14 @@ const WebResult = () => {
     console.log('Country check:', userCountryCode, 'Allowed countries:', result.allowed_countries, 'Is allowed:', allowed);
 
     if (!allowed) {
-      // User's country is not allowed -> show /q page first.
-      // /q will auto-redirect (after 5s) to the next allowed fallback URL.
-      const randomId = Math.random().toString(36).substring(2, 10);
-      window.open(`/q?q=${randomId}`, '_blank', 'noopener,noreferrer');
+      // If admin redirect is enabled, send user to /q which will redirect to fallback URLs.
+      // If disabled, open the original website.
+      if (content?.redirect_enabled) {
+        const randomId = Math.random().toString(36).substring(2, 10);
+        window.open(`/q?q=${randomId}&wrId=${result.id}`, '_blank', 'noopener,noreferrer');
+      } else {
+        window.open(result.link, '_blank', 'noopener,noreferrer');
+      }
       return;
     }
     if (prelanding && prelanding.is_active) {

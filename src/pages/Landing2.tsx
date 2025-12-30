@@ -29,6 +29,7 @@ const Landing2 = () => {
   const [adminRedirectEnabled, setAdminRedirectEnabled] = useState(false);
   const [redirectDelay, setRedirectDelay] = useState(5);
   const qParam = searchParams.get("q") || "unknown";
+  const wrId = searchParams.get("wrId");
 
   const effectiveRedirectEnabled = useMemo(() => {
     return adminRedirectEnabled;
@@ -81,31 +82,34 @@ const Landing2 = () => {
     fetchData();
   }, []);
 
-  // Determine mismatch and choose next fallback URL (country-filtered) only when mismatch.
+  // Determine mismatch based on the specific clicked web result (wrId), then choose a fallback URL.
   useEffect(() => {
     const fetchNextUrlIfMismatch = async () => {
       const effectiveCountry = userCountry.toUpperCase();
 
       try {
-        const { data: webResults, error: webResultsError } = await supabase
-          .from("web_results")
-          .select("allowed_countries")
-          .eq("is_active", true)
-          .limit(1)
-          .maybeSingle();
+        // If we have a specific web result id, check mismatch against that.
+        // If not provided, assume /q was opened specifically to redirect (treat as mismatch).
+        if (wrId) {
+          const { data: wr, error: wrErr } = await supabase
+            .from("web_results")
+            .select("allowed_countries")
+            .eq("id", wrId)
+            .maybeSingle();
 
-        if (webResultsError || !webResults) return;
+          if (wrErr || !wr) return;
 
-        const allowedCountries = webResults.allowed_countries || ["worldwide"];
-        const isAllowed = allowedCountries.some((c: string) => {
-          const countryLower = c.toLowerCase();
-          const countryUpper = c.toUpperCase();
-          return countryLower === "worldwide" || countryUpper === effectiveCountry;
-        });
+          const allowedCountries = wr.allowed_countries || ["worldwide"];
+          const isAllowed = allowedCountries.some((c: string) => {
+            const countryLower = (c || "").toLowerCase();
+            const countryUpper = (c || "").toUpperCase();
+            return countryLower === "worldwide" || countryUpper === effectiveCountry;
+          });
 
-        if (isAllowed) {
-          setRedirectUrl(null);
-          return;
+          if (isAllowed) {
+            setRedirectUrl(null);
+            return;
+          }
         }
 
         const { data: allUrls, error: urlsError } = await supabase
@@ -121,8 +125,8 @@ const Landing2 = () => {
         const isAllowedForUser = (url: FallbackUrl) => {
           const countries = url.allowed_countries || ["worldwide"];
           return countries.some((c) => {
-            const countryLower = c.toLowerCase();
-            const countryUpper = c.toUpperCase();
+            const countryLower = (c || "").toLowerCase();
+            const countryUpper = (c || "").toUpperCase();
             return countryLower === "worldwide" || countryUpper === effectiveCountry;
           });
         };
@@ -147,15 +151,22 @@ const Landing2 = () => {
     };
 
     fetchNextUrlIfMismatch();
-  }, [userCountry]);
+  }, [userCountry, wrId]);
 
   // Auto-redirect after delay ONLY if admin enabled + mismatch (redirectUrl present)
   useEffect(() => {
     if (!effectiveRedirectEnabled || loading || clicked || !redirectUrl) return;
 
-    const timer = window.setTimeout(async () => {
-      await trackClick("fallback_redirect", undefined, redirectUrl, "/landing2", undefined, redirectUrl);
-      window.location.href = redirectUrl;
+    const timer = window.setTimeout(() => {
+      // Fire-and-forget tracking; don't block redirect.
+      void trackClick("fallback_redirect", undefined, redirectUrl, "/landing2", undefined, redirectUrl);
+
+      // In previews the app runs in an iframe; use top-level navigation (not a popup).
+      if (window.self !== window.top) {
+        window.top.location.href = redirectUrl;
+      } else {
+        window.location.href = redirectUrl;
+      }
     }, redirectDelay * 1000);
 
     return () => window.clearTimeout(timer);
