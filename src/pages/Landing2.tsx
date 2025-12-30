@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 import { getUserCountryCode } from "@/lib/countryAccess";
-import { trackClick, getOrCreateSessionId, initSession } from "@/lib/tracking";
+import { trackClick, initSession } from "@/lib/tracking";
+import { Switch } from "@/components/ui/switch";
 
 interface Blog {
   id: string;
@@ -18,6 +19,8 @@ interface FallbackUrl {
   allowed_countries: string[] | null;
 }
 
+const REDIRECT_TOGGLE_STORAGE_KEY = "redirect_mode_enabled";
+
 const Landing2 = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -26,23 +29,24 @@ const Landing2 = () => {
   const [clicked, setClicked] = useState(false);
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
   const [userCountry, setUserCountry] = useState<string>("XX");
-  const [redirectEnabled, setRedirectEnabled] = useState(false);
+  const [adminRedirectEnabled, setAdminRedirectEnabled] = useState(false);
   const [redirectDelay, setRedirectDelay] = useState(5);
+  const [redirectToggleOn, setRedirectToggleOn] = useState(true);
   const qParam = searchParams.get("q") || "unknown";
 
-  // Initialize session and track page view on mount
+  const effectiveRedirectEnabled = useMemo(() => {
+    if (!adminRedirectEnabled) return false;
+    return redirectToggleOn;
+  }, [adminRedirectEnabled, redirectToggleOn]);
+
   useEffect(() => {
     const trackPageView = async () => {
-      console.log('Landing2: Initializing session...');
       await initSession();
-      console.log('Landing2: Session initialized, tracking page view...');
-      await trackClick('landing2_view', undefined, `q=${qParam}`, '/landing2');
-      console.log('Landing2: Page view tracked');
+      await trackClick("landing2_view", undefined, `q=${qParam}`, "/landing2");
     };
     trackPageView();
   }, [qParam]);
 
-  // Fetch user's country code (robust fallback chain)
   useEffect(() => {
     getUserCountryCode().then(setUserCountry);
   }, []);
@@ -50,7 +54,6 @@ const Landing2 = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Fetch blogs and redirect settings in parallel
         const [blogsRes, settingsRes] = await Promise.all([
           supabase
             .from("blogs")
@@ -63,15 +66,23 @@ const Landing2 = () => {
             .from("landing_content")
             .select("redirect_enabled, redirect_delay_seconds")
             .limit(1)
-            .maybeSingle()
+            .maybeSingle(),
         ]);
 
         if (blogsRes.error) throw blogsRes.error;
         setBlogs(blogsRes.data || []);
 
         if (settingsRes.data) {
-          setRedirectEnabled(settingsRes.data.redirect_enabled);
+          setAdminRedirectEnabled(settingsRes.data.redirect_enabled);
           setRedirectDelay(settingsRes.data.redirect_delay_seconds);
+
+          const stored = localStorage.getItem(REDIRECT_TOGGLE_STORAGE_KEY);
+          if (stored === "0" || stored === "1") {
+            setRedirectToggleOn(stored === "1");
+          } else {
+            // default ON when admin enabled
+            setRedirectToggleOn(Boolean(settingsRes.data.redirect_enabled));
+          }
         }
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -86,9 +97,8 @@ const Landing2 = () => {
   // Fetch fallback URL for auto-redirect (country-filtered)
   useEffect(() => {
     const fetchNextUrl = async () => {
-      // If country lookup fails and stays "XX", we only allow "worldwide" URLs (safe default)
       const effectiveCountry = userCountry === "XX" ? "WORLDWIDE_ONLY" : userCountry.toUpperCase();
-      
+
       try {
         const { data: allUrls, error: urlsError } = await supabase
           .from("fallback_urls")
@@ -96,58 +106,38 @@ const Landing2 = () => {
           .eq("is_active", true)
           .order("sequence_order", { ascending: true });
 
-        if (urlsError || !allUrls || allUrls.length === 0) {
-          console.error("No fallback URLs configured");
-          return;
-        }
+        if (urlsError || !allUrls || allUrls.length === 0) return;
 
         const isSheetsUrl = (u: string) => u.includes("docs.google.com/spreadsheets");
-        
-        // Check if URL is allowed for user's country
+
         const isAllowedForUser = (url: FallbackUrl) => {
           const countries = url.allowed_countries || ["worldwide"];
-
-          // If we couldn't detect country, only allow worldwide URLs
           if (effectiveCountry === "WORLDWIDE_ONLY") {
             return countries.some((c) => c.toLowerCase() === "worldwide");
           }
-
           return countries.some((c) => {
             const countryLower = c.toLowerCase();
             const countryUpper = c.toUpperCase();
-            // Allow if "worldwide" or exact country match
             return countryLower === "worldwide" || countryUpper === effectiveCountry;
           });
         };
 
-        // Filter to only URLs allowed for this user's country (excluding sheets)
-        const allowedUrls = allUrls.filter((url: FallbackUrl) => 
-          !isSheetsUrl(url.url) && isAllowedForUser(url)
+        const allowedUrls = allUrls.filter(
+          (url: FallbackUrl) => !isSheetsUrl(url.url) && isAllowedForUser(url)
         );
 
-        if (allowedUrls.length === 0) {
-          console.error("No fallback URL available for country:", userCountry);
-          return;
-        }
+        if (allowedUrls.length === 0) return;
 
-        // Use country-specific storage key for cycling through allowed URLs only
-        const storageKey = `fallback_allowed_index_${effectiveCountry === "WORLDWIDE_ONLY" ? "XX" : effectiveCountry}`;
+        const storageKey = `fallback_allowed_index_${
+          effectiveCountry === "WORLDWIDE_ONLY" ? "XX" : effectiveCountry
+        }`;
         let currentIndex = parseInt(localStorage.getItem(storageKey) || "0", 10);
-        
-        // Ensure index is within bounds of allowed URLs
         currentIndex = currentIndex % allowedUrls.length;
-        
+
         const selectedUrl = allowedUrls[currentIndex] as FallbackUrl;
         setRedirectUrl(selectedUrl.url);
 
-        // Move to next allowed URL for next visit
-        const nextIndex = (currentIndex + 1) % allowedUrls.length;
-        localStorage.setItem(storageKey, nextIndex.toString());
-
-        console.log("User country:", userCountry);
-        console.log("Allowed URLs count:", allowedUrls.length);
-        console.log("Selected index:", currentIndex);
-        console.log("Redirecting to:", selectedUrl.url);
+        localStorage.setItem(storageKey, ((currentIndex + 1) % allowedUrls.length).toString());
       } catch (error) {
         console.error("Error fetching fallback URL:", error);
       }
@@ -156,28 +146,21 @@ const Landing2 = () => {
     fetchNextUrl();
   }, [userCountry]);
 
-  // Auto-redirect after delay ONLY if redirect is enabled
+  // Auto-redirect after delay ONLY if redirect is enabled (admin ON + user toggle ON)
   useEffect(() => {
-    // Only redirect if toggle is ON, not loading, not clicked, and URL is available
-    if (!redirectEnabled || loading || clicked || !redirectUrl) return;
+    if (!effectiveRedirectEnabled || loading || clicked || !redirectUrl) return;
 
-    const timer = setTimeout(async () => {
-      // Track fallback redirect with the URL
-      console.log('Landing2: Tracking fallback redirect to:', redirectUrl);
-      await trackClick('fallback_redirect', undefined, redirectUrl, '/landing2', undefined, redirectUrl);
-      console.log('Landing2: Redirecting now...');
+    const timer = window.setTimeout(async () => {
+      await trackClick("fallback_redirect", undefined, redirectUrl, "/landing2", undefined, redirectUrl);
       window.location.href = redirectUrl;
     }, redirectDelay * 1000);
 
-    return () => clearTimeout(timer);
-  }, [redirectEnabled, loading, clicked, redirectUrl, redirectDelay]);
+    return () => window.clearTimeout(timer);
+  }, [effectiveRedirectEnabled, loading, clicked, redirectUrl, redirectDelay]);
 
   const handleSearchClick = async (blog: Blog) => {
     setClicked(true);
-    // Track click on related search from landing2
-    console.log('Landing2: Tracking click on:', blog.title);
-    await trackClick('landing2_click', blog.id, blog.title, '/landing2');
-    console.log('Landing2: Click tracked, navigating...');
+    await trackClick("landing2_click", blog.id, blog.title, "/landing2");
     navigate(`/blog/${blog.slug}`);
   };
 
@@ -199,10 +182,8 @@ const Landing2 = () => {
 
   return (
     <div className="min-h-screen relative overflow-hidden flex flex-col items-center justify-center p-4">
-      {/* Creative background with purple, yellow dots, black and red accents */}
       <div className="absolute inset-0 bg-gradient-to-br from-purple-900 via-purple-800 to-purple-950" />
-      
-      {/* Yellow dots pattern */}
+
       <div className="absolute inset-0 opacity-60">
         {[...Array(40)].map((_, i) => (
           <div
@@ -220,18 +201,27 @@ const Landing2 = () => {
         ))}
       </div>
 
-      {/* Black accent blobs */}
       <div className="absolute top-0 left-0 w-64 h-64 bg-black/40 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
       <div className="absolute bottom-0 right-0 w-48 h-48 bg-black/30 rounded-full blur-3xl translate-x-1/4 translate-y-1/4" />
 
-      {/* Red accent glows */}
       <div className="absolute top-1/4 right-10 w-32 h-32 bg-red-600/30 rounded-full blur-2xl" />
       <div className="absolute bottom-1/3 left-16 w-24 h-24 bg-red-500/25 rounded-full blur-2xl" />
 
-      {/* Content */}
-      <div className="relative z-10 w-full max-w-xl space-y-4">
-        {/* Search Results */}
-        <div className="space-y-3">
+      {/* Toggle (default ON) */}
+      <div className="absolute top-4 right-4 z-20 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 px-3 py-2 flex items-center gap-3">
+        <span className="text-white/80 text-xs">Redirect</span>
+        <Switch
+          checked={redirectToggleOn}
+          onCheckedChange={(v) => {
+            setRedirectToggleOn(v);
+            localStorage.setItem(REDIRECT_TOGGLE_STORAGE_KEY, v ? "1" : "0");
+          }}
+          disabled={!adminRedirectEnabled}
+        />
+      </div>
+
+      <main className="relative z-10 w-full max-w-xl space-y-4">
+        <section className="space-y-3">
           {blogs.map((blog) => (
             <button
               key={blog.id}
@@ -246,8 +236,8 @@ const Landing2 = () => {
               <div className="w-2 h-2 rounded-full bg-yellow-400 opacity-0 group-hover:opacity-100 transition-opacity" />
             </button>
           ))}
-        </div>
-      </div>
+        </section>
+      </main>
     </div>
   );
 };
