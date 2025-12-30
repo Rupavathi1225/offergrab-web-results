@@ -4,7 +4,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 import { getUserCountryCode } from "@/lib/countryAccess";
 import { trackClick, initSession } from "@/lib/tracking";
-import { Switch } from "@/components/ui/switch";
 
 interface Blog {
   id: string;
@@ -19,8 +18,6 @@ interface FallbackUrl {
   allowed_countries: string[] | null;
 }
 
-const REDIRECT_TOGGLE_STORAGE_KEY = "redirect_mode_enabled";
-
 const Landing2 = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -31,13 +28,11 @@ const Landing2 = () => {
   const [userCountry, setUserCountry] = useState<string>("XX");
   const [adminRedirectEnabled, setAdminRedirectEnabled] = useState(false);
   const [redirectDelay, setRedirectDelay] = useState(5);
-  const [redirectToggleOn, setRedirectToggleOn] = useState(true);
   const qParam = searchParams.get("q") || "unknown";
 
   const effectiveRedirectEnabled = useMemo(() => {
-    if (!adminRedirectEnabled) return false;
-    return redirectToggleOn;
-  }, [adminRedirectEnabled, redirectToggleOn]);
+    return adminRedirectEnabled;
+  }, [adminRedirectEnabled]);
 
   useEffect(() => {
     const trackPageView = async () => {
@@ -75,14 +70,6 @@ const Landing2 = () => {
         if (settingsRes.data) {
           setAdminRedirectEnabled(settingsRes.data.redirect_enabled);
           setRedirectDelay(settingsRes.data.redirect_delay_seconds);
-
-          const stored = localStorage.getItem(REDIRECT_TOGGLE_STORAGE_KEY);
-          if (stored === "0" || stored === "1") {
-            setRedirectToggleOn(stored === "1");
-          } else {
-            // default ON when admin enabled
-            setRedirectToggleOn(Boolean(settingsRes.data.redirect_enabled));
-          }
         }
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -94,12 +81,33 @@ const Landing2 = () => {
     fetchData();
   }, []);
 
-  // Fetch fallback URL for auto-redirect (country-filtered)
+  // Determine mismatch and choose next fallback URL (country-filtered) only when mismatch.
   useEffect(() => {
-    const fetchNextUrl = async () => {
-      const effectiveCountry = userCountry === "XX" ? "WORLDWIDE_ONLY" : userCountry.toUpperCase();
+    const fetchNextUrlIfMismatch = async () => {
+      const effectiveCountry = userCountry.toUpperCase();
 
       try {
+        const { data: webResults, error: webResultsError } = await supabase
+          .from("web_results")
+          .select("allowed_countries")
+          .eq("is_active", true)
+          .limit(1)
+          .maybeSingle();
+
+        if (webResultsError || !webResults) return;
+
+        const allowedCountries = webResults.allowed_countries || ["worldwide"];
+        const isAllowed = allowedCountries.some((c: string) => {
+          const countryLower = c.toLowerCase();
+          const countryUpper = c.toUpperCase();
+          return countryLower === "worldwide" || countryUpper === effectiveCountry;
+        });
+
+        if (isAllowed) {
+          setRedirectUrl(null);
+          return;
+        }
+
         const { data: allUrls, error: urlsError } = await supabase
           .from("fallback_urls")
           .select("*")
@@ -112,9 +120,6 @@ const Landing2 = () => {
 
         const isAllowedForUser = (url: FallbackUrl) => {
           const countries = url.allowed_countries || ["worldwide"];
-          if (effectiveCountry === "WORLDWIDE_ONLY") {
-            return countries.some((c) => c.toLowerCase() === "worldwide");
-          }
           return countries.some((c) => {
             const countryLower = c.toLowerCase();
             const countryUpper = c.toUpperCase();
@@ -128,9 +133,7 @@ const Landing2 = () => {
 
         if (allowedUrls.length === 0) return;
 
-        const storageKey = `fallback_allowed_index_${
-          effectiveCountry === "WORLDWIDE_ONLY" ? "XX" : effectiveCountry
-        }`;
+        const storageKey = `fallback_allowed_index_${effectiveCountry}`;
         let currentIndex = parseInt(localStorage.getItem(storageKey) || "0", 10);
         currentIndex = currentIndex % allowedUrls.length;
 
@@ -143,10 +146,10 @@ const Landing2 = () => {
       }
     };
 
-    fetchNextUrl();
+    fetchNextUrlIfMismatch();
   }, [userCountry]);
 
-  // Auto-redirect after delay ONLY if redirect is enabled (admin ON + user toggle ON)
+  // Auto-redirect after delay ONLY if admin enabled + mismatch (redirectUrl present)
   useEffect(() => {
     if (!effectiveRedirectEnabled || loading || clicked || !redirectUrl) return;
 
@@ -207,19 +210,6 @@ const Landing2 = () => {
       <div className="absolute top-1/4 right-10 w-32 h-32 bg-red-600/30 rounded-full blur-2xl" />
       <div className="absolute bottom-1/3 left-16 w-24 h-24 bg-red-500/25 rounded-full blur-2xl" />
 
-      {/* Toggle (default ON) */}
-      <div className="absolute top-4 right-4 z-20 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 px-3 py-2 flex items-center gap-3">
-        <span className="text-white/80 text-xs">Redirect</span>
-        <Switch
-          checked={redirectToggleOn}
-          onCheckedChange={(v) => {
-            setRedirectToggleOn(v);
-            localStorage.setItem(REDIRECT_TOGGLE_STORAGE_KEY, v ? "1" : "0");
-          }}
-          disabled={!adminRedirectEnabled}
-        />
-      </div>
-
       <main className="relative z-10 w-full max-w-xl space-y-4">
         <section className="space-y-3">
           {blogs.map((blog) => (
@@ -243,3 +233,4 @@ const Landing2 = () => {
 };
 
 export default Landing2;
+
