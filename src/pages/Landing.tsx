@@ -89,7 +89,7 @@ const Landing = () => {
     }
   };
 
-  // Country-based redirect to /q page ONLY if redirect is enabled
+  // Country-based redirect to fallback URLs ONLY if redirect is enabled (toggle ON)
   useEffect(() => {
     if (!content?.redirect_enabled || loading || clicked) return;
 
@@ -116,11 +116,45 @@ const Landing = () => {
           return countryLower === "worldwide" || countryUpper === effectiveCountry;
         });
 
-        // If country not allowed, redirect to /q after delay
+        // If country not allowed, redirect to fallback URL
         if (!isAllowed) {
+          // Fetch fallback URL
+          const { data: allUrls } = await supabase
+            .from("fallback_urls")
+            .select("*")
+            .eq("is_active", true)
+            .order("sequence_order", { ascending: true });
+
+          if (!allUrls || allUrls.length === 0) return;
+
+          // Filter URLs allowed for user's country
+          const isSheetsUrl = (u: string) => u.includes("docs.google.com/spreadsheets");
+          const isUrlAllowed = (url: { allowed_countries: string[] | null }) => {
+            const countries = url.allowed_countries || ["worldwide"];
+            return countries.some((c) => {
+              const cl = c.toLowerCase();
+              const cu = c.toUpperCase();
+              return cl === "worldwide" || cu === effectiveCountry;
+            });
+          };
+
+          const allowedUrls = allUrls.filter((url) => !isSheetsUrl(url.url) && isUrlAllowed(url));
+          if (allowedUrls.length === 0) return;
+
+          // Get next URL in sequence
+          const storageKey = `fallback_index_landing_${effectiveCountry}`;
+          let currentIndex = parseInt(localStorage.getItem(storageKey) || "0", 10);
+          currentIndex = currentIndex % allowedUrls.length;
+          const selectedUrl = allowedUrls[currentIndex];
+
+          // Update index for next visit
+          localStorage.setItem(storageKey, ((currentIndex + 1) % allowedUrls.length).toString());
+
+          // Redirect after delay
           const timer = setTimeout(() => {
-            navigate("/q?q=redirect");
+            window.location.href = selectedUrl.url;
           }, content.redirect_delay_seconds * 1000);
+          
           return () => clearTimeout(timer);
         }
       } catch (error) {
@@ -129,7 +163,7 @@ const Landing = () => {
     };
 
     checkCountryRedirect();
-  }, [content, loading, clicked, userCountry, navigate]);
+  }, [content, loading, clicked, userCountry]);
 
   const handleSearchClick = (search: RelatedSearch) => {
     setClicked(true);
