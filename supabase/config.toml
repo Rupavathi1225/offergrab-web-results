@@ -11,6 +11,3 @@ verify_jwt = false
 
 [functions.generate-prelanding]
 verify_jwt = false
-
-[functions.country-redirect]
-verify_jwt = false

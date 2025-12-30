@@ -92,14 +92,14 @@ const SingleWebResult = () => {
     if (!result) return;
     
     // Track click
-    trackClick('web_result', result.id, result.title, `/r/${wrId}`, 1, result.link);
+    trackClick('web_result', result.id, result.title, `/wr/${wrId}`, 1, result.link);
     
     // Check country access
     const allowed = isCountryAllowed(result.allowed_countries, userCountryCode);
     
     if (!allowed) {
-      // User's country is not allowed - redirect to black page
-      navigate('/go?id=' + result.id);
+      // User's country is not allowed - open Landing2 in new tab
+      window.open('/landing2', '_blank', 'noopener,noreferrer');
       return;
     }
     

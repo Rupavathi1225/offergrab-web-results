@@ -50,8 +50,8 @@ const LinkRedirect = () => {
       const allowed = isCountryAllowed(result.allowed_countries, userCountryCode);
       
       if (!allowed) {
-        // User's country is not allowed - redirect to black page
-        navigate('/go?id=' + result.id);
+        // User's country is not allowed - open Landing2 in new tab
+        window.open('/landing2', '_blank', 'noopener,noreferrer');
         return;
       }
 

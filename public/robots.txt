@@ -1,50 +1,14 @@
-# Google-safe crawling rules
-# White pages only - main site is fully crawlable
-
 User-agent: Googlebot
-Allow: /landing
-Allow: /webresult
-Allow: /wr
-Allow: /blog
-Allow: /p
-Disallow: /go
-Disallow: /q
-Disallow: /redirect
-Disallow: /r/
-Disallow: /admin
-Disallow: /lid
-Disallow: /prelanding
-Disallow: /fastmoney
+Allow: /
 
 User-agent: Bingbot
-Allow: /landing
-Allow: /webresult
-Allow: /wr
-Allow: /blog
-Allow: /p
-Disallow: /go
-Disallow: /q
-Disallow: /redirect
-Disallow: /r/
-Disallow: /admin
-Disallow: /lid
-Disallow: /prelanding
-Disallow: /fastmoney
+Allow: /
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: facebookexternalhit
+Allow: /
 
 User-agent: *
-Allow: /landing
-Allow: /webresult
-Allow: /wr
-Allow: /blog
-Allow: /p
-Disallow: /go
-Disallow: /q
-Disallow: /redirect
-Disallow: /r/
-Disallow: /admin
-Disallow: /lid
-Disallow: /prelanding
-Disallow: /fastmoney
-
-# Sitemap
-Sitemap: https://offergrabzone.com/sitemap.xml
+Allow: /
