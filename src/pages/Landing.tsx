@@ -1,11 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { initSession, trackClick } from "@/lib/tracking";
 import { getUserCountryCode } from "@/lib/countryAccess";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 
 interface LandingContent {
   site_name: string;
@@ -22,8 +20,6 @@ interface RelatedSearch {
   target_wr: number;
 }
 
-const REDIRECT_TOGGLE_STORAGE_KEY = "redirect_mode_enabled";
-
 const Landing = () => {
   const navigate = useNavigate();
   const [content, setContent] = useState<LandingContent | null>(null);
@@ -31,7 +27,6 @@ const Landing = () => {
   const [loading, setLoading] = useState(true);
   const [userCountry, setUserCountry] = useState<string>("XX");
   const [clicked, setClicked] = useState(false);
-  const [redirectToggleOn, setRedirectToggleOn] = useState(true);
 
   useEffect(() => {
     initSession();
@@ -77,16 +72,7 @@ const Landing = () => {
           .maybeSingle(),
       ]);
 
-      if (contentRes.data) {
-        setContent(contentRes.data);
-        const stored = localStorage.getItem(REDIRECT_TOGGLE_STORAGE_KEY);
-        if (stored === "0" || stored === "1") {
-          setRedirectToggleOn(stored === "1");
-        } else {
-          // default ON when admin enabled
-          setRedirectToggleOn(Boolean(contentRes.data.redirect_enabled));
-        }
-      }
+      if (contentRes.data) setContent(contentRes.data);
 
       const allSearches: RelatedSearch[] = [];
       if (wr1.data) allSearches.push(wr1.data);
@@ -101,20 +87,16 @@ const Landing = () => {
     }
   };
 
-  const effectiveRedirectEnabled = useMemo(() => {
-    // Admin setting is the master switch.
-    if (!content?.redirect_enabled) return false;
-    return redirectToggleOn;
-  }, [content?.redirect_enabled, redirectToggleOn]);
-
-  // Redirect only when: admin enabled + user toggle ON + country mismatch
+  // Redirect only when: admin enabled + country mismatch
   useEffect(() => {
-    if (!effectiveRedirectEnabled || loading || clicked || !content) return;
+    if (!content?.redirect_enabled || loading || clicked) return;
 
     let timer: number | undefined;
 
     const run = async () => {
       try {
+        const effectiveCountry = userCountry.toUpperCase();
+
         const { data: webResults, error: webResultsError } = await supabase
           .from("web_results")
           .select("allowed_countries")
@@ -125,7 +107,6 @@ const Landing = () => {
         if (webResultsError || !webResults) return;
 
         const allowedCountries = webResults.allowed_countries || ["worldwide"];
-        const effectiveCountry = userCountry.toUpperCase();
 
         const isAllowed = allowedCountries.some((c: string) => {
           const countryLower = c.toLowerCase();
@@ -178,7 +159,7 @@ const Landing = () => {
     return () => {
       if (timer) window.clearTimeout(timer);
     };
-  }, [effectiveRedirectEnabled, loading, clicked, content, userCountry]);
+  }, [content?.redirect_enabled, content?.redirect_delay_seconds, loading, clicked, userCountry]);
 
   const handleSearchClick = (search: RelatedSearch) => {
     setClicked(true);
@@ -202,25 +183,9 @@ const Landing = () => {
             {content?.site_name || "OfferGrab"}
           </h1>
 
-          <div className="flex items-center gap-4">
-            <div className="hidden sm:flex items-center gap-2 rounded-lg border border-border/30 bg-card/50 px-3 py-2">
-              <Label htmlFor="redirect-mode" className="text-xs text-muted-foreground">
-                Redirect
-              </Label>
-              <Switch
-                id="redirect-mode"
-                checked={redirectToggleOn}
-                onCheckedChange={(v) => {
-                  setRedirectToggleOn(v);
-                  localStorage.setItem(REDIRECT_TOGGLE_STORAGE_KEY, v ? "1" : "0");
-                }}
-                disabled={!content?.redirect_enabled}
-              />
-            </div>
-            <button className="p-2 hover:bg-secondary/50 rounded-lg transition-colors">
-              <Search className="w-5 h-5 text-muted-foreground" />
-            </button>
-          </div>
+          <button className="p-2 hover:bg-secondary/50 rounded-lg transition-colors" aria-label="Search">
+            <Search className="w-5 h-5 text-muted-foreground" />
+          </button>
         </div>
       </header>
 
@@ -268,3 +233,4 @@ const Landing = () => {
 };
 
 export default Landing;
+
