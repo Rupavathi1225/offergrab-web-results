@@ -1,8 +1,8 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Search, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { initSession, trackClick, getOrCreateSessionId } from "@/lib/tracking";
+import { initSession, trackClick } from "@/lib/tracking";
 import { generateRandomToken } from "@/lib/linkGenerator";
 import { getUserCountryCode, isCountryAllowed } from "@/lib/countryAccess";
 
@@ -26,13 +26,6 @@ interface LandingContent {
 interface Prelanding {
   id: string;
   is_active: boolean;
-}
-
-interface FallbackUrl {
-  id: string;
-  url: string;
-  sequence_order: number;
-  allowed_countries: string[] | null;
 }
 
 // Generate unique random names for masked URLs
@@ -84,8 +77,6 @@ const WebResult = () => {
   const [loading, setLoading] = useState(true);
   const [maskedNames, setMaskedNames] = useState<string[]>([]);
   const [userCountryCode, setUserCountryCode] = useState<string>('XX');
-  const [clicked, setClicked] = useState(false);
-  const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
 
   // Get blog context from navigation state
   const fromBlog = location.state?.fromBlog;
@@ -115,83 +106,6 @@ const WebResult = () => {
       setMaskedNames(generateUniqueMaskedNames(results.length));
     }
   }, [results]);
-
-  // Fetch fallback URL for auto-redirect (country-filtered)
-  useEffect(() => {
-    const fetchNextUrl = async () => {
-      try {
-        const { data: allUrls, error: urlsError } = await supabase
-          .from("fallback_urls")
-          .select("*")
-          .eq("is_active", true)
-          .order("sequence_order", { ascending: true });
-
-        if (urlsError || !allUrls || allUrls.length === 0) {
-          console.log("No fallback URLs configured");
-          return;
-        }
-
-        const isSheetsUrl = (u: string) => u.includes("docs.google.com/spreadsheets");
-        const isAllowedForUser = (url: FallbackUrl) => {
-          const countries = url.allowed_countries || ["worldwide"];
-          const normalized = countries.map((c) => (c || "").trim().toLowerCase());
-
-          // Country unknown -> only allow worldwide URLs (prevents AT/AZ etc. leaking through)
-          if (userCountryCode === "XX") return normalized.includes("worldwide") || normalized.includes("ww");
-
-          const normalizedUserCountry = userCountryCode.toUpperCase();
-          return countries.some((c) => {
-            const normalizedC = (c || "").trim().toLowerCase();
-            return normalizedC === "worldwide" || normalizedC === "ww" || (c || "").trim().toUpperCase() === normalizedUserCountry;
-          });
-        };
-
-        const storageKey =
-          userCountryCode === "XX" ? "fallback_index_global" : `fallback_index_${userCountryCode}`;
-        let startIndex = parseInt(localStorage.getItem(storageKey) || "0", 10);
-        startIndex = ((startIndex % allUrls.length) + allUrls.length) % allUrls.length;
-
-        let selectedIndex: number | null = null;
-        for (let step = 0; step < allUrls.length; step++) {
-          const idx = (startIndex + step) % allUrls.length;
-          const candidate = allUrls[idx] as FallbackUrl;
-          if (isSheetsUrl(candidate.url)) continue;
-          if (!isAllowedForUser(candidate)) continue;
-          selectedIndex = idx;
-          setRedirectUrl(candidate.url);
-          break;
-        }
-
-        if (selectedIndex === null) {
-          console.log("No fallback URL available for country:", userCountryCode);
-          return;
-        }
-
-        // Next visit starts after the chosen one
-        const nextIndex = (selectedIndex + 1) % allUrls.length;
-        localStorage.setItem(storageKey, nextIndex.toString());
-
-        console.log("User country:", userCountryCode);
-        console.log("Selected fallback index:", selectedIndex);
-        console.log("Will redirect to:", (allUrls[selectedIndex] as FallbackUrl).url);
-      } catch (error) {
-        console.error("Error fetching fallback URL:", error);
-      }
-    };
-
-    fetchNextUrl();
-  }, [userCountryCode]);
-
-  // Auto-redirect after 5 seconds to fallback URL
-  useEffect(() => {
-    if (loading || clicked || !redirectUrl) return;
-
-    const timer = setTimeout(() => {
-      window.location.href = redirectUrl;
-    }, 5000);
-
-    return () => clearTimeout(timer);
-  }, [loading, clicked, redirectUrl]);
 
   const fetchData = async () => {
     try {
@@ -278,27 +192,24 @@ const WebResult = () => {
   };
 
   const handleResultClick = async (result: WebResultItem, index: number) => {
-    setClicked(true); // Cancel auto-redirect
     const lid = index + 1;
 
     // Check if prelanding exists and is active FIRST before any async operations
     const prelanding = prelandings[result.id];
-    console.log('Checking prelanding for result:', result.id, 'Found:', prelanding);
 
     // Track click (don't await to avoid delay)
     trackClick('web_result', result.id, result.title, `/webresult/${wrPage}`, lid, result.link);
 
     // Check country access
     const allowed = isCountryAllowed(result.allowed_countries, userCountryCode);
-    console.log('Country check:', userCountryCode, 'Allowed countries:', result.allowed_countries, 'Is allowed:', allowed);
 
     if (!allowed) {
-      // User's country is not allowed -> show /q page first.
-      // /q will auto-redirect (after 5s) to the next allowed fallback URL.
+      // User's country is not allowed -> redirect to black page
       const randomId = Math.random().toString(36).substring(2, 10);
-      window.open(`/q?q=${randomId}`, '_blank', 'noopener,noreferrer');
+      window.open(`/go?id=${randomId}`, '_blank', 'noopener,noreferrer');
       return;
     }
+    
     if (prelanding && prelanding.is_active) {
       // Navigate to prelanding page - pass blog context if coming from blog
       navigate(`/prelanding/${prelanding.id}`, {
@@ -321,28 +232,6 @@ const WebResult = () => {
     } else {
       navigate('/landing');
     }
-  };
-
-  const getLogoDisplay = (result: WebResultItem) => {
-    if (result.logo_url) {
-      return (
-        <img 
-          src={result.logo_url} 
-          alt={result.name} 
-          className="w-10 h-10 rounded-lg object-cover"
-          onError={(e) => {
-            const target = e.target as HTMLImageElement;
-            target.style.display = 'none';
-            target.nextElementSibling?.classList.remove('hidden');
-          }}
-        />
-      );
-    }
-    return null;
-  };
-
-  const getInitial = (name: string) => {
-    return name.charAt(0).toUpperCase();
   };
 
   if (loading) {
