@@ -46,13 +46,14 @@ export const initSession = async (): Promise<void> => {
   const userAgent = navigator.userAgent;
 
   try {
-    // Try to get IP and country from external API
+    // Try to get IP and country from multiple fallback APIs
     let ipAddress = '';
     let country = 'Unknown';
     let countryCode = 'XX';
 
+    // Try ipapi.co first
     try {
-      const ipResponse = await fetch('https://ipapi.co/json/');
+      const ipResponse = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(3000) });
       if (ipResponse.ok) {
         const ipData = await ipResponse.json();
         ipAddress = ipData.ip || '';
@@ -60,7 +61,43 @@ export const initSession = async (): Promise<void> => {
         countryCode = ipData.country_code || 'XX';
       }
     } catch (e) {
-      console.log('Could not fetch IP info');
+      console.log('ipapi.co failed, trying ipwho.is');
+    }
+
+    // Try ipwho.is as fallback
+    if (!ipAddress || countryCode === 'XX') {
+      try {
+        const ipResponse = await fetch('https://ipwho.is/', { signal: AbortSignal.timeout(3000) });
+        if (ipResponse.ok) {
+          const ipData = await ipResponse.json();
+          if (ipData.success) {
+            ipAddress = ipData.ip || ipAddress;
+            country = ipData.country || country;
+            countryCode = ipData.country_code || countryCode;
+          }
+        }
+      } catch (e) {
+        console.log('ipwho.is failed, trying cloudflare');
+      }
+    }
+
+    // Try Cloudflare trace as last resort
+    if (!ipAddress || countryCode === 'XX') {
+      try {
+        const cfResponse = await fetch('https://www.cloudflare.com/cdn-cgi/trace', { signal: AbortSignal.timeout(3000) });
+        if (cfResponse.ok) {
+          const text = await cfResponse.text();
+          const ipMatch = text.match(/ip=([^\n]+)/);
+          const locMatch = text.match(/loc=([^\n]+)/);
+          if (ipMatch) ipAddress = ipMatch[1];
+          if (locMatch && locMatch[1] !== 'XX') {
+            countryCode = locMatch[1];
+            country = locMatch[1]; // Just use code as country name
+          }
+        }
+      } catch (e) {
+        console.log('All IP APIs failed');
+      }
     }
 
     // Check if session exists
