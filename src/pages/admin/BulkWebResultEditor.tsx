@@ -678,7 +678,11 @@ const BulkWebResultEditor = () => {
       }
       
       if (headerRowIndex === -1) {
-        throw new Error('Sheet must contain "new_title" and "new_url" columns. Headers can be in any of the first 10 rows.');
+        // Show what columns were found to help user understand the issue
+        const foundHeaders = jsonData.slice(0, 3).map((row, i) => 
+          row ? `Row ${i + 1}: ${row.slice(0, 6).map(h => String(h || '').trim()).filter(Boolean).join(', ')}${row.length > 6 ? '...' : ''}` : null
+        ).filter(Boolean).join('\n');
+        throw new Error(`Sheet must contain "new_title" and "new_url" columns.\n\nFound columns:\n${foundHeaders}\n\nPlease ensure your sheet has the correct format.`);
       }
       
       // Check for required columns
