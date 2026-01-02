@@ -598,6 +598,14 @@ const BulkWebResultEditor = () => {
     return match ? match[1] : null;
   };
 
+  const extractGid = (url: string): string | null => {
+    // Extract gid parameter for specific sheet tab
+    // https://docs.google.com/spreadsheets/d/SHEET_ID/edit?gid=1234567890
+    // https://docs.google.com/spreadsheets/d/SHEET_ID/edit#gid=1234567890
+    const match = url.match(/[?&#]gid=(\d+)/);
+    return match ? match[1] : null;
+  };
+
   const handleGoogleSheetImport = useCallback(async () => {
     if (!sheetUrl.trim()) {
       setParseError("Please enter a Google Sheet URL");
@@ -610,6 +618,9 @@ const BulkWebResultEditor = () => {
       return;
     }
 
+    // Extract gid for specific sheet tab (important for multi-sheet spreadsheets)
+    const gid = extractGid(sheetUrl);
+
     setFile(null);
     setParseError(null);
     setApplyResult(null);
@@ -617,8 +628,10 @@ const BulkWebResultEditor = () => {
     setIsLoading(true);
 
     try {
-      // Fetch as CSV from public export URL with no-cors fallback
-      const csvUrl = `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
+      // Fetch as CSV from public export URL, include gid if present for specific sheet
+      const csvUrl = gid 
+        ? `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`
+        : `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv`;
       
       let csvText: string;
       try {
