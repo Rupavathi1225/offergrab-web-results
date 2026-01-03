@@ -1,7 +1,7 @@
-import { Navigate } from "react-router-dom";
+import NotFound from "./NotFound";
 
 const Index = () => {
-  return <Navigate to="/landing" replace />;
+  return <NotFound />;
 };
 
 export default Index;
