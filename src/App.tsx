@@ -33,7 +33,7 @@ function App() {
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Navigate to="/landing" replace />} />
+            <Route path="/" element={<NotFound />} />
             <Route path="/landing" element={<Landing />} />
             <Route path="/webresult/:page" element={<WebResult />} />
             {/* Masked/short alias for web results pages */}
