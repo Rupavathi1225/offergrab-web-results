@@ -161,12 +161,8 @@ const Landing2 = () => {
       // Fire-and-forget tracking; don't block redirect.
       void trackClick("fallback_redirect", undefined, redirectUrl, "/landing2", undefined, redirectUrl);
 
-      // In previews the app runs in an iframe; use top-level navigation (not a popup).
-      if (window.self !== window.top) {
-        window.top.location.href = redirectUrl;
-      } else {
-        window.location.href = redirectUrl;
-      }
+      // Use window.location.href for redirect - works in both iframe and direct access
+      window.location.href = redirectUrl;
     }, redirectDelay * 1000);
 
     return () => window.clearTimeout(timer);
