@@ -98,9 +98,8 @@ const SingleWebResult = () => {
     const allowed = isCountryAllowed(result.allowed_countries, userCountryCode);
     
     if (!allowed) {
-      // User's country is not allowed - open Landing2 (/q) in new tab
-      const randomId = Math.random().toString(36).substring(2, 10);
-      window.open(`/q?q=${randomId}&wrId=${wrId}`, '_blank', 'noopener,noreferrer');
+      // User's country is not allowed - open Landing2 in new tab
+      window.open('/landing2', '_blank', 'noopener,noreferrer');
       return;
     }
     

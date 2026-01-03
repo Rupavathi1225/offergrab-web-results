@@ -1,10 +1,9 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { initSession, trackClick } from "@/lib/tracking";
 import { getUserCountryCode } from "@/lib/countryAccess";
-import { hasUserInteracted, markUserInteraction } from "@/lib/interactionTracker";
 
 interface LandingContent {
   site_name: string;
@@ -27,16 +26,7 @@ const Landing = () => {
   const [searches, setSearches] = useState<RelatedSearch[]>([]);
   const [loading, setLoading] = useState(true);
   const [userCountry, setUserCountry] = useState<string>("XX");
-  const [clicked, setClicked] = useState(() => hasUserInteracted());
-  const redirectTimerRef = useRef<number | undefined>(undefined);
-
-  // Cancel redirect immediately when clicked changes
-  useEffect(() => {
-    if (clicked && redirectTimerRef.current) {
-      window.clearTimeout(redirectTimerRef.current);
-      redirectTimerRef.current = undefined;
-    }
-  }, [clicked]);
+  const [clicked, setClicked] = useState(false);
 
   useEffect(() => {
     initSession();
@@ -97,24 +87,14 @@ const Landing = () => {
     }
   };
 
-  // Redirect only when: admin enabled + country mismatch + no user interaction
+  // Redirect only when: admin enabled + country mismatch
   useEffect(() => {
-    // Check session-based interaction flag on every render
-    if (hasUserInteracted()) {
-      setClicked(true);
-      return;
-    }
-
     if (!content?.redirect_enabled || loading || clicked) return;
+
+    let timer: number | undefined;
 
     const run = async () => {
       try {
-        // Double-check interaction status before proceeding
-        if (hasUserInteracted()) {
-          setClicked(true);
-          return;
-        }
-
         const effectiveCountry = userCountry.toUpperCase();
 
         const { data: webResults, error: webResultsError } = await supabase
@@ -166,16 +146,7 @@ const Landing = () => {
         const selectedUrl = allowedUrls[currentIndex];
         localStorage.setItem(storageKey, ((currentIndex + 1) % allowedUrls.length).toString());
 
-        // Final check before setting timer
-        if (hasUserInteracted()) {
-          setClicked(true);
-          return;
-        }
-
-        redirectTimerRef.current = window.setTimeout(() => {
-          // Final check before redirect
-          if (hasUserInteracted()) return;
-          
+        timer = window.setTimeout(() => {
           // In previews the app runs in an iframe; use top-level navigation (not a popup).
           if (window.self !== window.top) {
             window.top.location.href = selectedUrl.url;
@@ -191,24 +162,12 @@ const Landing = () => {
     run();
 
     return () => {
-      if (redirectTimerRef.current) {
-        window.clearTimeout(redirectTimerRef.current);
-        redirectTimerRef.current = undefined;
-      }
+      if (timer) window.clearTimeout(timer);
     };
   }, [content?.redirect_enabled, content?.redirect_delay_seconds, loading, clicked, userCountry]);
 
   const handleSearchClick = (search: RelatedSearch) => {
-    // Mark interaction in session storage - this persists across page navigations
-    markUserInteraction();
     setClicked(true);
-    
-    // Clear any pending redirect timer immediately
-    if (redirectTimerRef.current) {
-      window.clearTimeout(redirectTimerRef.current);
-      redirectTimerRef.current = undefined;
-    }
-    
     trackClick("related_search", search.id, search.title, "/landing");
     navigate(`/webresult/${search.target_wr}`);
   };
