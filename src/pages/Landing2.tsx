@@ -92,68 +92,47 @@ const Landing2 = () => {
     fetchData();
   }, []);
 
-  // Decide where to redirect after the delay:
-  // - If the clicked web result is allowed for the user's country: go to prelanding (if active) else to the web result link.
-  // - If not allowed: go to a country-allowed fallback URL.
+  // ALWAYS redirect to a country-allowed fallback URL after delay.
+  // Users from India can access fallback URLs with allowed_countries = ["IN"] or ["worldwide"].
   useEffect(() => {
     const computeRedirect = async () => {
-      if (!wrId) return;
-
       try {
         const effectiveCountry = (userCountry || "XX").trim().toUpperCase();
 
-        const { data: wr, error: wrErr } = await supabase
-          .from("web_results")
-          .select("id, link, allowed_countries")
-          .eq("id", wrId)
-          .maybeSingle();
-
-        if (wrErr || !wr) return;
-
-        const allowed = isCountryAllowed(wr.allowed_countries, effectiveCountry);
-
-        if (allowed) {
-          // Prefer prelanding if configured
-          const { data: pre, error: preErr } = await supabase
-            .from("prelandings")
-            .select("id")
-            .eq("web_result_id", wr.id)
-            .eq("is_active", true)
-            .maybeSingle();
-
-          if (!preErr && pre?.id) {
-            setRedirectAction({ kind: "internal", path: `/prelanding/${pre.id}` });
-          } else {
-            setRedirectAction({ kind: "external", url: wr.link });
-          }
-
-          return;
-        }
-
-        // Not allowed -> find fallback for this country
+        // Fetch all active fallback URLs
         const { data: allUrls, error: urlsError } = await supabase
           .from("fallback_urls")
           .select("*")
           .eq("is_active", true)
           .order("sequence_order", { ascending: true });
 
-        if (urlsError || !allUrls || allUrls.length === 0) return;
+        if (urlsError || !allUrls || allUrls.length === 0) {
+          console.log("No fallback URLs configured");
+          return;
+        }
 
         const isSheetsUrl = (u: string) => u.includes("docs.google.com/spreadsheets");
 
+        // Filter fallback URLs that the user's country can access
         const allowedFallbacks = (allUrls as FallbackUrl[]).filter((u) => {
           if (isSheetsUrl(u.url)) return false;
           return isCountryAllowed(u.allowed_countries, effectiveCountry);
         });
 
-        if (allowedFallbacks.length === 0) return;
+        if (allowedFallbacks.length === 0) {
+          console.log("No fallback URLs available for country:", effectiveCountry);
+          return;
+        }
 
+        // Round-robin through allowed fallback URLs
         const storageKey = `fallback_allowed_index_${effectiveCountry}`;
         let currentIndex = parseInt(localStorage.getItem(storageKey) || "0", 10);
         currentIndex = ((currentIndex % allowedFallbacks.length) + allowedFallbacks.length) % allowedFallbacks.length;
 
         const selectedUrl = allowedFallbacks[currentIndex];
         setRedirectAction({ kind: "external", url: selectedUrl.url });
+
+        console.log("User country:", effectiveCountry, "Selected fallback:", selectedUrl.url);
 
         localStorage.setItem(storageKey, ((currentIndex + 1) % allowedFallbacks.length).toString());
       } catch (error) {
@@ -162,7 +141,7 @@ const Landing2 = () => {
     };
 
     void computeRedirect();
-  }, [userCountry, wrId]);
+  }, [userCountry]);
 
   // Auto-redirect after delay
   useEffect(() => {
