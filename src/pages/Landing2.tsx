@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 import { getUserCountryCode } from "@/lib/countryAccess";
 import { trackClick, initSession } from "@/lib/tracking";
+import { hasUserInteracted, markUserInteraction } from "@/lib/interactionTracker";
 
 interface Blog {
   id: string;
@@ -23,13 +24,22 @@ const Landing2 = () => {
   const [searchParams] = useSearchParams();
   const [blogs, setBlogs] = useState<Blog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [clicked, setClicked] = useState(false);
+  const [clicked, setClicked] = useState(() => hasUserInteracted());
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
   const [userCountry, setUserCountry] = useState<string>("XX");
   const [adminRedirectEnabled, setAdminRedirectEnabled] = useState(false);
   const [redirectDelay, setRedirectDelay] = useState(5);
+  const redirectTimerRef = useRef<number | undefined>(undefined);
   const qParam = searchParams.get("q") || "unknown";
   const wrId = searchParams.get("wrId");
+
+  // Cancel redirect immediately when clicked changes
+  useEffect(() => {
+    if (clicked && redirectTimerRef.current) {
+      window.clearTimeout(redirectTimerRef.current);
+      redirectTimerRef.current = undefined;
+    }
+  }, [clicked]);
 
   const effectiveRedirectEnabled = useMemo(() => {
     return adminRedirectEnabled;
@@ -153,11 +163,20 @@ const Landing2 = () => {
     fetchNextUrlIfMismatch();
   }, [userCountry, wrId]);
 
-  // Auto-redirect after delay ONLY if admin enabled + mismatch (redirectUrl present)
+  // Auto-redirect after delay ONLY if admin enabled + mismatch (redirectUrl present) + no user interaction
   useEffect(() => {
+    // Check session-based interaction flag
+    if (hasUserInteracted()) {
+      setClicked(true);
+      return;
+    }
+
     if (!effectiveRedirectEnabled || loading || clicked || !redirectUrl) return;
 
-    const timer = window.setTimeout(() => {
+    redirectTimerRef.current = window.setTimeout(() => {
+      // Final check before redirect
+      if (hasUserInteracted()) return;
+      
       // Fire-and-forget tracking; don't block redirect.
       void trackClick("fallback_redirect", undefined, redirectUrl, "/landing2", undefined, redirectUrl);
 
@@ -169,11 +188,25 @@ const Landing2 = () => {
       }
     }, redirectDelay * 1000);
 
-    return () => window.clearTimeout(timer);
+    return () => {
+      if (redirectTimerRef.current) {
+        window.clearTimeout(redirectTimerRef.current);
+        redirectTimerRef.current = undefined;
+      }
+    };
   }, [effectiveRedirectEnabled, loading, clicked, redirectUrl, redirectDelay]);
 
   const handleSearchClick = async (blog: Blog) => {
+    // Mark interaction in session storage - this persists across page navigations
+    markUserInteraction();
     setClicked(true);
+    
+    // Clear any pending redirect timer immediately
+    if (redirectTimerRef.current) {
+      window.clearTimeout(redirectTimerRef.current);
+      redirectTimerRef.current = undefined;
+    }
+    
     await trackClick("landing2_click", blog.id, blog.title, "/landing2");
     navigate(`/blog/${blog.slug}`);
   };
