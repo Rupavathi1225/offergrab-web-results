@@ -96,6 +96,8 @@ const WebResult = () => {
     document.title = `Web Results - Page ${wrPage}`;
     initSession();
     fetchData();
+    // Debug log to verify no auto-redirect happens
+    console.log(`WebResult page ${wrPage} loaded - waiting for user click`);
   }, [wrPage]);
 
   // Generate unique masked names when results change
