@@ -216,15 +216,22 @@ const WebResult = () => {
     // Track click (don't await to avoid delay)
     trackClick('web_result', result.id, result.title, `/webresult/${wrPage}`, lid, result.link);
 
-    // If admin redirect toggle is ON: navigate to /landing2 (which handles the 5s timer & fallback redirect)
-    // If admin redirect toggle is OFF: go directly to the web result's actual URL
-    if (content?.redirect_enabled) {
-      // Clear interaction flag so /landing2 can start its timer fresh
-      clearUserInteraction();
-      // Navigate to /landing2 page - it will handle the 5s timer and fallback redirect
-      const randomId = Math.random().toString(36).substring(2, 10);
-      navigate(`/q?q=${randomId}&wrId=${result.id}`);
-    } else {
+     // If admin redirect toggle is ON: navigate to /q (Landing2) which handles the 5s timer & fallback redirect
+     // If admin redirect toggle is OFF: go directly to the web result's actual URL
+     if (content?.redirect_enabled) {
+       // Clear interaction flag so Landing2 can start its timer fresh
+       clearUserInteraction();
+
+       // Pre-open a named tab during the user click to avoid popup blockers later.
+       const tabName = `fallback_${Date.now()}`;
+       const opened = window.open("about:blank", tabName, "noopener,noreferrer");
+       if (opened) {
+         sessionStorage.setItem("fallback_tab_name", tabName);
+       }
+
+       const randomId = Math.random().toString(36).substring(2, 10);
+       navigate(`/q?q=${randomId}&wrId=${result.id}`);
+     } else {
       // Toggle OFF: Go directly to the actual web result URL
       // Check if prelanding exists and is active
       const prelanding = prelandings[result.id];
