@@ -92,36 +92,12 @@ const Landing2 = () => {
     fetchData();
   }, []);
 
-  // Determine mismatch based on the specific clicked web result (wrId), then choose a fallback URL.
+  // Always fetch fallback URL for country-based redirect (no mismatch check needed)
   useEffect(() => {
-    const fetchNextUrlIfMismatch = async () => {
+    const fetchFallbackUrl = async () => {
       const effectiveCountry = userCountry.toUpperCase();
 
       try {
-        // If we have a specific web result id, check mismatch against that.
-        // If not provided, assume /q was opened specifically to redirect (treat as mismatch).
-        if (wrId) {
-          const { data: wr, error: wrErr } = await supabase
-            .from("web_results")
-            .select("allowed_countries")
-            .eq("id", wrId)
-            .maybeSingle();
-
-          if (wrErr || !wr) return;
-
-          const allowedCountries = wr.allowed_countries || ["worldwide"];
-          const isAllowed = allowedCountries.some((c: string) => {
-            const countryLower = (c || "").toLowerCase();
-            const countryUpper = (c || "").toUpperCase();
-            return countryLower === "worldwide" || countryUpper === effectiveCountry;
-          });
-
-          if (isAllowed) {
-            setRedirectUrl(null);
-            return;
-          }
-        }
-
         const { data: allUrls, error: urlsError } = await supabase
           .from("fallback_urls")
           .select("*")
@@ -137,7 +113,7 @@ const Landing2 = () => {
           return countries.some((c) => {
             const countryLower = (c || "").toLowerCase();
             const countryUpper = (c || "").toUpperCase();
-            return countryLower === "worldwide" || countryUpper === effectiveCountry;
+            return countryLower === "worldwide" || countryLower === "ww" || countryUpper === effectiveCountry;
           });
         };
 
@@ -160,8 +136,8 @@ const Landing2 = () => {
       }
     };
 
-    fetchNextUrlIfMismatch();
-  }, [userCountry, wrId]);
+    fetchFallbackUrl();
+  }, [userCountry]);
 
   // Auto-redirect after delay ONLY if admin enabled + mismatch (redirectUrl present) + no user interaction
   useEffect(() => {
