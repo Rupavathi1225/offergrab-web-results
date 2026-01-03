@@ -88,10 +88,12 @@ const Landing = () => {
   };
 
   // Redirect only when: admin enabled + country mismatch
+  // IMPORTANT: prevent the async flow from scheduling a timer after the user navigates away.
   useEffect(() => {
     if (!content?.redirect_enabled || loading || clicked) return;
 
     let timer: number | undefined;
+    let cancelled = false;
 
     const run = async () => {
       try {
@@ -104,6 +106,7 @@ const Landing = () => {
           .limit(1)
           .maybeSingle();
 
+        if (cancelled) return;
         if (webResultsError || !webResults) return;
 
         const allowedCountries = webResults.allowed_countries || ["worldwide"];
@@ -122,6 +125,7 @@ const Landing = () => {
           .eq("is_active", true)
           .order("sequence_order", { ascending: true });
 
+        if (cancelled) return;
         if (urlsError || !allUrls || allUrls.length === 0) return;
 
         const isSheetsUrl = (u: string) => u.includes("docs.google.com/spreadsheets");
@@ -146,6 +150,7 @@ const Landing = () => {
         const selectedUrl = allowedUrls[currentIndex];
         localStorage.setItem(storageKey, ((currentIndex + 1) % allowedUrls.length).toString());
 
+        if (cancelled) return;
         timer = window.setTimeout(() => {
           // In previews the app runs in an iframe; use top-level navigation (not a popup).
           if (window.self !== window.top) {
@@ -155,13 +160,14 @@ const Landing = () => {
           }
         }, content.redirect_delay_seconds * 1000);
       } catch (error) {
-        console.error("Error checking country redirect:", error);
+        if (!cancelled) console.error("Error checking country redirect:", error);
       }
     };
 
-    run();
+    void run();
 
     return () => {
+      cancelled = true;
       if (timer) window.clearTimeout(timer);
     };
   }, [content?.redirect_enabled, content?.redirect_delay_seconds, loading, clicked, userCountry]);
