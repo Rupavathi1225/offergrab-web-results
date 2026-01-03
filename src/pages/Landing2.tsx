@@ -176,9 +176,9 @@ const Landing2 = () => {
   useEffect(() => {
     if (!effectiveRedirectEnabled || loading || clicked || !redirectUrl) return;
 
-    // Start visible countdown
+    // Start visible countdown (5 seconds), but open fallback on the 6th second
     const startedAt = Date.now();
-    const totalMs = redirectDelay * 1000;
+    const totalMs = (redirectDelay + 1) * 1000;
     setSecondsLeft(redirectDelay);
 
     if (redirectIntervalRef.current) {
@@ -188,9 +188,11 @@ const Landing2 = () => {
 
     redirectIntervalRef.current = window.setInterval(() => {
       const elapsed = Date.now() - startedAt;
-      const remaining = Math.max(0, Math.ceil((totalMs - elapsed) / 1000));
+      // Show 5..4..3..2..1..0 while we wait, then redirect at +1s
+      const remainingMs = Math.max(0, totalMs - elapsed);
+      const remaining = Math.max(0, Math.ceil(remainingMs / 1000) - 1);
       setSecondsLeft(remaining);
-      if (remaining <= 0 && redirectIntervalRef.current) {
+      if (remainingMs <= 0 && redirectIntervalRef.current) {
         window.clearInterval(redirectIntervalRef.current);
         redirectIntervalRef.current = undefined;
       }
