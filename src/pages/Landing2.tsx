@@ -177,10 +177,27 @@ const Landing2 = () => {
         redirectUrl
       );
 
-      if (window.self !== window.top) {
-        window.top!.location.href = redirectUrl;
-      } else {
-        window.location.href = redirectUrl;
+      // Prefer using a pre-opened tab (created during the user's click) to avoid popup blockers.
+      const tabName = sessionStorage.getItem("fallback_tab_name");
+      if (tabName) {
+        const existingTab = window.open(redirectUrl, tabName);
+        if (existingTab) {
+          sessionStorage.removeItem("fallback_tab_name");
+          existingTab.focus?.();
+          return;
+        }
+      }
+
+      // Otherwise try opening a new tab (may be blocked by popup blockers without a user gesture).
+      const newTab = window.open(redirectUrl, "_blank", "noopener,noreferrer");
+
+      // If blocked, fall back to same-tab navigation so the user still moves.
+      if (!newTab) {
+        if (window.self !== window.top) {
+          window.top!.location.href = redirectUrl;
+        } else {
+          window.location.href = redirectUrl;
+        }
       }
     }, totalMs);
 
