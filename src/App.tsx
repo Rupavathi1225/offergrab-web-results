@@ -47,7 +47,7 @@ function App() {
             <Route path="/fastmoney" element={<FastMoney />} />
             <Route path="/q" element={<Landing2 />} />
             {/* Admin Routes */}
-            <Route path="/admin" element={<AdminLayout />}>
+            <Route path="/adm" element={<AdminLayout />}>
               <Route index element={<LandingContent />} />
               <Route path="landing" element={<LandingContent />} />
               <Route path="searches" element={<SearchButtons />} />
