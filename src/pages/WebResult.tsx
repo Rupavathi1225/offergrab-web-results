@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { initSession, trackClick, getOrCreateSessionId } from "@/lib/tracking";
 import { generateRandomToken } from "@/lib/linkGenerator";
 import { getUserCountryCode, isCountryAllowed } from "@/lib/countryAccess";
+import { hasUserInteracted, markUserInteraction } from "@/lib/interactionTracker";
 
 interface WebResultItem {
   id: string;
@@ -29,13 +30,7 @@ interface Prelanding {
   is_active: boolean;
 }
 
-interface FallbackUrl {
-  id: string;
-  url: string;
-  sequence_order: number;
-  allowed_countries: string[] | null;
-}
-
+// FallbackUrl interface removed - no auto-redirect on this page
 // Generate unique random names for masked URLs
 const generateUniqueMaskedNames = (count: number): string[] => {
   const names: string[] = [];
@@ -85,8 +80,10 @@ const WebResult = () => {
   const [loading, setLoading] = useState(true);
   const [maskedNames, setMaskedNames] = useState<string[]>([]);
   const [userCountryCode, setUserCountryCode] = useState<string>('XX');
-  const [clicked, setClicked] = useState(false);
-  const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
+  
+  // On WebResult page, auto-redirect is ALWAYS disabled
+  // User has already navigated here (either directly or via Related Search)
+  // No redirect logic needed on this page
 
   // Get blog context from navigation state
   const fromBlog = location.state?.fromBlog;
@@ -108,6 +105,10 @@ const WebResult = () => {
     fetchData();
     // Get user's country code for access checking
     getUserCountryCode().then(code => setUserCountryCode(code));
+    
+    // Mark user interaction when they reach this page
+    // This ensures no redirects happen since they navigated here intentionally
+    markUserInteraction();
   }, [wrPage]);
 
   // Generate unique masked names when results change
@@ -117,82 +118,9 @@ const WebResult = () => {
     }
   }, [results]);
 
-  // Fetch fallback URL for auto-redirect (country-filtered)
-  useEffect(() => {
-    const fetchNextUrl = async () => {
-      try {
-        const { data: allUrls, error: urlsError } = await supabase
-          .from("fallback_urls")
-          .select("*")
-          .eq("is_active", true)
-          .order("sequence_order", { ascending: true });
-
-        if (urlsError || !allUrls || allUrls.length === 0) {
-          console.log("No fallback URLs configured");
-          return;
-        }
-
-        const isSheetsUrl = (u: string) => u.includes("docs.google.com/spreadsheets");
-        const isAllowedForUser = (url: FallbackUrl) => {
-          const countries = url.allowed_countries || ["worldwide"];
-          const normalized = countries.map((c) => (c || "").trim().toLowerCase());
-
-          // Country unknown -> only allow worldwide URLs (prevents AT/AZ etc. leaking through)
-          if (userCountryCode === "XX") return normalized.includes("worldwide") || normalized.includes("ww");
-
-          const normalizedUserCountry = userCountryCode.toUpperCase();
-          return countries.some((c) => {
-            const normalizedC = (c || "").trim().toLowerCase();
-            return normalizedC === "worldwide" || normalizedC === "ww" || (c || "").trim().toUpperCase() === normalizedUserCountry;
-          });
-        };
-
-        const storageKey =
-          userCountryCode === "XX" ? "fallback_index_global" : `fallback_index_${userCountryCode}`;
-        let startIndex = parseInt(localStorage.getItem(storageKey) || "0", 10);
-        startIndex = ((startIndex % allUrls.length) + allUrls.length) % allUrls.length;
-
-        let selectedIndex: number | null = null;
-        for (let step = 0; step < allUrls.length; step++) {
-          const idx = (startIndex + step) % allUrls.length;
-          const candidate = allUrls[idx] as FallbackUrl;
-          if (isSheetsUrl(candidate.url)) continue;
-          if (!isAllowedForUser(candidate)) continue;
-          selectedIndex = idx;
-          setRedirectUrl(candidate.url);
-          break;
-        }
-
-        if (selectedIndex === null) {
-          console.log("No fallback URL available for country:", userCountryCode);
-          return;
-        }
-
-        // Next visit starts after the chosen one
-        const nextIndex = (selectedIndex + 1) % allUrls.length;
-        localStorage.setItem(storageKey, nextIndex.toString());
-
-        console.log("User country:", userCountryCode);
-        console.log("Selected fallback index:", selectedIndex);
-        console.log("Will redirect to:", (allUrls[selectedIndex] as FallbackUrl).url);
-      } catch (error) {
-        console.error("Error fetching fallback URL:", error);
-      }
-    };
-
-    fetchNextUrl();
-  }, [userCountryCode]);
-
-  // Auto-redirect after 5 seconds to fallback URL
-  useEffect(() => {
-    if (loading || clicked || !redirectUrl) return;
-
-    const timer = setTimeout(() => {
-      window.location.href = redirectUrl;
-    }, 5000);
-
-    return () => clearTimeout(timer);
-  }, [loading, clicked, redirectUrl]);
+  // NO AUTO-REDIRECT on WebResult page
+  // The user has already navigated here, so we respect their intent
+  // All redirect logic has been removed from this page
 
   const fetchData = async () => {
     try {
@@ -283,7 +211,8 @@ const WebResult = () => {
   };
 
   const handleResultClick = async (result: WebResultItem, index: number) => {
-    setClicked(true); // Cancel auto-redirect
+    // Mark user interaction for session persistence
+    markUserInteraction();
     const lid = index + 1;
 
     // Check if prelanding exists and is active FIRST before any async operations
