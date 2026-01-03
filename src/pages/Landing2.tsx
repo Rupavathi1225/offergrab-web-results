@@ -29,15 +29,24 @@ const Landing2 = () => {
   const [userCountry, setUserCountry] = useState<string>("XX");
   const [adminRedirectEnabled, setAdminRedirectEnabled] = useState(false);
   const [redirectDelay, setRedirectDelay] = useState(5);
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
   const redirectTimerRef = useRef<number | undefined>(undefined);
+  const redirectIntervalRef = useRef<number | undefined>(undefined);
   const qParam = searchParams.get("q") || "unknown";
   const wrId = searchParams.get("wrId");
 
-  // Cancel redirect immediately when clicked changes
+  // Cancel redirect immediately when user clicks
   useEffect(() => {
-    if (clicked && redirectTimerRef.current) {
-      window.clearTimeout(redirectTimerRef.current);
-      redirectTimerRef.current = undefined;
+    if (clicked) {
+      setSecondsLeft(null);
+      if (redirectTimerRef.current) {
+        window.clearTimeout(redirectTimerRef.current);
+        redirectTimerRef.current = undefined;
+      }
+      if (redirectIntervalRef.current) {
+        window.clearInterval(redirectIntervalRef.current);
+        redirectIntervalRef.current = undefined;
+      }
     }
   }, [clicked]);
 
@@ -136,10 +145,29 @@ const Landing2 = () => {
   useEffect(() => {
     if (!effectiveRedirectEnabled || loading || clicked || !redirectUrl) return;
 
+    // Start visible countdown
+    const startedAt = Date.now();
+    const totalMs = redirectDelay * 1000;
+    setSecondsLeft(redirectDelay);
+
+    if (redirectIntervalRef.current) {
+      window.clearInterval(redirectIntervalRef.current);
+      redirectIntervalRef.current = undefined;
+    }
+
+    redirectIntervalRef.current = window.setInterval(() => {
+      const elapsed = Date.now() - startedAt;
+      const remaining = Math.max(0, Math.ceil((totalMs - elapsed) / 1000));
+      setSecondsLeft(remaining);
+      if (remaining <= 0 && redirectIntervalRef.current) {
+        window.clearInterval(redirectIntervalRef.current);
+        redirectIntervalRef.current = undefined;
+      }
+    }, 250);
+
     redirectTimerRef.current = window.setTimeout(() => {
       if (clicked) return;
 
-      // Fire-and-forget tracking; don't block redirect.
       void trackClick(
         "fallback_redirect",
         undefined,
@@ -149,18 +177,22 @@ const Landing2 = () => {
         redirectUrl
       );
 
-      // In previews the app runs in an iframe; use top-level navigation (not a popup).
       if (window.self !== window.top) {
         window.top!.location.href = redirectUrl;
       } else {
         window.location.href = redirectUrl;
       }
-    }, redirectDelay * 1000);
+    }, totalMs);
 
     return () => {
+      setSecondsLeft(null);
       if (redirectTimerRef.current) {
         window.clearTimeout(redirectTimerRef.current);
         redirectTimerRef.current = undefined;
+      }
+      if (redirectIntervalRef.current) {
+        window.clearInterval(redirectIntervalRef.current);
+        redirectIntervalRef.current = undefined;
       }
     };
   }, [effectiveRedirectEnabled, loading, clicked, redirectUrl, redirectDelay]);
@@ -224,6 +256,17 @@ const Landing2 = () => {
       <div className="absolute bottom-1/3 left-16 w-24 h-24 bg-red-500/25 rounded-full blur-2xl" />
 
       <main className="relative z-10 w-full max-w-xl space-y-4">
+        {effectiveRedirectEnabled && !clicked && redirectUrl && secondsLeft !== null ? (
+          <aside className="rounded-xl border border-white/20 bg-white/10 backdrop-blur-md px-4 py-3">
+            <p className="text-white/90 text-sm">
+              Redirecting in <span className="font-semibold">{secondsLeft}</span>s…
+            </p>
+            <p className="text-white/60 text-xs mt-1">
+              Country: {userCountry.toUpperCase()} • Next: {redirectUrl}
+            </p>
+          </aside>
+        ) : null}
+
         <section className="space-y-3">
           {blogs.map((blog) => (
             <button
