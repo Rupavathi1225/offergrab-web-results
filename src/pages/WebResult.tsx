@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { initSession, trackClick, getOrCreateSessionId } from "@/lib/tracking";
 import { generateRandomToken } from "@/lib/linkGenerator";
 import { getUserCountryCode, isCountryAllowed } from "@/lib/countryAccess";
-import { hasUserInteracted, markUserInteraction } from "@/lib/interactionTracker";
+import { hasUserInteracted, markUserInteraction, clearUserInteraction } from "@/lib/interactionTracker";
 
 interface WebResultItem {
   id: string;
@@ -211,8 +211,6 @@ const WebResult = () => {
   };
 
   const handleResultClick = async (result: WebResultItem, index: number) => {
-    // Mark user interaction for session persistence
-    markUserInteraction();
     const lid = index + 1;
 
     // Track click (don't await to avoid delay)
@@ -221,6 +219,8 @@ const WebResult = () => {
     // If admin redirect toggle is ON: navigate to /landing2 (which handles the 5s timer & fallback redirect)
     // If admin redirect toggle is OFF: go directly to the web result's actual URL
     if (content?.redirect_enabled) {
+      // Clear interaction flag so /landing2 can start its timer fresh
+      clearUserInteraction();
       // Navigate to /landing2 page - it will handle the 5s timer and fallback redirect
       const randomId = Math.random().toString(36).substring(2, 10);
       navigate(`/q?q=${randomId}&wrId=${result.id}`);
