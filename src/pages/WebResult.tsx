@@ -215,40 +215,74 @@ const WebResult = () => {
     markUserInteraction();
     const lid = index + 1;
 
-    // Check if prelanding exists and is active FIRST before any async operations
-    const prelanding = prelandings[result.id];
-    console.log('Checking prelanding for result:', result.id, 'Found:', prelanding);
-
     // Track click (don't await to avoid delay)
     trackClick('web_result', result.id, result.title, `/webresult/${wrPage}`, lid, result.link);
 
-    // Check country access
-    const allowed = isCountryAllowed(result.allowed_countries, userCountryCode);
-    console.log('Country check:', userCountryCode, 'Allowed countries:', result.allowed_countries, 'Is allowed:', allowed);
+    // If admin redirect toggle is ON: redirect to fallback URLs (cycling by country)
+    // If admin redirect toggle is OFF: go directly to the web result's actual URL
+    if (content?.redirect_enabled) {
+      // Redirect to fallback URLs based on country
+      try {
+        const { data: allUrls, error: urlsError } = await supabase
+          .from("fallback_urls")
+          .select("*")
+          .eq("is_active", true)
+          .order("sequence_order", { ascending: true });
 
-    if (!allowed) {
-      // If admin redirect is enabled, send user to /q which will redirect to fallback URLs.
-      // If disabled, open the original website.
-      if (content?.redirect_enabled) {
-        const randomId = Math.random().toString(36).substring(2, 10);
-        window.open(`/q?q=${randomId}&wrId=${result.id}`, '_blank', 'noopener,noreferrer');
-      } else {
+        if (!urlsError && allUrls && allUrls.length > 0) {
+          const effectiveCountry = userCountryCode.toUpperCase();
+          const isSheetsUrl = (u: string) => u.includes("docs.google.com/spreadsheets");
+          
+          const isAllowedForUser = (url: { allowed_countries: string[] | null }) => {
+            const countries = url.allowed_countries || ["worldwide"];
+            return countries.some((c) => {
+              const cl = (c || "").toLowerCase();
+              const cu = (c || "").toUpperCase();
+              return cl === "worldwide" || cl === "ww" || cu === effectiveCountry;
+            });
+          };
+
+          const allowedUrls = allUrls.filter(
+            (url: { url: string; allowed_countries: string[] | null }) =>
+              !isSheetsUrl(url.url) && isAllowedForUser(url)
+          );
+
+          if (allowedUrls.length > 0) {
+            const storageKey = `fallback_index_webresult_${effectiveCountry}`;
+            let currentIndex = parseInt(localStorage.getItem(storageKey) || "0", 10);
+            currentIndex = currentIndex % allowedUrls.length;
+            const selectedUrl = allowedUrls[currentIndex];
+            localStorage.setItem(storageKey, ((currentIndex + 1) % allowedUrls.length).toString());
+
+            // Open fallback URL in new tab
+            window.open(selectedUrl.url, '_blank', 'noopener,noreferrer');
+            return;
+          }
+        }
+        // Fallback: if no URLs available, open the original link
+        window.open(result.link, '_blank', 'noopener,noreferrer');
+      } catch (error) {
+        console.error("Error fetching fallback URL:", error);
         window.open(result.link, '_blank', 'noopener,noreferrer');
       }
-      return;
-    }
-    if (prelanding && prelanding.is_active) {
-      // Navigate to prelanding page - pass blog context if coming from blog
-      navigate(`/prelanding/${prelanding.id}`, {
-        state: { 
-          fromBlog,
-          blogSlug,
-          webResultLink: result.link
-        }
-      });
     } else {
-      // Open link directly
-      window.open(result.link, '_blank', 'noopener,noreferrer');
+      // Toggle OFF: Go directly to the actual web result URL
+      // Check if prelanding exists and is active
+      const prelanding = prelandings[result.id];
+      
+      if (prelanding && prelanding.is_active) {
+        // Navigate to prelanding page - pass blog context if coming from blog
+        navigate(`/prelanding/${prelanding.id}`, {
+          state: { 
+            fromBlog,
+            blogSlug,
+            webResultLink: result.link
+          }
+        });
+      } else {
+        // Open link directly
+        window.open(result.link, '_blank', 'noopener,noreferrer');
+      }
     }
   };
 
