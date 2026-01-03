@@ -289,8 +289,14 @@ const WebResult = () => {
     // Track click (don't await to avoid delay)
     trackClick("web_result", result.id, result.title, `/webresult/${wrPage}`, lid, result.link);
 
-    // Always route through Landing2 (/q). Landing2 will decide where to send the user
-    // after the configured delay (web result / prelanding if allowed, otherwise a fallback URL).
+    // Check if redirect_enabled is OFF - if so, go directly to the web result URL
+    if (content?.redirect_enabled === false) {
+      // Redirect directly to the web result's link
+      window.location.href = result.link;
+      return;
+    }
+
+    // Route through Landing2 (/q) for the delay/fallback logic
     const randomId = Math.random().toString(36).substring(2, 10);
     navigate(`/q?q=${randomId}&wrId=${result.id}`, {
       state: {
