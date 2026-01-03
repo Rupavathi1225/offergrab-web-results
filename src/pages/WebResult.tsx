@@ -298,11 +298,11 @@ const WebResult = () => {
     console.log('Country check:', userCountryCode, 'Allowed countries:', result.allowed_countries, 'Is allowed:', allowed);
 
     if (!allowed) {
-      // If admin redirect is enabled, send user to /q which will redirect to fallback URLs.
+      // If admin redirect is enabled, navigate to /landing2 which will auto-redirect to fallback URLs after 5 seconds.
       // If disabled, open the original website.
       if (content?.redirect_enabled) {
         const randomId = Math.random().toString(36).substring(2, 10);
-        window.open(`/q?q=${randomId}&wrId=${result.id}`, '_blank', 'noopener,noreferrer');
+        navigate(`/q?q=${randomId}&wrId=${result.id}`);
       } else {
         window.open(result.link, '_blank', 'noopener,noreferrer');
       }
