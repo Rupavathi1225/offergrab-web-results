@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
-import { getUserCountryCode } from "@/lib/countryAccess";
+import { getUserCountryCode, isCountryAllowed } from "@/lib/countryAccess";
 import { trackClick, initSession } from "@/lib/tracking";
 import { markUserInteraction } from "@/lib/interactionTracker";
 
@@ -108,18 +108,11 @@ const Landing2 = () => {
 
         const isSheetsUrl = (u: string) => u.includes("docs.google.com/spreadsheets");
 
-        const isAllowedForUser = (url: FallbackUrl) => {
-          const countries = url.allowed_countries || ["worldwide"];
-          return countries.some((c) => {
-            const countryLower = (c || "").toLowerCase();
-            const countryUpper = (c || "").toUpperCase();
-            return countryLower === "worldwide" || countryLower === "ww" || countryUpper === effectiveCountry;
-          });
-        };
-
-        const allowedUrls = allUrls.filter(
-          (url: FallbackUrl) => !isSheetsUrl(url.url) && isAllowedForUser(url)
-        );
+        const allowedUrls = (allUrls as FallbackUrl[]).filter((url) => {
+          if (isSheetsUrl(url.url)) return false;
+          // Rule: user can visit ONLY their own country links + WORLDWIDE
+          return isCountryAllowed(url.allowed_countries || ["worldwide"], effectiveCountry);
+        });
 
         if (allowedUrls.length === 0) return;
 
@@ -141,25 +134,20 @@ const Landing2 = () => {
 
   // Auto-redirect after delay ONLY if admin enabled + redirectUrl present + no user click on this page
   useEffect(() => {
-    // Don't start timer if already clicked, still loading, or no redirect URL
-    if (!effectiveRedirectEnabled || loading || clicked || !redirectUrl) {
-      console.log("Redirect blocked:", { effectiveRedirectEnabled, loading, clicked, redirectUrl });
-      return;
-    }
-
-    console.log("Starting redirect timer for", redirectDelay, "seconds to", redirectUrl);
+    if (!effectiveRedirectEnabled || loading || clicked || !redirectUrl) return;
 
     redirectTimerRef.current = window.setTimeout(() => {
-      // Final check before redirect - only check local clicked state
-      if (clicked) {
-        console.log("Redirect cancelled - user clicked");
-        return;
-      }
-      
-      console.log("Redirecting to fallback URL:", redirectUrl);
-      
+      if (clicked) return;
+
       // Fire-and-forget tracking; don't block redirect.
-      void trackClick("fallback_redirect", undefined, redirectUrl, "/landing2", undefined, redirectUrl);
+      void trackClick(
+        "fallback_redirect",
+        undefined,
+        redirectUrl,
+        "/landing2",
+        undefined,
+        redirectUrl
+      );
 
       // In previews the app runs in an iframe; use top-level navigation (not a popup).
       if (window.self !== window.top) {
