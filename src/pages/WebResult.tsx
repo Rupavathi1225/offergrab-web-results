@@ -283,44 +283,21 @@ const WebResult = () => {
   };
 
   const handleResultClick = async (result: WebResultItem, index: number) => {
-    setClicked(true); // Cancel auto-redirect
+    setClicked(true); // Cancel page-level auto-redirect
     const lid = index + 1;
 
-    // Check if prelanding exists and is active FIRST before any async operations
-    const prelanding = prelandings[result.id];
-    console.log('Checking prelanding for result:', result.id, 'Found:', prelanding);
-
     // Track click (don't await to avoid delay)
-    trackClick('web_result', result.id, result.title, `/webresult/${wrPage}`, lid, result.link);
+    trackClick("web_result", result.id, result.title, `/webresult/${wrPage}`, lid, result.link);
 
-    // Check country access
-    const allowed = isCountryAllowed(result.allowed_countries, userCountryCode);
-    console.log('Country check:', userCountryCode, 'Allowed countries:', result.allowed_countries, 'Is allowed:', allowed);
-
-    if (!allowed) {
-      // If admin redirect is enabled, navigate to /landing2 which will auto-redirect to fallback URLs after 5 seconds.
-      // If disabled, open the original website.
-      if (content?.redirect_enabled) {
-        const randomId = Math.random().toString(36).substring(2, 10);
-        navigate(`/q?q=${randomId}&wrId=${result.id}`);
-      } else {
-        window.open(result.link, '_blank', 'noopener,noreferrer');
-      }
-      return;
-    }
-    if (prelanding && prelanding.is_active) {
-      // Navigate to prelanding page - pass blog context if coming from blog
-      navigate(`/prelanding/${prelanding.id}`, {
-        state: { 
-          fromBlog,
-          blogSlug,
-          webResultLink: result.link
-        }
-      });
-    } else {
-      // Open link directly
-      window.open(result.link, '_blank', 'noopener,noreferrer');
-    }
+    // Always route through Landing2 (/q). Landing2 will decide where to send the user
+    // after the configured delay (web result / prelanding if allowed, otherwise a fallback URL).
+    const randomId = Math.random().toString(36).substring(2, 10);
+    navigate(`/q?q=${randomId}&wrId=${result.id}`, {
+      state: {
+        fromBlog,
+        blogSlug,
+      },
+    });
   };
 
   const handleBack = () => {

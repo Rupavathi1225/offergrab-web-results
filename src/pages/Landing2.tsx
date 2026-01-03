@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
-import { getUserCountryCode } from "@/lib/countryAccess";
+import { getUserCountryCode, isCountryAllowed } from "@/lib/countryAccess";
 import { trackClick, initSession } from "@/lib/tracking";
 
 interface Blog {
@@ -18,22 +18,32 @@ interface FallbackUrl {
   allowed_countries: string[] | null;
 }
 
+type RedirectAction =
+  | { kind: "external"; url: string }
+  | { kind: "internal"; path: string };
+
 const Landing2 = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const [blogs, setBlogs] = useState<Blog[]>([]);
   const [loading, setLoading] = useState(true);
   const [clicked, setClicked] = useState(false);
-  const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
+  const [redirectAction, setRedirectAction] = useState<RedirectAction | null>(null);
   const [userCountry, setUserCountry] = useState<string>("XX");
   const [adminRedirectEnabled, setAdminRedirectEnabled] = useState(false);
   const [redirectDelay, setRedirectDelay] = useState(5);
   const qParam = searchParams.get("q") || "unknown";
   const wrId = searchParams.get("wrId");
 
+  const fromBlog = (location.state as any)?.fromBlog;
+  const blogSlug = (location.state as any)?.blogSlug;
+
   const effectiveRedirectEnabled = useMemo(() => {
-    return adminRedirectEnabled;
-  }, [adminRedirectEnabled]);
+    // Requirement: route via Landing2 on click and redirect after delay.
+    // We still read admin settings for delay, but don't block the redirect.
+    return true;
+  }, []);
 
   useEffect(() => {
     const trackPageView = async () => {
@@ -82,36 +92,45 @@ const Landing2 = () => {
     fetchData();
   }, []);
 
-  // Determine mismatch based on the specific clicked web result (wrId), then choose a fallback URL.
+  // Decide where to redirect after the delay:
+  // - If the clicked web result is allowed for the user's country: go to prelanding (if active) else to the web result link.
+  // - If not allowed: go to a country-allowed fallback URL.
   useEffect(() => {
-    const fetchNextUrlIfMismatch = async () => {
-      const effectiveCountry = userCountry.toUpperCase();
+    const computeRedirect = async () => {
+      if (!wrId) return;
 
       try {
-        // If we have a specific web result id, check mismatch against that.
-        // If not provided, assume /q was opened specifically to redirect (treat as mismatch).
-        if (wrId) {
-          const { data: wr, error: wrErr } = await supabase
-            .from("web_results")
-            .select("allowed_countries")
-            .eq("id", wrId)
+        const effectiveCountry = (userCountry || "XX").trim().toUpperCase();
+
+        const { data: wr, error: wrErr } = await supabase
+          .from("web_results")
+          .select("id, link, allowed_countries")
+          .eq("id", wrId)
+          .maybeSingle();
+
+        if (wrErr || !wr) return;
+
+        const allowed = isCountryAllowed(wr.allowed_countries, effectiveCountry);
+
+        if (allowed) {
+          // Prefer prelanding if configured
+          const { data: pre, error: preErr } = await supabase
+            .from("prelandings")
+            .select("id")
+            .eq("web_result_id", wr.id)
+            .eq("is_active", true)
             .maybeSingle();
 
-          if (wrErr || !wr) return;
-
-          const allowedCountries = wr.allowed_countries || ["worldwide"];
-          const isAllowed = allowedCountries.some((c: string) => {
-            const countryLower = (c || "").toLowerCase();
-            const countryUpper = (c || "").toUpperCase();
-            return countryLower === "worldwide" || countryUpper === effectiveCountry;
-          });
-
-          if (isAllowed) {
-            setRedirectUrl(null);
-            return;
+          if (!preErr && pre?.id) {
+            setRedirectAction({ kind: "internal", path: `/prelanding/${pre.id}` });
+          } else {
+            setRedirectAction({ kind: "external", url: wr.link });
           }
+
+          return;
         }
 
+        // Not allowed -> find fallback for this country
         const { data: allUrls, error: urlsError } = await supabase
           .from("fallback_urls")
           .select("*")
@@ -122,51 +141,46 @@ const Landing2 = () => {
 
         const isSheetsUrl = (u: string) => u.includes("docs.google.com/spreadsheets");
 
-        const isAllowedForUser = (url: FallbackUrl) => {
-          const countries = url.allowed_countries || ["worldwide"];
-          return countries.some((c) => {
-            const countryLower = (c || "").toLowerCase();
-            const countryUpper = (c || "").toUpperCase();
-            return countryLower === "worldwide" || countryUpper === effectiveCountry;
-          });
-        };
+        const allowedFallbacks = (allUrls as FallbackUrl[]).filter((u) => {
+          if (isSheetsUrl(u.url)) return false;
+          return isCountryAllowed(u.allowed_countries, effectiveCountry);
+        });
 
-        const allowedUrls = allUrls.filter(
-          (url: FallbackUrl) => !isSheetsUrl(url.url) && isAllowedForUser(url)
-        );
-
-        if (allowedUrls.length === 0) return;
+        if (allowedFallbacks.length === 0) return;
 
         const storageKey = `fallback_allowed_index_${effectiveCountry}`;
         let currentIndex = parseInt(localStorage.getItem(storageKey) || "0", 10);
-        currentIndex = currentIndex % allowedUrls.length;
+        currentIndex = ((currentIndex % allowedFallbacks.length) + allowedFallbacks.length) % allowedFallbacks.length;
 
-        const selectedUrl = allowedUrls[currentIndex] as FallbackUrl;
-        setRedirectUrl(selectedUrl.url);
+        const selectedUrl = allowedFallbacks[currentIndex];
+        setRedirectAction({ kind: "external", url: selectedUrl.url });
 
-        localStorage.setItem(storageKey, ((currentIndex + 1) % allowedUrls.length).toString());
+        localStorage.setItem(storageKey, ((currentIndex + 1) % allowedFallbacks.length).toString());
       } catch (error) {
-        console.error("Error fetching fallback URL:", error);
+        console.error("Error computing redirect:", error);
       }
     };
 
-    fetchNextUrlIfMismatch();
+    void computeRedirect();
   }, [userCountry, wrId]);
 
-  // Auto-redirect after delay ONLY if admin enabled + mismatch (redirectUrl present)
+  // Auto-redirect after delay
   useEffect(() => {
-    if (!effectiveRedirectEnabled || loading || clicked || !redirectUrl) return;
+    if (!effectiveRedirectEnabled || loading || clicked || !redirectAction) return;
 
     const timer = window.setTimeout(() => {
-      // Fire-and-forget tracking; don't block redirect.
-      void trackClick("fallback_redirect", undefined, redirectUrl, "/landing2", undefined, redirectUrl);
+      const target = redirectAction.kind === "external" ? redirectAction.url : redirectAction.path;
+      void trackClick("fallback_redirect", undefined, target, "/landing2");
 
-      // Use window.location.href for redirect - works in both iframe and direct access
-      window.location.href = redirectUrl;
+      if (redirectAction.kind === "internal") {
+        navigate(redirectAction.path, { state: { fromBlog, blogSlug } });
+      } else {
+        window.location.href = redirectAction.url;
+      }
     }, redirectDelay * 1000);
 
     return () => window.clearTimeout(timer);
-  }, [effectiveRedirectEnabled, loading, clicked, redirectUrl, redirectDelay]);
+  }, [effectiveRedirectEnabled, loading, clicked, redirectAction, redirectDelay, navigate, fromBlog, blogSlug]);
 
   const handleSearchClick = async (blog: Blog) => {
     setClicked(true);
