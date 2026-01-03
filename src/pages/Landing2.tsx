@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 import { getUserCountryCode } from "@/lib/countryAccess";
 import { trackClick, initSession } from "@/lib/tracking";
-import { hasUserInteracted, markUserInteraction } from "@/lib/interactionTracker";
+import { markUserInteraction } from "@/lib/interactionTracker";
 
 interface Blog {
   id: string;
@@ -24,7 +24,7 @@ const Landing2 = () => {
   const [searchParams] = useSearchParams();
   const [blogs, setBlogs] = useState<Blog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [clicked, setClicked] = useState(() => hasUserInteracted());
+  const [clicked, setClicked] = useState(false);
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null);
   const [userCountry, setUserCountry] = useState<string>("XX");
   const [adminRedirectEnabled, setAdminRedirectEnabled] = useState(false);
@@ -139,26 +139,31 @@ const Landing2 = () => {
     fetchFallbackUrl();
   }, [userCountry]);
 
-  // Auto-redirect after delay ONLY if admin enabled + mismatch (redirectUrl present) + no user interaction
+  // Auto-redirect after delay ONLY if admin enabled + redirectUrl present + no user click on this page
   useEffect(() => {
-    // Check session-based interaction flag
-    if (hasUserInteracted()) {
-      setClicked(true);
+    // Don't start timer if already clicked, still loading, or no redirect URL
+    if (!effectiveRedirectEnabled || loading || clicked || !redirectUrl) {
+      console.log("Redirect blocked:", { effectiveRedirectEnabled, loading, clicked, redirectUrl });
       return;
     }
 
-    if (!effectiveRedirectEnabled || loading || clicked || !redirectUrl) return;
+    console.log("Starting redirect timer for", redirectDelay, "seconds to", redirectUrl);
 
     redirectTimerRef.current = window.setTimeout(() => {
-      // Final check before redirect
-      if (hasUserInteracted()) return;
+      // Final check before redirect - only check local clicked state
+      if (clicked) {
+        console.log("Redirect cancelled - user clicked");
+        return;
+      }
+      
+      console.log("Redirecting to fallback URL:", redirectUrl);
       
       // Fire-and-forget tracking; don't block redirect.
       void trackClick("fallback_redirect", undefined, redirectUrl, "/landing2", undefined, redirectUrl);
 
       // In previews the app runs in an iframe; use top-level navigation (not a popup).
       if (window.self !== window.top) {
-        window.top.location.href = redirectUrl;
+        window.top!.location.href = redirectUrl;
       } else {
         window.location.href = redirectUrl;
       }
