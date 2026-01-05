@@ -4,6 +4,7 @@ import { Search, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { initSession, trackClick } from "@/lib/tracking";
 import { generateRandomToken } from "@/lib/linkGenerator";
+import { getUserCountryCode, isCountryAllowed } from "@/lib/countryAccess";
 
 interface WebResultItem {
   id: string;
@@ -77,6 +78,7 @@ const WebResult = () => {
   const [prelandings, setPrelandings] = useState<Record<string, Prelanding>>({});
   const [loading, setLoading] = useState(true);
   const [maskedNames, setMaskedNames] = useState<string[]>([]);
+  const [userCountry, setUserCountry] = useState<string>("XX");
 
   // Get blog context from navigation state
   const fromBlog = location.state?.fromBlog;
@@ -96,6 +98,7 @@ const WebResult = () => {
     document.title = `Web Results - Page ${wrPage}`;
     initSession();
     fetchData();
+    getUserCountryCode().then(setUserCountry);
     // Debug log to verify no auto-redirect happens
     console.log(`WebResult page ${wrPage} loaded - waiting for user click`);
   }, [wrPage]);
@@ -207,7 +210,16 @@ const WebResult = () => {
       return;
     }
 
-    // Route through Landing2 (/q) for the delay/fallback logic
+    // Check if user's country is allowed for this web result
+    const countryMatches = isCountryAllowed(result.allowed_countries, userCountry);
+    
+    if (countryMatches) {
+      // Country matches - go directly to the original link
+      window.location.href = result.link;
+      return;
+    }
+
+    // Country mismatch - route through Landing2 (/q) for fallback logic
     const randomId = Math.random().toString(36).substring(2, 10);
     navigate(`/q?q=${randomId}&wrId=${result.id}`, {
       state: {
