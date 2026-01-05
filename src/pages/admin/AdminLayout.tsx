@@ -4,14 +4,14 @@ import { ExternalLink, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const tabs = [
-  { label: 'Landing Content', path: '/admin/landing' },
-  { label: 'Search Buttons', path: '/admin/searches' },
-  { label: 'Web Results', path: '/admin/results' },
-  { label: 'Pre-Landings', path: '/admin/prelandings' },
-  { label: 'Blogs', path: '/admin/blogs' },
-  { label: 'Analytics', path: '/admin/analytics' },
-  { label: 'Bulk Editor', path: '/admin/bulk-web-result-editor' },
-  { label: 'Fallback URLs', path: '/admin/fallback-urls' },
+  { label: 'Landing Content', path: '/adm/landing' },
+  { label: 'Search Buttons', path: '/adm/searches' },
+  { label: 'Web Results', path: '/adm/results' },
+  { label: 'Pre-Landings', path: '/adm/prelandings' },
+  { label: 'Blogs', path: '/adm/blogs' },
+  { label: 'Analytics', path: '/adm/analytics' },
+  { label: 'Bulk Editor', path: '/adm/bulk-web-result-editor' },
+  { label: 'Fallback URLs', path: '/adm/fallback-urls' },
 ];
 
 const AdminLayout = () => {
@@ -20,7 +20,7 @@ const AdminLayout = () => {
 
   const getCurrentTab = () => {
     const currentTab = tabs.find(tab => location.pathname === tab.path);
-    return currentTab?.path || '/admin/landing';
+    return currentTab?.path || '/adm/landing';
   };
 
   return (
