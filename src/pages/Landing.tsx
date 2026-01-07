@@ -4,6 +4,7 @@ import { Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { initSession, trackClick } from "@/lib/tracking";
 import { getUserCountryCode } from "@/lib/countryAccess";
+import { generateRandomToken } from "@/lib/linkGenerator";
 
 interface LandingContent {
   site_name: string;
@@ -175,7 +176,7 @@ const Landing = () => {
   const handleSearchClick = (search: RelatedSearch) => {
     setClicked(true);
     trackClick("related_search", search.id, search.title, "/landing");
-    navigate(`/webresult/${search.target_wr}`);
+    navigate(`/webresult/${search.target_wr}/${generateRandomToken(8)}`);
   };
 
   if (loading) {

@@ -68,7 +68,7 @@ const generateUniqueMaskedNames = (count: number): string[] => {
 };
 
 const WebResult = () => {
-  const { page } = useParams();
+  const { page, wbr } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const wrPage = parseInt(page || '1');
@@ -100,7 +100,7 @@ const WebResult = () => {
     fetchData();
     getUserCountryCode().then(setUserCountry);
     // Debug log to verify no auto-redirect happens
-    console.log(`WebResult page ${wrPage} loaded - waiting for user click`);
+    console.log(`WebResult page ${wrPage} wbr ${wbr} loaded - waiting for user click`);
   }, [wrPage]);
 
   // Generate unique masked names when results change
@@ -202,7 +202,7 @@ const WebResult = () => {
     const lid = index + 1;
 
     // Track click (don't await to avoid delay)
-    trackClick("web_result", result.id, result.title, `/webresult/${wrPage}`, lid, result.link);
+    trackClick("web_result", result.id, result.title, `/webresult/${wrPage}/${wbr}`, lid, result.link);
 
     // Check if redirect_enabled is OFF - if so, go directly to the web result URL
     if (content?.redirect_enabled === false) {

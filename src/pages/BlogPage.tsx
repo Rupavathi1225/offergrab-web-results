@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { trackClick } from "@/lib/tracking";
+import { generateRandomToken } from "@/lib/linkGenerator";
 
 const BlogPage = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -44,7 +45,7 @@ const BlogPage = () => {
   const handleSearchClick = (search: any) => {
     trackClick('related_search', search.id, search.title, `/blog/${slug}`);
     // Pass blog context via state so we can return to this blog
-    navigate(`/webresult/${search.target_wr}`, { 
+    navigate(`/webresult/${search.target_wr}/${generateRandomToken(8)}`, { 
       state: { 
         fromBlog: true, 
         blogSlug: slug,

@@ -35,9 +35,9 @@ function App() {
           <Routes>
             <Route path="/" element={<NotFound />} />
             <Route path="/landing" element={<Landing />} />
-            <Route path="/webresult/:page" element={<WebResult />} />
+            <Route path="/webresult/:page/:wbr" element={<WebResult />} />
             {/* Masked/short alias for web results pages */}
-            <Route path="/wr/:page" element={<WebResult />} />
+            <Route path="/wr/:page/:wbr" element={<WebResult />} />
             {/* Single web result page (used by copied links) */}
             <Route path="/r/:wrId" element={<SingleWebResult />} />
             <Route path="/prelanding/:id" element={<Prelanding />} />

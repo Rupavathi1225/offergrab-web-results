@@ -8,6 +8,7 @@ import { Plus, Save, Trash2, GripVertical, Pencil, X, Search } from "lucide-reac
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import BulkActionToolbar from "@/components/admin/BulkActionToolbar";
+import { generateRandomToken } from "@/lib/linkGenerator";
 import { convertToCSV, downloadCSV } from "@/lib/csvExport";
 
 interface Blog {
@@ -195,7 +196,7 @@ const SearchButtons = () => {
 
   const copySelected = () => {
     const selected = buttons.filter(b => selectedIds.has(b.id));
-    const text = selected.map(b => `${window.location.origin}/webresult/${b.target_wr}`).join('\n');
+    const text = selected.map(b => `${window.location.origin}/webresult/${b.target_wr}/${generateRandomToken(8)}`).join('\n');
     navigator.clipboard.writeText(text);
     toast({ title: "Copied!", description: `${selected.length} related search links copied to clipboard.` });
   };
