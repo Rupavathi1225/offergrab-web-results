@@ -91,7 +91,7 @@ const WebResult = () => {
   // Generate masked URL with unique random name
   const getMaskedUrl = (index: number) => {
     const name = maskedNames[index] || generateRandomToken(8);
-    return `https://offergrab.${name}/`;
+    return `https://topuniversitiesterrain.${name}/`;
   };
 
   useEffect(() => {
@@ -202,7 +202,9 @@ const WebResult = () => {
     const lid = index + 1;
 
     // Track click (don't await to avoid delay)
-    trackClick("web_result", result.id, result.title, `/webresult/${wrPage}/${wbr}`, lid, result.link);
+   trackClick("web_result",result.id,result.title,`/wr/${wrPage}/${wbr}`,lid,result.link);
+
+
 
     // Check if redirect_enabled is OFF - if so, go directly to the web result URL
     if (content?.redirect_enabled === false) {
@@ -284,7 +286,7 @@ const WebResult = () => {
               className="text-xl font-display font-bold text-primary glow-text cursor-pointer"
               onClick={() => navigate('/landing')}
             >
-              {content?.site_name || 'OfferGrab'}
+              {content?.site_name || 'topuniversitiesterrain'}
             </h1>
           </div>
           <button className="p-2 hover:bg-secondary/50 rounded-lg transition-colors">
