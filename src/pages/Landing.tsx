@@ -176,7 +176,7 @@ const Landing = () => {
   const handleSearchClick = (search: RelatedSearch) => {
     setClicked(true);
     trackClick("related_search", search.id, search.title, "/landing");
-    navigate(`/webresult/${search.target_wr}/${generateRandomToken(8)}`);
+    navigate(`/wr/${search.target_wr}/${generateRandomToken(8)}`);
   };
 
   if (loading) {

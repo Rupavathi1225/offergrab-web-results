@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Landing from "./pages/Landing";
 import WebResult from "./pages/WebResult";
 import SingleWebResult from "./pages/SingleWebResult";
@@ -12,6 +12,7 @@ import BlogPage from "./pages/BlogPage";
 import BlogByNumber from "./pages/BlogByNumber";
 import FastMoney from "./pages/FastMoney";
 import Landing2 from "./pages/Landing2";
+import LegacyWebResultRedirect from "./pages/LegacyWebResultRedirect";
 import AdminLayout from "./pages/admin/AdminLayout";
 import LandingContent from "./pages/admin/LandingContent";
 import SearchButtons from "./pages/admin/SearchButtons";
@@ -35,6 +36,8 @@ function App() {
           <Routes>
             <Route path="/" element={<NotFound />} />
             <Route path="/landing" element={<Landing />} />
+            {/* Legacy shared links (keep working) */}
+            <Route path="/webresult/:page/:wbr" element={<LegacyWebResultRedirect />} />
             <Route path="/wr/:page/:wbr" element={<WebResult />} />
             {/* Single web result page (used by copied links) */}
             <Route path="/r/:wrId" element={<SingleWebResult />} />
