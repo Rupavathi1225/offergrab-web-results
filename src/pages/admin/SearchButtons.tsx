@@ -196,7 +196,7 @@ const SearchButtons = () => {
 
   const copySelected = () => {
     const selected = buttons.filter(b => selectedIds.has(b.id));
-    const text = selected.map(b => `${window.location.origin}/webresult/${b.target_wr}/${generateRandomToken(8)}`).join('\n');
+    const text = selected.map(b => `${window.location.origin}/wr/${b.target_wr}/${generateRandomToken(8)}`).join('\n');
     navigator.clipboard.writeText(text);
     toast({ title: "Copied!", description: `${selected.length} related search links copied to clipboard.` });
   };
