@@ -51,12 +51,12 @@ const BlogByNumber = () => {
 
   const handleSearchClick = (search: any) => {
     trackClick('related_search', search.id, search.title, `/p=${blogNumber}`);
-    navigate(`/webresult/${search.target_wr}/${generateRandomToken(8)}`, { 
-      state: { 
-        fromBlog: true, 
+    navigate(`/wr/${search.target_wr}/${generateRandomToken(8)}`, {
+      state: {
+        fromBlog: true,
         blogNumber: blogNumber,
-        blogId: blog?.id 
-      } 
+        blogId: blog?.id
+      }
     });
   };
 

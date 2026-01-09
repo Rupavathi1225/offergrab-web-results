@@ -45,12 +45,12 @@ const BlogPage = () => {
   const handleSearchClick = (search: any) => {
     trackClick('related_search', search.id, search.title, `/blog/${slug}`);
     // Pass blog context via state so we can return to this blog
-    navigate(`/webresult/${search.target_wr}/${generateRandomToken(8)}`, { 
-      state: { 
-        fromBlog: true, 
+    navigate(`/wr/${search.target_wr}/${generateRandomToken(8)}`, {
+      state: {
+        fromBlog: true,
         blogSlug: slug,
-        blogId: blog?.id 
-      } 
+        blogId: blog?.id
+      }
     });
   };
 
