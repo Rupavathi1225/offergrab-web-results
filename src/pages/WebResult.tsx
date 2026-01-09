@@ -95,7 +95,6 @@ const WebResult = () => {
   };
 
   useEffect(() => {
-    document.title = `Web Results - Page ${wrPage}`;
     initSession();
     fetchData();
     getUserCountryCode().then(setUserCountry);
