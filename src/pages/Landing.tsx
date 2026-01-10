@@ -192,7 +192,7 @@ const Landing = () => {
       <header className="border-b border-border/50 py-4">
         <div className="container mx-auto px-4 flex items-center justify-between">
           <h1 className="text-xl font-display font-bold text-primary glow-text">
-            {content?.site_name || "topuniversitiesterrain"}
+            {content?.site_name || "OfferGrabZone"}
           </h1>
 
           <button className="p-2 hover:bg-secondary/50 rounded-lg transition-colors" aria-label="Search">
@@ -208,7 +208,7 @@ const Landing = () => {
           </h1>
           <p className="text-muted-foreground text-lg md:text-xl mb-12 leading-relaxed">
             {content?.description ||
-              "Finding great offers is all topuniversitiesterrain helps users spot trending deals, hidden discounts, and limited-time steals before they disappear."}
+              "Finding great offers is all OfferGrabZone helps users spot trending deals, hidden discounts, and limited-time steals before they disappear."}
           </p>
         </section>
 
@@ -237,7 +237,7 @@ const Landing = () => {
 
       <footer className="border-t border-border/50 py-6 mt-auto">
         <div className="container mx-auto px-4 text-center text-muted-foreground text-sm">
-          © {new Date().getFullYear()} {content?.site_name || "topuniversitiesterrain"}. All rights reserved.
+          © {new Date().getFullYear()} {content?.site_name || "OfferGrabZone"}. All rights reserved.
         </div>
       </footer>
     </div>
