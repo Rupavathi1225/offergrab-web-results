@@ -157,7 +157,7 @@ const SingleWebResult = () => {
               className="text-xl font-display font-bold text-primary glow-text cursor-pointer"
               onClick={() => navigate('/landing')}
             >
-              {content?.site_name || 'topuniversitiesterrain'}
+              {content?.site_name || 'OfferGrabZone'}
             </h1>
           </div>
         </div>

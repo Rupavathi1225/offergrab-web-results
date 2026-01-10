@@ -91,7 +91,7 @@ const WebResult = () => {
   // Generate masked URL with unique random name
   const getMaskedUrl = (index: number) => {
     const name = maskedNames[index] || generateRandomToken(8);
-    return `https://topuniversitiesterrain.${name}/`;
+    return `https://offergrabzone.${name}/`;
   };
 
   useEffect(() => {
@@ -285,7 +285,7 @@ const WebResult = () => {
               className="text-xl font-display font-bold text-primary glow-text cursor-pointer"
               onClick={() => navigate('/landing')}
             >
-              {content?.site_name || 'topuniversitiesterrain'}
+              {content?.site_name || 'OfferGrabZone'}
             </h1>
           </div>
           <button className="p-2 hover:bg-secondary/50 rounded-lg transition-colors">
