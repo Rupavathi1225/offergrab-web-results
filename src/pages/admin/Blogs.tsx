@@ -462,6 +462,7 @@ const Blogs = () => {
     );
     
     // Generate tab-separated format for spreadsheet paste (Name, Slug, URL in columns)
+    const header = 'Name\tSlug\tURL';
     const rows = selected.map(b => {
       const blogIndex = sortedBlogs.findIndex(blog => blog.id === b.id) + 1;
       const randomToken = Math.random().toString(36).substring(2, 10);
@@ -469,7 +470,7 @@ const Blogs = () => {
       return `${b.title}\t${b.slug}\t${url}`;
     });
     
-    const text = rows.join('\n');
+    const text = [header, ...rows].join('\n');
     navigator.clipboard.writeText(text);
     toast.success(`${selected.length} blog links copied to clipboard.`);
   };
