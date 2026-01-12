@@ -281,12 +281,6 @@ const WebResult = () => {
             >
               <ArrowLeft className="w-5 h-5 text-muted-foreground" />
             </button>
-            <h1 
-              className="text-xl font-display font-bold text-primary glow-text cursor-pointer"
-              onClick={() => navigate('/landing')}
-            >
-              {content?.site_name || 'OfferGrabZone'}
-            </h1>
           </div>
           <button className="p-2 hover:bg-secondary/50 rounded-lg transition-colors">
             <Search className="w-5 h-5 text-muted-foreground" />
