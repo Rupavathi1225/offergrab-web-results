@@ -455,7 +455,20 @@ const Blogs = () => {
   const copySelected = () => {
     if (!blogs) return;
     const selected = blogs.filter(b => selectedIds.has(b.id));
-    const text = selected.map(b => `${window.location.origin}/blog/${b.slug}`).join('\n');
+    
+    // Sort blogs by created_at to get consistent index
+    const sortedBlogs = [...blogs].sort((a, b) => 
+      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    );
+    
+    // Generate URLs with ID format (like single copy) + include slug and name
+    const text = selected.map(b => {
+      const blogIndex = sortedBlogs.findIndex(blog => blog.id === b.id) + 1;
+      const randomToken = Math.random().toString(36).substring(2, 10);
+      const url = `${window.location.origin}/p?p=${blogIndex}&n=${randomToken}`;
+      return `Name: ${b.title}\nSlug: ${b.slug}\nURL: ${url}`;
+    }).join('\n\n');
+    
     navigator.clipboard.writeText(text);
     toast.success(`${selected.length} blog links copied to clipboard.`);
   };
