@@ -461,14 +461,15 @@ const Blogs = () => {
       new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     );
     
-    // Generate URLs with ID format (like single copy) + include slug and name
-    const text = selected.map(b => {
+    // Generate tab-separated format for spreadsheet paste (Name, Slug, URL in columns)
+    const rows = selected.map(b => {
       const blogIndex = sortedBlogs.findIndex(blog => blog.id === b.id) + 1;
       const randomToken = Math.random().toString(36).substring(2, 10);
       const url = `${window.location.origin}/p?p=${blogIndex}&n=${randomToken}`;
-      return `Name: ${b.title}\nSlug: ${b.slug}\nURL: ${url}`;
-    }).join('\n\n');
+      return `${b.title}\t${b.slug}\t${url}`;
+    });
     
+    const text = rows.join('\n');
     navigator.clipboard.writeText(text);
     toast.success(`${selected.length} blog links copied to clipboard.`);
   };
