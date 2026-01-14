@@ -34,7 +34,7 @@ function App() {
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<NotFound />} />
+            <Route path="/" element={<Landing />} />
             <Route path="/landing" element={<Landing />} />
             {/* Legacy shared links (keep working) */}
             <Route path="/webresult/:page/:wbr" element={<LegacyWebResultRedirect />} />

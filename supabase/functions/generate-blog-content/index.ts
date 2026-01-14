@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { title, slug } = await req.json();
+    const { title, slug, paragraphs = 3, wordsPerParagraph = 100 } = await req.json();
 
     if (!title) {
       return new Response(
@@ -31,7 +31,9 @@ serve(async (req) => {
       );
     }
 
-    console.log('Generating content for blog:', title, 'slug:', slug);
+    console.log('Generating content for blog:', title, 'slug:', slug, 'paragraphs:', paragraphs, 'wordsPerParagraph:', wordsPerParagraph);
+
+    const totalWords = paragraphs * wordsPerParagraph;
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -47,12 +49,15 @@ serve(async (req) => {
             content: `You are a content generator. Generate blog content and related searches based on the given title.
 
 STRICT RULES:
-1. Content: Write EXACTLY 50 words. Short, tight, simple. No headings, no markdown formatting.
-2. Related Searches: Generate 4-6 related search phrases. Each phrase must be EXACTLY 5 words.
+1. Content: Write EXACTLY ${paragraphs} paragraphs with approximately ${wordsPerParagraph} words each (total ~${totalWords} words).
+2. Each paragraph should be separated by a blank line (double newline).
+3. No headings, no markdown formatting, no bullet points. Just plain text paragraphs.
+4. Make the content informative, engaging, and relevant to the title.
+5. Related Searches: Generate 4-6 related search phrases. Each phrase must be EXACTLY 5 words.
 
 Respond in this exact JSON format:
 {
-  "content": "Your 50-word blog content here...",
+  "content": "First paragraph here...\\n\\nSecond paragraph here...\\n\\nThird paragraph here...",
   "relatedSearches": ["five word search phrase one", "five word search phrase two", ...]
 }
 

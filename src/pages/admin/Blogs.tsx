@@ -77,6 +77,8 @@ const Blogs = () => {
   const [generatedSearches, setGeneratedSearches] = useState<string[]>([]);
   const [selectedSearchesOrder, setSelectedSearchesOrder] = useState<number[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [contentParagraphs, setContentParagraphs] = useState(3);
+  const [contentWordsPerParagraph, setContentWordsPerParagraph] = useState(100);
   
   const [formData, setFormData] = useState({
     title: "",
@@ -287,7 +289,12 @@ const Blogs = () => {
     setIsGeneratingContent(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-blog-content", {
-        body: { title: formData.title, slug: formData.slug },
+        body: { 
+          title: formData.title, 
+          slug: formData.slug,
+          paragraphs: contentParagraphs,
+          wordsPerParagraph: contentWordsPerParagraph 
+        },
       });
 
       if (error) throw error;
@@ -388,26 +395,16 @@ const Blogs = () => {
     setIsDialogOpen(true);
   };
 
-  const copyBlogLink = (blogId: string, blogs: Blog[]) => {
-    // Find blog index (1-based)
-    const sortedBlogs = [...blogs].sort((a, b) => 
-      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    );
-    const blogIndex = sortedBlogs.findIndex(b => b.id === blogId) + 1;
-    const randomToken = Math.random().toString(36).substring(2, 10);
-    const url = `${window.location.origin}/p?p=${blogIndex}&n=${randomToken}`;
+  const copyBlogLink = (blog: Blog) => {
+    // Use slug-based URL instead of index
+    const url = `${window.location.origin}/blog/${blog.slug}`;
     navigator.clipboard.writeText(url);
     toast.success("Blog link copied to clipboard!");
   };
 
-  const openBlog = (blogId: string, blogs: Blog[]) => {
-    // Find blog index (1-based)
-    const sortedBlogs = [...blogs].sort((a, b) => 
-      new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    );
-    const blogIndex = sortedBlogs.findIndex(b => b.id === blogId) + 1;
-    const randomToken = Math.random().toString(36).substring(2, 10);
-    window.open(`/p?p=${blogIndex}&n=${randomToken}`, "_blank");
+  const openBlog = (blog: Blog) => {
+    // Use slug-based URL
+    window.open(`/blog/${blog.slug}`, "_blank");
   };
 
   // Bulk actions
@@ -464,9 +461,8 @@ const Blogs = () => {
     // Generate tab-separated format for spreadsheet paste (Name, Slug, URL in columns)
     const header = 'Name\tSlug\tURL';
     const rows = selected.map(b => {
-      const blogIndex = sortedBlogs.findIndex(blog => blog.id === b.id) + 1;
-      const randomToken = Math.random().toString(36).substring(2, 10);
-      const url = `${window.location.origin}/p?p=${blogIndex}&n=${randomToken}`;
+      // Use slug-based URL instead of index
+      const url = `${window.location.origin}/blog/${b.slug}`;
       return `${b.title}\t${b.slug}\t${url}`;
     });
     
@@ -708,13 +704,49 @@ const Blogs = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="content">Content</Label>
-                <div className="flex gap-2 mb-2">
+                <div className="flex flex-wrap gap-4 mb-2 p-3 border border-border rounded-lg bg-muted/20">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="paragraphs" className="text-xs whitespace-nowrap">Paragraphs:</Label>
+                    <Select
+                      value={contentParagraphs.toString()}
+                      onValueChange={(value) => setContentParagraphs(parseInt(value))}
+                    >
+                      <SelectTrigger className="w-20 h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {[1, 2, 3, 4, 5, 6].map((num) => (
+                          <SelectItem key={num} value={num.toString()}>{num}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="wordsPerParagraph" className="text-xs whitespace-nowrap">Words/Paragraph:</Label>
+                    <Select
+                      value={contentWordsPerParagraph.toString()}
+                      onValueChange={(value) => setContentWordsPerParagraph(parseInt(value))}
+                    >
+                      <SelectTrigger className="w-20 h-8">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="50">50</SelectItem>
+                        <SelectItem value="100">100</SelectItem>
+                        <SelectItem value="150">150</SelectItem>
+                        <SelectItem value="200">200</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <span className="text-xs text-muted-foreground self-center">
+                    (~{contentParagraphs * contentWordsPerParagraph} total words)
+                  </span>
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => generateContent()}
                     disabled={isGeneratingContent || !formData.title}
-                    className="gap-2"
+                    className="gap-2 ml-auto"
                   >
                     {isGeneratingContent ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -891,7 +923,7 @@ const Blogs = () => {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => blogs && copyBlogLink(blog.id, blogs)}
+                      onClick={() => copyBlogLink(blog)}
                       title="Copy link"
                     >
                       <Copy className="w-4 h-4" />
@@ -899,7 +931,7 @@ const Blogs = () => {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => blogs && openBlog(blog.id, blogs)}
+                      onClick={() => openBlog(blog)}
                       title="Open blog"
                     >
                       <ExternalLink className="w-4 h-4" />
