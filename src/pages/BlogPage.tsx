@@ -84,7 +84,7 @@ const BlogPage = () => {
           >
             <ArrowLeft className="w-5 h-5 text-muted-foreground" />
           </button>
-          <h1 className="text-xl font-display font-bold text-primary">OfferGrabZone</h1>
+          <h1 className="text-xl font-display font-bold text-primary">TopUniversity</h1>
         </div>
       </header>
 
