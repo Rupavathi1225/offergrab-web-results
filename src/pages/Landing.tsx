@@ -192,7 +192,7 @@ const Landing = () => {
       <header className="border-b border-border/50 py-4">
         <div className="container mx-auto px-4 flex items-center justify-between">
           <h1 className="text-xl font-display font-bold text-primary glow-text">
-            {content?.site_name || "TopUniversity"}
+            TopUniversity
           </h1>
 
           <button className="p-2 hover:bg-secondary/50 rounded-lg transition-colors" aria-label="Search">
@@ -237,7 +237,7 @@ const Landing = () => {
 
       <footer className="border-t border-border/50 py-6 mt-auto">
         <div className="container mx-auto px-4 text-center text-muted-foreground text-sm">
-          © {new Date().getFullYear()} {content?.site_name || "TopUniversity"}. All rights reserved.
+          © {new Date().getFullYear()} TopUniversity. All rights reserved.
         </div>
       </footer>
     </div>
