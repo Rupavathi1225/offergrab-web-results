@@ -91,7 +91,7 @@ const WebResult = () => {
   // Generate masked URL with unique random name
   const getMaskedUrl = (index: number) => {
     const name = maskedNames[index] || generateRandomToken(8);
-    return `https://offergrabzone.${name}/`;
+    return `https://topuniversity.${name}/`;
   };
 
   useEffect(() => {
