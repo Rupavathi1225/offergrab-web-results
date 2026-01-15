@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Landing from "./pages/Landing";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
 import WebResult from "./pages/WebResult";
 import SingleWebResult from "./pages/SingleWebResult";
 import Prelanding from "./pages/Prelanding";
@@ -47,6 +48,7 @@ function App() {
             <Route path="/p" element={<BlogByNumber />} />
             <Route path="/fastmoney" element={<FastMoney />} />
             <Route path="/q" element={<Landing2 />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             {/* Admin Routes */}
             <Route path="/adm" element={<AdminLayout />}>
               <Route index element={<LandingContent />} />

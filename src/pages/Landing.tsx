@@ -237,6 +237,14 @@ const Landing = () => {
 
       <footer className="border-t border-border/50 py-6 mt-auto">
         <div className="container mx-auto px-4 text-center text-muted-foreground text-sm">
+          <div className="flex items-center justify-center gap-4 mb-2">
+            <a
+              href="/privacy-policy"
+              className="hover:text-primary transition-colors"
+            >
+              Privacy Policy
+            </a>
+          </div>
           © {new Date().getFullYear()} TopUniversity. All rights reserved.
         </div>
       </footer>
