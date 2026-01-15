@@ -133,7 +133,7 @@ const PrivacyPolicy = () => {
       content: (
         <div className="space-y-3">
           <p className="text-muted-foreground leading-relaxed mb-4">
-            We are committed to protecting your privacy. Here's our promise to you:
+            We are committed to protecting your privacy. Here is our promise to you:
           </p>
           <div className="grid gap-2">
             {[
@@ -244,13 +244,13 @@ const PrivacyPolicy = () => {
       <nav className="sticky top-0 z-10 bg-background/80 backdrop-blur-lg border-b border-border/50">
         <div className="container mx-auto px-4">
           <div className="flex gap-2 overflow-x-auto py-3 scrollbar-hide">
-            {sections.map((section, index) => (
+            {sections.map((section) => (
               <a
                 key={section.id}
                 href={`#${section.id}`}
                 className="shrink-0 px-3 py-1.5 rounded-full text-sm font-medium bg-secondary/50 hover:bg-primary/10 hover:text-primary transition-colors"
               >
-                {index + 1}. {section.title}
+                {section.title}
               </a>
             ))}
           </div>
@@ -271,10 +271,7 @@ const PrivacyPolicy = () => {
                 <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-primary/10 shrink-0">
                   <section.icon className="h-6 w-6 text-primary" />
                 </div>
-                <div>
-                  <span className="text-sm font-medium text-primary">Section {index + 1}</span>
-                  <h2 className="text-2xl font-bold">{section.title}</h2>
-                </div>
+                <h2 className="text-2xl font-bold">{section.title}</h2>
               </div>
               <div className="pl-0 md:pl-16">
                 {section.content}
