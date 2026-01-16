@@ -8,15 +8,15 @@ import { generateRandomToken } from "@/lib/linkGenerator";
 const BlogByNumber = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  
-  // Get the blog number from p parameter
-  const blogNumber = parseInt(searchParams.get('p') || '1', 10);
-  const token = searchParams.get('n'); // Random token for obfuscation
 
+  // Blog number
+  const blogNumber = parseInt(searchParams.get("p") || "1", 10);
+  const token = searchParams.get("n");
+
+  // Fetch blog
   const { data: blog, isLoading, error } = useQuery({
     queryKey: ["blog-by-number", blogNumber],
     queryFn: async () => {
-      // Fetch blogs ordered by created_at and get the one at position blogNumber
       const { data, error } = await supabase
         .from("blogs")
         .select("*")
@@ -31,7 +31,7 @@ const BlogByNumber = () => {
     enabled: !!blogNumber,
   });
 
-  // Fetch related searches for this specific blog only
+  // Fetch related searches
   const { data: relatedSearches } = useQuery({
     queryKey: ["related-searches", blog?.id],
     queryFn: async () => {
@@ -50,13 +50,13 @@ const BlogByNumber = () => {
   });
 
   const handleSearchClick = (search: any) => {
-    trackClick('related_search', search.id, search.title, `/p=${blogNumber}`);
+    trackClick("related_search", search.id, search.title, `/p=${blogNumber}`);
     navigate(`/wr/${search.target_wr}/${generateRandomToken(8)}`, {
       state: {
         fromBlog: true,
-        blogNumber: blogNumber,
-        blogId: blog?.id
-      }
+        blogNumber,
+        blogId: blog?.id,
+      },
     });
   };
 
@@ -72,11 +72,37 @@ const BlogByNumber = () => {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-foreground mb-2">Blog Not Found</h1>
-          <p className="text-muted-foreground">The blog you're looking for doesn't exist or is not published.</p>
+          <h1 className="text-2xl font-bold text-foreground mb-2">
+            Blog Not Found
+          </h1>
+          <p className="text-muted-foreground">
+            The blog you're looking for doesn't exist or is not published.
+          </p>
         </div>
       </div>
     );
+  }
+
+  // 🔹 Split content by paragraphs and find middle insertion point by word count
+  const fullContent = blog.content || "";
+  const paragraphs = fullContent.split("\n").filter((p) => p.trim());
+  
+  // Calculate total words and find where to insert related searches
+  const allWords = fullContent.split(/\s+/).filter((w) => w.length > 0);
+  const totalWords = allWords.length;
+  const targetWordCount = Math.floor(totalWords / 2);
+  
+  // Find paragraph index where we reach the middle word count
+  let currentWordCount = 0;
+  let insertionIndex = Math.floor(paragraphs.length / 2); // Default to middle paragraph
+  
+  for (let i = 0; i < paragraphs.length; i++) {
+    const paragraphWords = paragraphs[i].split(/\s+/).filter((w) => w.length > 0).length;
+    currentWordCount += paragraphWords;
+    if (currentWordCount >= targetWordCount) {
+      insertionIndex = i;
+      break;
+    }
   }
 
   return (
@@ -84,13 +110,15 @@ const BlogByNumber = () => {
       {/* Header */}
       <header className="border-b border-border/50 py-4">
         <div className="container mx-auto px-4 flex items-center gap-4">
-          <button 
-            onClick={() => navigate('/landing')}
+          <button
+            onClick={() => navigate("/landing")}
             className="p-2 hover:bg-secondary/50 rounded-lg transition-colors"
           >
             <ArrowLeft className="w-5 h-5 text-muted-foreground" />
           </button>
-          <h1 className="text-xl font-display font-bold text-primary">Astepstair</h1>
+          <h1 className="text-xl font-display font-bold text-primary">
+            Astepstair
+          </h1>
         </div>
       </header>
 
@@ -112,41 +140,45 @@ const BlogByNumber = () => {
             {blog.title}
           </h1>
 
-          {/* Content */}
-          {blog.content && (
-            <div className="prose prose-invert max-w-none">
-              {blog.content.split('\n').map((paragraph, index) => (
-                <p key={index} className="text-foreground/90 mb-4 leading-relaxed">
+          {/* Content + Middle Related Searches (by word count) */}
+          <div className="prose prose-invert max-w-none">
+            {paragraphs.map((paragraph, index) => (
+              <div key={index}>
+                <p className="text-foreground/90 mb-4 leading-relaxed">
                   {paragraph}
                 </p>
-              ))}
-            </div>
-          )}
-        </article>
 
-        {/* Related Searches */}
-        {relatedSearches && relatedSearches.length > 0 && (
-          <div className="max-w-xl mx-auto mt-12 pt-8 border-t border-border/50">
-            <h3 className="text-sm font-medium text-muted-foreground mb-4 text-center uppercase tracking-wider">
-              Related Searches
-            </h3>
-            <div className="space-y-3">
-              {relatedSearches.map((search, index) => (
-                <div
-                  key={search.id}
-                  onClick={() => handleSearchClick(search)}
-                  className="group cursor-pointer bg-card/80 border border-border/30 rounded-lg px-4 py-3 flex items-center justify-between hover:bg-primary/20 hover:border-primary/50 transition-all duration-200"
-                  style={{ animationDelay: `${index * 0.05}s` }}
-                >
-                  <span className="text-primary text-sm font-medium">{search.title}</span>
-                  <span className="text-muted-foreground group-hover:text-primary transition-colors text-sm">
-                    →
-                  </span>
-                </div>
-              ))}
-            </div>
+                {/* Inject Related Searches at the middle word count position */}
+                {index === insertionIndex &&
+                  relatedSearches &&
+                  relatedSearches.length > 0 && (
+                    <div className="my-12 not-prose">
+                      <div className="bg-card/90 border border-border/40 rounded-xl p-6">
+                        <h3 className="text-sm font-semibold text-muted-foreground mb-4 uppercase tracking-wider text-center">
+                          Related Searches
+                        </h3>
+
+                        <div className="space-y-3">
+                          {relatedSearches.map((search) => (
+                            <div
+                              key={search.id}
+                              onClick={() => handleSearchClick(search)}
+                              className="cursor-pointer bg-background border border-border/30 rounded-lg px-4 py-3 flex items-center justify-between hover:bg-primary/20 hover:border-primary/50 transition-all"
+                            >
+                              <span className="text-primary text-sm font-medium">
+                                {search.title}
+                              </span>
+                              <span className="text-muted-foreground">→</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+              </div>
+            ))}
           </div>
-        )}
+        </article>
       </div>
     </div>
   );

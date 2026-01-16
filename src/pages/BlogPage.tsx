@@ -8,6 +8,7 @@ import { generateRandomToken } from "@/lib/linkGenerator";
 const BlogPage = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const WORD_BREAK_COUNT = 800;
 
   const { data: blog, isLoading, error } = useQuery({
     queryKey: ["blog", slug],
@@ -54,6 +55,13 @@ const BlogPage = () => {
     });
   };
 
+  const splitContentAtWordCount = (content: string, wordCount: number) => {
+    const words = content.split(/\s+/);
+    const firstPart = words.slice(0, wordCount).join(' ');
+    const secondPart = words.slice(wordCount).join(' ');
+    return { firstPart, secondPart };
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -72,6 +80,8 @@ const BlogPage = () => {
       </div>
     );
   }
+
+  const { firstPart, secondPart } = blog.content ? splitContentAtWordCount(blog.content, WORD_BREAK_COUNT) : { firstPart: '', secondPart: '' };
 
   return (
     <div className="min-h-screen bg-background">
@@ -106,8 +116,8 @@ const BlogPage = () => {
             {blog.title}
           </h1>
 
-          {/* Content */}
-          {blog.content && (
+          {/* Content - First 800 Words */}
+          {firstPart && (
             <div 
               className="prose prose-lg max-w-none
                 prose-headings:text-foreground prose-headings:font-display
@@ -119,34 +129,51 @@ const BlogPage = () => {
                 prose-ul:list-disc prose-ul:pl-6 prose-ul:my-4
                 prose-ol:list-decimal prose-ol:pl-6 prose-ol:my-4
                 prose-li:text-foreground/90 prose-li:mb-2"
-              dangerouslySetInnerHTML={{ __html: blog.content }}
+              dangerouslySetInnerHTML={{ __html: firstPart }}
+            />
+          )}
+
+          {/* Related Searches - After 800 Words */}
+          {relatedSearches && relatedSearches.length > 0 && (
+            <div className="my-12 py-8 border-y border-border/50">
+              <h3 className="text-sm font-medium text-muted-foreground mb-4 text-center uppercase tracking-wider">
+                Related Searches
+              </h3>
+              <div className="space-y-3">
+                {relatedSearches.map((search, index) => (
+                  <div
+                    key={search.id}
+                    onClick={() => handleSearchClick(search)}
+                    className="group cursor-pointer bg-card/80 border border-border/30 rounded-lg px-4 py-3 flex items-center justify-between hover:bg-primary/20 hover:border-primary/50 transition-all duration-200"
+                    style={{ animationDelay: `${index * 0.05}s` }}
+                  >
+                    <span className="text-primary text-sm font-medium">{search.title}</span>
+                    <span className="text-muted-foreground group-hover:text-primary transition-colors text-sm">
+                      →
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Content - Remaining Words */}
+          {secondPart && (
+            <div 
+              className="prose prose-lg max-w-none
+                prose-headings:text-foreground prose-headings:font-display
+                prose-h2:text-2xl prose-h2:font-bold prose-h2:mt-8 prose-h2:mb-4
+                prose-h3:text-xl prose-h3:font-semibold prose-h3:mt-6 prose-h3:mb-3
+                prose-p:text-foreground/90 prose-p:leading-relaxed prose-p:mb-4
+                prose-a:text-primary prose-a:hover:underline
+                prose-strong:text-foreground prose-strong:font-semibold
+                prose-ul:list-disc prose-ul:pl-6 prose-ul:my-4
+                prose-ol:list-decimal prose-ol:pl-6 prose-ol:my-4
+                prose-li:text-foreground/90 prose-li:mb-2"
+              dangerouslySetInnerHTML={{ __html: secondPart }}
             />
           )}
         </article>
-
-        {/* Related Searches */}
-        {relatedSearches && relatedSearches.length > 0 && (
-          <div className="max-w-xl mx-auto mt-12 pt-8 border-t border-border/50">
-            <h3 className="text-sm font-medium text-muted-foreground mb-4 text-center uppercase tracking-wider">
-              Related Searches
-            </h3>
-            <div className="space-y-3">
-              {relatedSearches.map((search, index) => (
-                <div
-                  key={search.id}
-                  onClick={() => handleSearchClick(search)}
-                  className="group cursor-pointer bg-card/80 border border-border/30 rounded-lg px-4 py-3 flex items-center justify-between hover:bg-primary/20 hover:border-primary/50 transition-all duration-200"
-                  style={{ animationDelay: `${index * 0.05}s` }}
-                >
-                  <span className="text-primary text-sm font-medium">{search.title}</span>
-                  <span className="text-muted-foreground group-hover:text-primary transition-colors text-sm">
-                    →
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
