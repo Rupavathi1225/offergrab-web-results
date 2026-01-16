@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { title, slug, paragraphs = 3, wordsPerParagraph = 100 } = await req.json();
+const { title, slug, paragraphs = 6, wordsPerParagraph = 150, totalWordTarget = 800 } = await req.json();
 
     if (!title) {
       return new Response(
@@ -31,9 +31,11 @@ serve(async (req) => {
       );
     }
 
-    console.log('Generating content for blog:', title, 'slug:', slug, 'paragraphs:', paragraphs, 'wordsPerParagraph:', wordsPerParagraph);
+    // Use totalWordTarget if provided, otherwise calculate from paragraphs * wordsPerParagraph
+    const targetWords = totalWordTarget || (paragraphs * wordsPerParagraph);
+    const numParagraphs = Math.max(paragraphs, Math.ceil(targetWords / 150));
 
-    const totalWords = paragraphs * wordsPerParagraph;
+    console.log('Generating content for blog:', title, 'slug:', slug, 'targetWords:', targetWords, 'paragraphs:', numParagraphs);
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -46,18 +48,31 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are a content generator. Generate blog content and related searches based on the given title.
+            content: `You are a professional blog content writer. Generate well-structured, SEO-friendly blog content with proper HTML formatting.
 
-STRICT RULES:
-1. Content: Write EXACTLY ${paragraphs} paragraphs with approximately ${wordsPerParagraph} words each (total ~${totalWords} words).
-2. Each paragraph should be separated by a blank line (double newline).
-3. No headings, no markdown formatting, no bullet points. Just plain text paragraphs.
-4. Make the content informative, engaging, and relevant to the title.
-5. Related Searches: Generate 4-6 related search phrases. Each phrase must be EXACTLY 5 words.
+STRICT REQUIREMENTS:
+1. Write approximately ${targetWords} words (minimum 600 words, aim for ${targetWords}).
+2. Use proper HTML structure:
+   - Use <h2> for main section headings (2-4 sections)
+   - Use <h3> for subsection headings if needed
+   - Wrap all text in <p> tags for paragraphs
+   - Each paragraph should be 80-150 words
+3. Do NOT include <h1> tags (the page already has one).
+4. Make content informative, engaging, and relevant to the title.
+5. Include natural transitions between sections.
+6. Related Searches: Generate 4-6 related search phrases. Each phrase must be EXACTLY 5 words.
+
+Example structure:
+<p>Introduction paragraph about the topic...</p>
+<h2>First Main Section</h2>
+<p>Content for this section...</p>
+<p>More content...</p>
+<h2>Second Main Section</h2>
+<p>Content here...</p>
 
 Respond in this exact JSON format:
 {
-  "content": "First paragraph here...\\n\\nSecond paragraph here...\\n\\nThird paragraph here...",
+  "content": "<p>Introduction...</p><h2>Section Title</h2><p>Content...</p>",
   "relatedSearches": ["five word search phrase one", "five word search phrase two", ...]
 }
 
@@ -65,7 +80,7 @@ Only respond with valid JSON, nothing else.`,
           },
           {
             role: 'user',
-            content: `Generate content and related searches for: "${title}"`,
+            content: `Generate comprehensive blog content and related searches for: "${title}"`,
           },
         ],
       }),

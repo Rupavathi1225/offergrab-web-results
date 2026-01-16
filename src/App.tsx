@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Landing from "./pages/Landing";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
+import AboutUs from "./pages/AboutUs";
 import WebResult from "./pages/WebResult";
 import SingleWebResult from "./pages/SingleWebResult";
 import Prelanding from "./pages/Prelanding";
@@ -49,6 +50,7 @@ function App() {
             <Route path="/fastmoney" element={<FastMoney />} />
             <Route path="/q" element={<Landing2 />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/about-us" element={<AboutUs />} />
             {/* Admin Routes */}
             <Route path="/adm" element={<AdminLayout />}>
               <Route index element={<LandingContent />} />
