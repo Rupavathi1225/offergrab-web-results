@@ -192,7 +192,7 @@ const Landing = () => {
       <header className="border-b border-border/50 py-4">
         <div className="container mx-auto px-4 flex items-center justify-between">
           <h1 className="text-xl font-display font-bold text-primary glow-text">
-            TopUniversity
+          Astepstair
           </h1>
 
           <button className="p-2 hover:bg-secondary/50 rounded-lg transition-colors" aria-label="Search">
@@ -208,7 +208,7 @@ const Landing = () => {
           </h1>
           <p className="text-muted-foreground text-lg md:text-xl mb-12 leading-relaxed">
             {content?.description ||
-              "Finding great educational resources is all TopUniversity helps users discover trending programs, hidden opportunities, and limited-time offers before they disappear."}
+              "Finding great educational resources is all Astepstair helps users discover trending programs, hidden opportunities, and limited-time offers before they disappear."}
           </p>
         </section>
 

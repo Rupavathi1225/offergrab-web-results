@@ -16,7 +16,7 @@ const AboutUs = () => {
           >
             <ArrowLeft className="w-5 h-5 text-muted-foreground" />
           </button>
-          <h1 className="text-xl font-display font-bold text-primary">TopUniversity</h1>
+          <h1 className="text-xl font-display font-bold text-primary">Astepstair</h1>
         </div>
       </header>
 
@@ -39,7 +39,7 @@ const AboutUs = () => {
           {/* Introduction */}
           <section className="prose prose-lg max-w-none">
             <p className="text-foreground/90 leading-relaxed text-lg">
-              Welcome to TopUniversity, your trusted companion in the pursuit of knowledge and academic excellence. 
+              Welcome to Astepstair, your trusted companion in the pursuit of knowledge and academic excellence. 
               We are an independent educational information platform dedicated to helping students, professionals, 
               and lifelong learners discover valuable educational resources, programs, and opportunities from around 
               the world. Our platform serves as a bridge connecting ambitious individuals with the educational 
@@ -50,7 +50,7 @@ const AboutUs = () => {
               present information about universities, courses, scholarships, and learning opportunities in a 
               way that is easy to navigate and understand. Whether you are a high school student exploring 
               college options, a working professional seeking to upskill, or someone looking to change careers 
-              entirely, TopUniversity is here to guide your educational journey.
+              entirely, Astepstair is here to guide your educational journey.
             </p>
           </section>
 
@@ -154,7 +154,7 @@ const AboutUs = () => {
             </div>
             <div className="space-y-4 text-foreground/90">
               <p className="leading-relaxed">
-                At TopUniversity, we are committed to continuously improving our platform and the quality of 
+                At Astepstair, we are committed to continuously improving our platform and the quality of 
                 information we provide. We regularly update our content to reflect the latest developments in 
                 the educational landscape and actively seek feedback from our users to enhance their experience.
               </p>
@@ -164,7 +164,7 @@ const AboutUs = () => {
                 Every piece of content we publish is created with your best interests in mind.
               </p>
               <p className="leading-relaxed">
-                Thank you for choosing TopUniversity as your educational information resource. We are honored 
+                Thank you for choosing Astepstair as your educational information resource. We are honored 
                 to be part of your learning journey and look forward to helping you achieve your academic and 
                 professional goals.
               </p>
@@ -182,7 +182,7 @@ const AboutUs = () => {
             <span className="text-border">•</span>
             <a href="/privacy-policy" className="hover:text-primary transition-colors">Privacy Policy</a>
           </div>
-          © {new Date().getFullYear()} TopUniversity. All rights reserved.
+          © {new Date().getFullYear()} Astepstair. All rights reserved.
         </div>
       </footer>
     </div>

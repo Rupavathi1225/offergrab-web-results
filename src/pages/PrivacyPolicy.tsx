@@ -218,7 +218,7 @@ const PrivacyPolicy = () => {
               className="text-xl font-display font-bold text-primary cursor-pointer hover:opacity-80 transition-opacity"
               onClick={() => navigate("/landing")}
             >
-              TopUniversity
+              Astepstair
             </h1>
           </div>
         </div>
@@ -296,7 +296,7 @@ const PrivacyPolicy = () => {
             </a>
           </div>
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} TopUniversity. All rights reserved.
+            © {new Date().getFullYear()} Astepstair. All rights reserved.
           </p>
         </div>
       </footer>
