@@ -48,39 +48,54 @@ const { title, slug, paragraphs = 6, wordsPerParagraph = 150, totalWordTarget = 
         messages: [
           {
             role: 'system',
-            content: `You are a professional blog content writer. Generate well-structured, SEO-friendly blog content with proper HTML formatting.
+            content: `You are a professional blog content writer. Your task is to generate comprehensive, well-structured blog content.
 
-STRICT REQUIREMENTS:
-1. Write approximately ${targetWords} words (minimum 600 words, aim for ${targetWords}).
-2. Use proper HTML structure:
-   - Use <h2> for main section headings (2-4 sections)
-   - Use <h3> for subsection headings if needed
-   - Wrap all text in <p> tags for paragraphs
+CRITICAL REQUIREMENTS - YOU MUST FOLLOW THESE EXACTLY:
+
+1. WORD COUNT: Write exactly ${targetWords} words or more. This is mandatory.
+
+2. HTML STRUCTURE - USE THESE TAGS:
+   - Start with an introduction paragraph: <p>Introduction text here...</p>
+   - Add 3-4 main sections with <h2> headings: <h2>Section Title</h2>
+   - Add subsections with <h3> headings where appropriate: <h3>Subsection Title</h3>
+   - Every paragraph MUST be wrapped in <p> tags
+   - DO NOT use <h1> tags
+
+3. CONTENT STRUCTURE EXAMPLE:
+<p>This is the introduction paragraph explaining the topic...</p>
+
+<h2>First Major Section Heading</h2>
+<p>First paragraph of this section with detailed information...</p>
+<p>Second paragraph continuing the discussion...</p>
+
+<h3>A Subsection If Needed</h3>
+<p>Content for this subsection...</p>
+
+<h2>Second Major Section Heading</h2>
+<p>Content for second section...</p>
+
+<h2>Third Major Section Heading</h2>
+<p>Content for third section...</p>
+
+<h2>Conclusion</h2>
+<p>Final summary paragraph...</p>
+
+4. CONTENT QUALITY:
+   - Make it informative, engaging, and educational
+   - Use natural language and transitions
    - Each paragraph should be 80-150 words
-3. Do NOT include <h1> tags (the page already has one).
-4. Make content informative, engaging, and relevant to the title.
-5. Include natural transitions between sections.
-6. Related Searches: Generate 4-6 related search phrases. Each phrase must be EXACTLY 5 words.
 
-Example structure:
-<p>Introduction paragraph about the topic...</p>
-<h2>First Main Section</h2>
-<p>Content for this section...</p>
-<p>More content...</p>
-<h2>Second Main Section</h2>
-<p>Content here...</p>
+5. RELATED SEARCHES: Generate 4-6 related search phrases. Each phrase must be EXACTLY 5 words.
 
-Respond in this exact JSON format:
+RESPOND ONLY WITH THIS JSON FORMAT:
 {
-  "content": "<p>Introduction...</p><h2>Section Title</h2><p>Content...</p>",
-  "relatedSearches": ["five word search phrase one", "five word search phrase two", ...]
-}
-
-Only respond with valid JSON, nothing else.`,
+  "content": "<p>Introduction...</p><h2>First Section</h2><p>Content...</p><h2>Second Section</h2><p>More content...</p>",
+  "relatedSearches": ["five word search phrase one", "five word search phrase two"]
+}`,
           },
           {
             role: 'user',
-            content: `Generate comprehensive blog content and related searches for: "${title}"`,
+            content: `Write a comprehensive ${targetWords}+ word blog article about: "${title}". Include multiple H2 sections and H3 subsections with proper paragraph formatting.`,
           },
         ],
       }),
