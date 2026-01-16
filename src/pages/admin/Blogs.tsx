@@ -77,8 +77,7 @@ const Blogs = () => {
   const [generatedSearches, setGeneratedSearches] = useState<string[]>([]);
   const [selectedSearchesOrder, setSelectedSearchesOrder] = useState<number[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [contentParagraphs, setContentParagraphs] = useState(3);
-  const [contentWordsPerParagraph, setContentWordsPerParagraph] = useState(100);
+const [totalWordTarget, setTotalWordTarget] = useState(800);
   
   const [formData, setFormData] = useState({
     title: "",
@@ -292,8 +291,7 @@ const Blogs = () => {
         body: { 
           title: formData.title, 
           slug: formData.slug,
-          paragraphs: contentParagraphs,
-          wordsPerParagraph: contentWordsPerParagraph 
+          totalWordTarget: totalWordTarget
         },
       });
 
@@ -706,40 +704,24 @@ const Blogs = () => {
                 <Label htmlFor="content">Content</Label>
                 <div className="flex flex-wrap gap-4 mb-2 p-3 border border-border rounded-lg bg-muted/20">
                   <div className="flex items-center gap-2">
-                    <Label htmlFor="paragraphs" className="text-xs whitespace-nowrap">Paragraphs:</Label>
+                    <Label htmlFor="totalWords" className="text-xs whitespace-nowrap">Total Words:</Label>
                     <Select
-                      value={contentParagraphs.toString()}
-                      onValueChange={(value) => setContentParagraphs(parseInt(value))}
+                      value={totalWordTarget.toString()}
+                      onValueChange={(value) => setTotalWordTarget(parseInt(value))}
                     >
-                      <SelectTrigger className="w-20 h-8">
+                      <SelectTrigger className="w-24 h-8">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {[1, 2, 3, 4, 5, 6].map((num) => (
-                          <SelectItem key={num} value={num.toString()}>{num}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="wordsPerParagraph" className="text-xs whitespace-nowrap">Words/Paragraph:</Label>
-                    <Select
-                      value={contentWordsPerParagraph.toString()}
-                      onValueChange={(value) => setContentWordsPerParagraph(parseInt(value))}
-                    >
-                      <SelectTrigger className="w-20 h-8">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="50">50</SelectItem>
-                        <SelectItem value="100">100</SelectItem>
-                        <SelectItem value="150">150</SelectItem>
-                        <SelectItem value="200">200</SelectItem>
+                        <SelectItem value="600">600</SelectItem>
+                        <SelectItem value="800">800</SelectItem>
+                        <SelectItem value="1000">1000</SelectItem>
+                        <SelectItem value="1200">1200</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <span className="text-xs text-muted-foreground self-center">
-                    (~{contentParagraphs * contentWordsPerParagraph} total words)
+                    (with H2/H3 headings)
                   </span>
                   <Button
                     type="button"
