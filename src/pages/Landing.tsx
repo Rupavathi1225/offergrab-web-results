@@ -239,6 +239,13 @@ const Landing = () => {
         <div className="container mx-auto px-4 text-center text-muted-foreground text-sm">
           <div className="flex items-center justify-center gap-4 mb-2">
             <a
+              href="/about-us"
+              className="hover:text-primary transition-colors"
+            >
+              About Us
+            </a>
+            <span className="text-border">•</span>
+            <a
               href="/privacy-policy"
               className="hover:text-primary transition-colors"
             >
