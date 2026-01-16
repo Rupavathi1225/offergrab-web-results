@@ -252,7 +252,7 @@ const Landing = () => {
               Privacy Policy
             </a>
           </div>
-          © {new Date().getFullYear()} Astepstair.com". All rights reserved.
+          © {new Date().getFullYear()} Astepstair.com. All rights reserved.
         </div>
       </footer>
     </div>
