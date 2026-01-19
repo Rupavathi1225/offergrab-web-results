@@ -5,6 +5,16 @@ import { Loader2, ArrowLeft } from "lucide-react";
 import { trackClick } from "@/lib/tracking";
 import { generateRandomToken } from "@/lib/linkGenerator";
 
+interface Blog {
+  id: string;
+  title: string;
+  slug: string;
+  content: string | null;
+  featured_image_url: string | null;
+  total_words?: number;
+  [key: string]: any;
+}
+
 const BlogPage = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
@@ -19,7 +29,7 @@ const BlogPage = () => {
         .maybeSingle();
 
       if (error) throw error;
-      return data;
+      return data as Blog;
     },
     enabled: !!slug,
   });
@@ -54,11 +64,9 @@ const BlogPage = () => {
     });
   };
 
-  const splitContentAtWordCount = (content: string, wordCount: number) => {
-    const words = content.split(/\s+/);
-    // Limit total words to exactly the selected word count
+  const splitContentAtWordCount = (content: string, wordCount: number): { firstPart: string; secondPart: string } => {
+    const words = content.split(/\s+/).filter(w => w.length > 0);
     const limitedWords = words.slice(0, wordCount);
-    // Split limited content into 30% and 70%
     const thirtyPercent = Math.ceil(limitedWords.length * 0.3);
     const firstPart = limitedWords.slice(0, thirtyPercent).join(' ');
     const secondPart = limitedWords.slice(thirtyPercent).join(' ');
@@ -84,7 +92,7 @@ const BlogPage = () => {
     );
   }
 
-  const { firstPart, secondPart } = blog.content && blog.total_words 
+  const { firstPart, secondPart } = blog && blog.content && blog.total_words 
     ? splitContentAtWordCount(blog.content, blog.total_words) 
     : { firstPart: '', secondPart: '' };
 
