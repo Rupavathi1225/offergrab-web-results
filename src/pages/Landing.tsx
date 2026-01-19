@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { initSession, trackClick } from "@/lib/tracking";
+import { trackPageView, trackInboundClick } from "@/lib/pixelTracking";
 import { getUserCountryCode } from "@/lib/countryAccess";
 import { generateRandomToken } from "@/lib/linkGenerator";
 
@@ -31,6 +32,7 @@ const Landing = () => {
 
   useEffect(() => {
     initSession();
+    trackPageView("Landing Page");
     fetchData();
     getUserCountryCode().then(setUserCountry);
   }, []);
@@ -88,94 +90,11 @@ const Landing = () => {
     }
   };
 
-  // Redirect only when: admin enabled + country mismatch
-  // IMPORTANT: prevent the async flow from scheduling a timer after the user navigates away.
-  useEffect(() => {
-    if (!content?.redirect_enabled || loading || clicked) return;
-
-    let timer: number | undefined;
-    let cancelled = false;
-
-    const run = async () => {
-      try {
-        const effectiveCountry = userCountry.toUpperCase();
-
-        const { data: webResults, error: webResultsError } = await supabase
-          .from("web_results")
-          .select("allowed_countries")
-          .eq("is_active", true)
-          .limit(1)
-          .maybeSingle();
-
-        if (cancelled) return;
-        if (webResultsError || !webResults) return;
-
-        const allowedCountries = webResults.allowed_countries || ["worldwide"];
-
-        const isAllowed = allowedCountries.some((c: string) => {
-          const countryLower = c.toLowerCase();
-          const countryUpper = c.toUpperCase();
-          return countryLower === "worldwide" || countryUpper === effectiveCountry;
-        });
-
-        if (isAllowed) return;
-
-        const { data: allUrls, error: urlsError } = await supabase
-          .from("fallback_urls")
-          .select("*")
-          .eq("is_active", true)
-          .order("sequence_order", { ascending: true });
-
-        if (cancelled) return;
-        if (urlsError || !allUrls || allUrls.length === 0) return;
-
-        const isSheetsUrl = (u: string) => u.includes("docs.google.com/spreadsheets");
-        const isUrlAllowed = (url: { allowed_countries: string[] | null }) => {
-          const countries = url.allowed_countries || ["worldwide"];
-          return countries.some((c) => {
-            const cl = c.toLowerCase();
-            const cu = c.toUpperCase();
-            return cl === "worldwide" || cu === effectiveCountry;
-          });
-        };
-
-        const allowedUrls = allUrls.filter(
-          (url: { url: string; allowed_countries: string[] | null }) =>
-            !isSheetsUrl(url.url) && isUrlAllowed(url)
-        );
-        if (allowedUrls.length === 0) return;
-
-        const storageKey = `fallback_index_landing_${effectiveCountry}`;
-        let currentIndex = parseInt(localStorage.getItem(storageKey) || "0", 10);
-        currentIndex = currentIndex % allowedUrls.length;
-        const selectedUrl = allowedUrls[currentIndex];
-        localStorage.setItem(storageKey, ((currentIndex + 1) % allowedUrls.length).toString());
-
-        if (cancelled) return;
-        timer = window.setTimeout(() => {
-          // In previews the app runs in an iframe; use top-level navigation (not a popup).
-          if (window.self !== window.top) {
-            window.top.location.href = selectedUrl.url;
-          } else {
-            window.location.href = selectedUrl.url;
-          }
-        }, content.redirect_delay_seconds * 1000);
-      } catch (error) {
-        if (!cancelled) console.error("Error checking country redirect:", error);
-      }
-    };
-
-    void run();
-
-    return () => {
-      cancelled = true;
-      if (timer) window.clearTimeout(timer);
-    };
-  }, [content?.redirect_enabled, content?.redirect_delay_seconds, loading, clicked, userCountry]);
-
   const handleSearchClick = (search: RelatedSearch) => {
     setClicked(true);
     trackClick("related_search", search.id, search.title, "/landing");
+    console.log('About to track InboundClick:', search.title, `/wr/${search.target_wr}`, search.id);
+    trackInboundClick(search.title, `/wr/${search.target_wr}`, search.id);
     navigate(`/wr/${search.target_wr}/${generateRandomToken(8)}`);
   };
 

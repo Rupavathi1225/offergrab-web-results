@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Search, ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { initSession, trackClick } from "@/lib/tracking";
+import { trackViewContent } from "@/lib/pixelTracking";
 import { generateRandomToken } from "@/lib/linkGenerator";
 import { getUserCountryCode, isCountryAllowed } from "@/lib/countryAccess";
 
@@ -108,6 +109,18 @@ const WebResult = () => {
       setMaskedNames(generateUniqueMaskedNames(results.length));
     }
   }, [results]);
+
+  // Track ViewContent when results are loaded
+  useEffect(() => {
+    if (results.length > 0 && !loading) {
+      const resultIds = results.map(r => r.id);
+      trackViewContent(
+        `Web Results Page ${wrPage}`,
+        'web_results',
+        resultIds
+      );
+    }
+  }, [results, loading]);
 
   const fetchData = async () => {
     try {
