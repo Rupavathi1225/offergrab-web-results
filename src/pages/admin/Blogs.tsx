@@ -45,6 +45,7 @@ interface Blog {
   category: string | null;
   status: string;
   is_active: boolean;
+  total_words: number;
   created_at: string;
   updated_at: string;
 }
@@ -87,6 +88,7 @@ const [totalWordTarget, setTotalWordTarget] = useState(800);
     author: "",
     category: "",
     status: "published",
+    total_words: 800,
   });
 
   const { data: blogs, isLoading } = useQuery({
@@ -105,7 +107,7 @@ const [totalWordTarget, setTotalWordTarget] = useState(800);
   const createMutation = useMutation({
     mutationFn: async (data: Omit<Blog, "id" | "created_at" | "updated_at" | "is_active" | "excerpt">) => {
       const isActive = data.status === "published";
-      const { data: insertedData, error } = await supabase.from("blogs").insert([{ ...data, is_active: isActive, excerpt: null }]).select().single();
+      const { data: insertedData, error } = await supabase.from("blogs").insert([{ ...data, is_active: isActive, excerpt: null, total_words: totalWordTarget }]).select().single();
       if (error) throw error;
       return insertedData;
     },
@@ -126,7 +128,7 @@ const [totalWordTarget, setTotalWordTarget] = useState(800);
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, ...data }: Partial<Blog> & { id: string }) => {
-      const updateData = { ...data };
+      const updateData = { ...data, total_words: totalWordTarget };
       if (data.status === "published") {
         updateData.is_active = true;
       }
@@ -230,10 +232,12 @@ const [totalWordTarget, setTotalWordTarget] = useState(800);
       author: "",
       category: "",
       status: "published",
+      total_words: 800,
     });
     setEditingBlog(null);
     setGeneratedSearches([]);
     setSelectedSearchesOrder([]);
+    setTotalWordTarget(800);
   }, []);
 
   const handleDialogOpenChange = useCallback((open: boolean) => {
@@ -381,6 +385,7 @@ const [totalWordTarget, setTotalWordTarget] = useState(800);
 
   const handleEdit = (blog: Blog) => {
     setEditingBlog(blog);
+    setTotalWordTarget(blog.total_words || 800);
     setFormData({
       title: blog.title,
       slug: blog.slug,
@@ -389,6 +394,7 @@ const [totalWordTarget, setTotalWordTarget] = useState(800);
       author: blog.author || "",
       category: blog.category || "",
       status: blog.status,
+      total_words: blog.total_words || 800,
     });
     setIsDialogOpen(true);
   };
@@ -713,10 +719,16 @@ const [totalWordTarget, setTotalWordTarget] = useState(800);
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="100">100</SelectItem>
+                        <SelectItem value="200">200</SelectItem>
+                        <SelectItem value="300">300</SelectItem>
+                        <SelectItem value="400">400</SelectItem>
+                        <SelectItem value="500">500</SelectItem>
                         <SelectItem value="600">600</SelectItem>
+                        <SelectItem value="700">700</SelectItem>
                         <SelectItem value="800">800</SelectItem>
+                        <SelectItem value="900">900</SelectItem>
                         <SelectItem value="1000">1000</SelectItem>
-                        <SelectItem value="1200">1200</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

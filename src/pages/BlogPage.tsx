@@ -8,7 +8,6 @@ import { generateRandomToken } from "@/lib/linkGenerator";
 const BlogPage = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const WORD_BREAK_COUNT = 800;
 
   const { data: blog, isLoading, error } = useQuery({
     queryKey: ["blog", slug],
@@ -57,8 +56,12 @@ const BlogPage = () => {
 
   const splitContentAtWordCount = (content: string, wordCount: number) => {
     const words = content.split(/\s+/);
-    const firstPart = words.slice(0, wordCount).join(' ');
-    const secondPart = words.slice(wordCount).join(' ');
+    // Limit total words to exactly the selected word count
+    const limitedWords = words.slice(0, wordCount);
+    // Split limited content into 30% and 70%
+    const thirtyPercent = Math.ceil(limitedWords.length * 0.3);
+    const firstPart = limitedWords.slice(0, thirtyPercent).join(' ');
+    const secondPart = limitedWords.slice(thirtyPercent).join(' ');
     return { firstPart, secondPart };
   };
 
@@ -81,7 +84,9 @@ const BlogPage = () => {
     );
   }
 
-  const { firstPart, secondPart } = blog.content ? splitContentAtWordCount(blog.content, WORD_BREAK_COUNT) : { firstPart: '', secondPart: '' };
+  const { firstPart, secondPart } = blog.content && blog.total_words 
+    ? splitContentAtWordCount(blog.content, blog.total_words) 
+    : { firstPart: '', secondPart: '' };
 
   return (
     <div className="min-h-screen bg-background">
@@ -116,7 +121,7 @@ const BlogPage = () => {
             {blog.title}
           </h1>
 
-          {/* Content - First 800 Words */}
+          {/* Content - First 30% */}
           {firstPart && (
             <div 
               className="prose prose-lg max-w-none
@@ -133,7 +138,7 @@ const BlogPage = () => {
             />
           )}
 
-          {/* Related Searches - After 800 Words */}
+          {/* Related Searches - Middle */}
           {relatedSearches && relatedSearches.length > 0 && (
             <div className="my-12 py-8 border-y border-border/50">
               <h3 className="text-sm font-medium text-muted-foreground mb-4 text-center uppercase tracking-wider">
@@ -157,7 +162,7 @@ const BlogPage = () => {
             </div>
           )}
 
-          {/* Content - Remaining Words */}
+          {/* Content - Remaining 70% */}
           {secondPart && (
             <div 
               className="prose prose-lg max-w-none

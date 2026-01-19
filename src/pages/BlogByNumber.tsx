@@ -83,27 +83,9 @@ const BlogByNumber = () => {
     );
   }
 
-  // 🔹 Split content by paragraphs and find middle insertion point by word count
-  const fullContent = blog.content || "";
-  const paragraphs = fullContent.split("\n").filter((p) => p.trim());
-  
-  // Calculate total words and find where to insert related searches
-  const allWords = fullContent.split(/\s+/).filter((w) => w.length > 0);
-  const totalWords = allWords.length;
-  const targetWordCount = Math.floor(totalWords / 2);
-  
-  // Find paragraph index where we reach the middle word count
-  let currentWordCount = 0;
-  let insertionIndex = Math.floor(paragraphs.length / 2); // Default to middle paragraph
-  
-  for (let i = 0; i < paragraphs.length; i++) {
-    const paragraphWords = paragraphs[i].split(/\s+/).filter((w) => w.length > 0).length;
-    currentWordCount += paragraphWords;
-    if (currentWordCount >= targetWordCount) {
-      insertionIndex = i;
-      break;
-    }
-  }
+  // 🔹 Split content & calculate middle
+  const paragraphs = blog.content?.split("\n") || [];
+  const middleIndex = Math.floor(paragraphs.length / 2);
 
   return (
     <div className="min-h-screen bg-background">
@@ -140,7 +122,7 @@ const BlogByNumber = () => {
             {blog.title}
           </h1>
 
-          {/* Content + Middle Related Searches (by word count) */}
+          {/* Content + Middle Related Searches */}
           <div className="prose prose-invert max-w-none">
             {paragraphs.map((paragraph, index) => (
               <div key={index}>
@@ -148,8 +130,8 @@ const BlogByNumber = () => {
                   {paragraph}
                 </p>
 
-                {/* Inject Related Searches at the middle word count position */}
-                {index === insertionIndex &&
+                {/* 🔥 Inject Related Searches in middle */}
+                {index === middleIndex &&
                   relatedSearches &&
                   relatedSearches.length > 0 && (
                     <div className="my-12 not-prose">
