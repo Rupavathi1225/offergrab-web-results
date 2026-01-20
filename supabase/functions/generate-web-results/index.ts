@@ -13,7 +13,8 @@ serve(async (req) => {
   }
 
   try {
-    const { relatedSearchTitle } = await req.json();
+    const { relatedSearchTitle, count = 6 } = await req.json();
+    const resultCount = Math.min(Math.max(count, 6), 20); // Clamp between 6-20
 
     if (!relatedSearchTitle) {
       return new Response(
@@ -31,7 +32,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('Generating web results for related search:', relatedSearchTitle);
+    console.log('Generating', resultCount, 'web results for related search:', relatedSearchTitle);
 
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
@@ -44,10 +45,10 @@ serve(async (req) => {
         messages: [
           {
             role: 'system',
-            content: `You are a web results generator. Based on a search query, generate exactly 6 realistic web results that would appear in search engines.
+            content: `You are a web results generator. Based on a search query, generate exactly ${resultCount} realistic web results that would appear in search engines.
 
 STRICT RULES:
-1. Generate EXACTLY 6 web results
+1. Generate EXACTLY ${resultCount} web results
 2. Each result must have: name (company/website name), title (search result title), description (2-3 sentences), link (realistic URL)
 3. Make results diverse - include different types of websites (official sites, review sites, comparison sites, educational content, etc.)
 4. Results should be relevant to the search query
@@ -68,7 +69,7 @@ Only respond with valid JSON, nothing else.`,
           },
           {
             role: 'user',
-            content: `Generate 6 web results for the search query: "${relatedSearchTitle}"`,
+            content: `Generate ${resultCount} web results for the search query: "${relatedSearchTitle}"`,
           },
         ],
       }),

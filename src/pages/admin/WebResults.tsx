@@ -77,6 +77,7 @@ const WebResults = () => {
   const [selectedRelatedSearch, setSelectedRelatedSearch] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedResults, setGeneratedResults] = useState<GeneratedWebResult[]>([]);
+  const [aiResultCount, setAiResultCount] = useState<number>(6);
   
   // Copy fields selection (horizontal row for spreadsheet) - 7 fields including country
   const [copyFields, setCopyFields] = useState({
@@ -144,7 +145,7 @@ const WebResults = () => {
     setIsGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke("generate-web-results", {
-        body: { relatedSearchTitle: search.title },
+        body: { relatedSearchTitle: search.title, count: aiResultCount },
       });
 
       if (error) throw error;
@@ -155,7 +156,7 @@ const WebResults = () => {
           isSelected: false,
           isSponsored: false,
         })));
-        toast({ title: "Success", description: "6 web results generated! Select up to 4." });
+        toast({ title: "Success", description: `${data.webResults.length} web results generated! Select up to 4.` });
       } else {
         throw new Error(data.error || "Failed to generate web results");
       }
@@ -713,44 +714,60 @@ const WebResults = () => {
             </div>
             <div>
               <Label className="text-sm text-muted-foreground mb-2 block">2. Select Related Search</Label>
-              <div className="flex gap-4">
-                <Select 
-                  value={selectedRelatedSearch} 
-                  onValueChange={(value) => {
-                    setSelectedRelatedSearch(value);
-                    // Sync with filter
-                    setSelectedRelatedSearchId(value);
-                    const search = relatedSearches.find(s => s.id === value);
-                    if (search) setSelectedWr(search.target_wr);
-                  }}
-                >
-                  <SelectTrigger className={`admin-input flex-1 ${selectedRelatedSearch ? 'border-primary bg-primary/10' : ''}`}>
-                    <SelectValue placeholder="Choose a related search" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {filteredRelatedSearches.map(search => {
-                      const blog = blogs.find(b => b.id === search.blog_id);
-                      return (
-                        <SelectItem key={search.id} value={search.id}>
-                          {search.title} (wr={search.target_wr}) {blog ? `[${blog.title}]` : ''}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-                <Button 
-                  onClick={generateWebResults} 
-                  disabled={!selectedRelatedSearch || isGenerating}
-                  className="gap-2"
-                >
-                  {isGenerating ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Sparkles className="w-4 h-4" />
-                  )}
-                  Generate 6 Web Results
-                </Button>
-              </div>
+              <Select 
+                value={selectedRelatedSearch} 
+                onValueChange={(value) => {
+                  setSelectedRelatedSearch(value);
+                  // Sync with filter
+                  setSelectedRelatedSearchId(value);
+                  const search = relatedSearches.find(s => s.id === value);
+                  if (search) setSelectedWr(search.target_wr);
+                }}
+              >
+                <SelectTrigger className={`admin-input ${selectedRelatedSearch ? 'border-primary bg-primary/10' : ''}`}>
+                  <SelectValue placeholder="Choose a related search" />
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredRelatedSearches.map(search => {
+                    const blog = blogs.find(b => b.id === search.blog_id);
+                    return (
+                      <SelectItem key={search.id} value={search.id}>
+                        {search.title} (wr={search.target_wr}) {blog ? `[${blog.title}]` : ''}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label className="text-sm text-muted-foreground mb-2 block">3. Number of Results to Generate</Label>
+              <Select value={String(aiResultCount)} onValueChange={(v) => setAiResultCount(Number(v))}>
+                <SelectTrigger className="admin-input">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[6, 8, 10, 12, 14, 16, 18, 20].map(n => (
+                    <SelectItem key={n} value={String(n)}>{n} results</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end">
+              <Button 
+                onClick={generateWebResults} 
+                disabled={!selectedRelatedSearch || isGenerating}
+                className="gap-2 w-full"
+              >
+                {isGenerating ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4" />
+                )}
+                Generate {aiResultCount} Web Results
+              </Button>
             </div>
           </div>
 
