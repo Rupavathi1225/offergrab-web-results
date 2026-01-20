@@ -27,6 +27,7 @@ export type Database = {
           slug: string
           status: string
           title: string
+          total_words: number | null
           updated_at: string
         }
         Insert: {
@@ -41,6 +42,7 @@ export type Database = {
           slug: string
           status?: string
           title: string
+          total_words?: number | null
           updated_at?: string
         }
         Update: {
@@ -55,6 +57,7 @@ export type Database = {
           slug?: string
           status?: string
           title?: string
+          total_words?: number | null
           updated_at?: string
         }
         Relationships: []
