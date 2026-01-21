@@ -228,8 +228,9 @@ const WebResult = () => {
     const countryMatches = isCountryAllowed(result.allowed_countries, userCountry);
     
     if (countryMatches) {
-      // Country matches - go directly to the original link
-      window.location.href = result.link;
+      // Country matches - show Thank You page first, then redirect to original link
+      const encodedUrl = encodeURIComponent(result.link);
+      navigate(`/ty?to=${encodedUrl}`);
       return;
     }
 

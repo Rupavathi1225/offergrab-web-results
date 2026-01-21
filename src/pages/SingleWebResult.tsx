@@ -98,18 +98,15 @@ const SingleWebResult = () => {
     const allowed = isCountryAllowed(result.allowed_countries, userCountryCode);
     
     if (!allowed) {
-      // User's country is not allowed - open Landing2 in new tab
-      window.open('/landing2', '_blank', 'noopener,noreferrer');
+      // User's country is not allowed - redirect to Landing2
+      const randomId = Math.random().toString(36).substring(2, 10);
+      navigate(`/q?q=${randomId}&wrId=${result.id}`);
       return;
     }
     
-    if (prelanding && prelanding.is_active) {
-      navigate(`/prelanding/${prelanding.id}`, {
-        state: { webResultLink: result.link }
-      });
-    } else {
-      window.open(result.link, '_blank', 'noopener,noreferrer');
-    }
+    // Country matches - show Thank You page first, then redirect to original link
+    const encodedUrl = encodeURIComponent(result.link);
+    navigate(`/ty?to=${encodedUrl}`);
   };
 
   const getInitial = (name: string) => {

@@ -8,6 +8,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import AboutUs from "./pages/AboutUs";
 import WebResult from "./pages/WebResult";
 import SingleWebResult from "./pages/SingleWebResult";
+import ThankYou from "./pages/ThankYou";
 import Prelanding from "./pages/Prelanding";
 import LinkRedirect from "./pages/LinkRedirect";
 import BlogPage from "./pages/BlogPage";
@@ -51,6 +52,7 @@ function App() {
             <Route path="/q" element={<Landing2 />} />
             <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             <Route path="/about-us" element={<AboutUs />} />
+            <Route path="/ty" element={<ThankYou />} />
             {/* Admin Routes */}
             <Route path="/adm" element={<AdminLayout />}>
               <Route index element={<LandingContent />} />
