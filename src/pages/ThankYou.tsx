@@ -1,11 +1,9 @@
-import { useEffect, useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { CheckCircle, Sparkles } from "lucide-react";
 
 const ThankYou = () => {
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const [countdown, setCountdown] = useState(2);
   
   // Get the destination URL from query params
   const destinationUrl = searchParams.get("to") || "/landing";
@@ -16,20 +14,12 @@ const ThankYou = () => {
   }, []);
 
   useEffect(() => {
-    // Countdown timer
-    const timer = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          // Redirect to the destination URL
-          window.location.href = destinationUrl;
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    // Redirect after 2 seconds
+    const timer = setTimeout(() => {
+      window.location.href = destinationUrl;
+    }, 2000);
 
-    return () => clearInterval(timer);
+    return () => clearTimeout(timer);
   }, [destinationUrl]);
 
   return (
