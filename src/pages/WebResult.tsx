@@ -227,6 +227,9 @@ const WebResult = () => {
     // Check if user's country is allowed for this web result
     const countryMatches = isCountryAllowed(result.allowed_countries, userCountry);
     
+    // Debug log to help troubleshoot country matching
+    console.log(`Country check: User=${userCountry}, Allowed=${JSON.stringify(result.allowed_countries)}, Match=${countryMatches}`);
+    
     if (countryMatches) {
       // Country matches - show Thank You page first, then redirect to original link
       const encodedUrl = encodeURIComponent(result.link);
