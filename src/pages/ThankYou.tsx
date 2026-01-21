@@ -5,8 +5,16 @@ import { CheckCircle, Sparkles } from "lucide-react";
 const ThankYou = () => {
   const [searchParams] = useSearchParams();
   
-  // Get the destination URL from query params
-  const destinationUrl = searchParams.get("to") || "/landing";
+  // Get the destination URL from query params (defensive decode)
+  const rawTo = searchParams.get("to") || "/landing";
+  const destinationUrl = (() => {
+    try {
+      // If it's already decoded this is a no-op; if not, it will decode safely.
+      return decodeURIComponent(rawTo);
+    } catch {
+      return rawTo;
+    }
+  })();
 
   useEffect(() => {
     // Set page title
@@ -16,7 +24,17 @@ const ThankYou = () => {
   useEffect(() => {
     // Redirect after 2 seconds
     const timer = setTimeout(() => {
-      window.location.href = destinationUrl;
+      // Prefer breaking out of the Lovable preview iframe if possible
+      try {
+        if (window.top && window.top !== window) {
+          window.top.location.assign(destinationUrl);
+          return;
+        }
+      } catch {
+        // ignore and fall back
+      }
+
+      window.location.assign(destinationUrl);
     }, 2000);
 
     return () => clearTimeout(timer);
@@ -60,6 +78,15 @@ const ThankYou = () => {
           <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
           <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
           <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+        </div>
+
+        {/* Fallback (in case browser blocks timed redirects) */}
+        <div className="text-sm text-muted-foreground">
+          If you’re not redirected,{' '}
+          <a className="underline underline-offset-4 text-foreground" href={destinationUrl} target="_top" rel="noreferrer">
+            click here
+          </a>
+          .
         </div>
       </div>
     </div>
