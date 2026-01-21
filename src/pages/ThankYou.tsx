@@ -65,37 +65,6 @@ const ThankYou = () => {
           </p>
         </div>
 
-        {/* Countdown indicator */}
-        <div className="flex justify-center">
-          <div className="relative w-16 h-16">
-            <svg className="w-16 h-16 transform -rotate-90">
-              <circle
-                cx="32"
-                cy="32"
-                r="28"
-                stroke="currentColor"
-                strokeWidth="4"
-                fill="transparent"
-                className="text-secondary"
-              />
-              <circle
-                cx="32"
-                cy="32"
-                r="28"
-                stroke="currentColor"
-                strokeWidth="4"
-                fill="transparent"
-                strokeDasharray={176}
-                strokeDashoffset={176 - (176 * (2 - countdown)) / 2}
-                className="text-primary transition-all duration-1000"
-              />
-            </svg>
-            <span className="absolute inset-0 flex items-center justify-center text-2xl font-bold text-foreground">
-              {countdown}
-            </span>
-          </div>
-        </div>
-
         {/* Loading dots */}
         <div className="flex justify-center gap-2">
           <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
