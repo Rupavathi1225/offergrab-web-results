@@ -1018,9 +1018,56 @@ const WebResults = () => {
         </Button>
       </div>
 
+      {/* Filter for Existing Results */}
+      <div className="flex items-center gap-4 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Label className="text-sm text-muted-foreground whitespace-nowrap">Filter by Blog:</Label>
+          <Select 
+            value={selectedBlogId || 'all'} 
+            onValueChange={(v) => { 
+              setSelectedBlogId(v === 'all' ? '' : v); 
+              setSelectedRelatedSearchId(''); 
+              setSelectedRelatedSearch('');
+            }}
+          >
+            <SelectTrigger className="admin-input w-[200px]">
+              <SelectValue placeholder="All Blogs" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Blogs</SelectItem>
+              {blogs.map(blog => (
+                <SelectItem key={blog.id} value={blog.id}>{blog.title}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {selectedBlogId && (
+          <Button 
+            variant="ghost" 
+            size="sm"
+            onClick={() => {
+              setSelectedBlogId('');
+              setSelectedRelatedSearchId('');
+              setSelectedRelatedSearch('');
+            }}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <X className="w-4 h-4 mr-1" />
+            Clear Filter
+          </Button>
+        )}
+      </div>
+
       {/* Existing Results */}
       <div className="glass-card p-6">
-        <h3 className="font-semibold text-foreground mb-4">Existing Web Results ({filteredResults.length})</h3>
+        <h3 className="font-semibold text-foreground mb-4">
+          Existing Web Results ({filteredResults.length})
+          {selectedBlogId && (
+            <span className="text-sm text-muted-foreground ml-2">
+              - filtered by: {blogs.find(b => b.id === selectedBlogId)?.title}
+            </span>
+          )}
+        </h3>
         <div className="overflow-x-auto">
           <table className="data-table">
             <thead>
