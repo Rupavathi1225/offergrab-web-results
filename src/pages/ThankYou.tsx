@@ -24,17 +24,60 @@ const ThankYou = () => {
   useEffect(() => {
     // Redirect after 2 seconds
     const timer = setTimeout(() => {
-      // Prefer breaking out of the Lovable preview iframe if possible
-      try {
-        if (window.top && window.top !== window) {
-          window.top.location.assign(destinationUrl);
-          return;
-        }
-      } catch {
-        // ignore and fall back
-      }
+      const url = destinationUrl;
 
-      window.location.assign(destinationUrl);
+      // NOTE: Some embedded preview environments (iframes) block non-user-initiated
+      // navigations. We try multiple strategies for maximum compatibility.
+      const tryNavigate = () => {
+        // 1) Break out of iframe if allowed
+        try {
+          if (window.top && window.top !== window) {
+            window.top.location.href = url;
+            return true;
+          }
+        } catch {
+          // ignore
+        }
+
+        // 2) Same-frame navigation
+        try {
+          window.location.href = url;
+          return true;
+        } catch {
+          // ignore
+        }
+
+        // 3) window.open (may be blocked by popup rules in some browsers)
+        try {
+          const w = window.open(url, "_top");
+          if (w) return true;
+        } catch {
+          // ignore
+        }
+
+        // 4) Programmatic anchor click fallback
+        try {
+          const a = document.createElement("a");
+          a.href = url;
+          a.target = "_top";
+          a.rel = "noreferrer";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          return true;
+        } catch {
+          // ignore
+        }
+
+        return false;
+      };
+
+      const ok = tryNavigate();
+      if (!ok) {
+        // Helpful for debugging in strict iframe environments.
+        // eslint-disable-next-line no-console
+        console.warn("ThankYou: redirect attempt was blocked.", { url });
+      }
     }, 2000);
 
     return () => clearTimeout(timer);
