@@ -98,8 +98,12 @@ const BlogPage = () => {
     ? splitContentAtWordCount(blog.content, blog.total_words) 
     : { firstPart: '', secondPart: '' };
 
+  const canonicalUrl = `https://astepstair.com/${blog?.slug}`;
+
   return (
     <div className="min-h-screen bg-background">
+      {/* Canonical tag for SEO - points to white theme primary URL */}
+      <link rel="canonical" href={canonicalUrl} />
       {/* Header */}
       <header className="border-b border-border/50 py-4">
         <div className="container mx-auto px-4 flex items-center gap-4">

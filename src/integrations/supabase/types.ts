@@ -186,6 +186,7 @@ export type Database = {
       }
       landing_content: {
         Row: {
+          active_theme: string
           created_at: string
           description: string
           headline: string
@@ -194,8 +195,10 @@ export type Database = {
           redirect_enabled: boolean
           site_name: string
           updated_at: string
+          white_homepage_blogs: boolean
         }
         Insert: {
+          active_theme?: string
           created_at?: string
           description?: string
           headline?: string
@@ -204,8 +207,10 @@ export type Database = {
           redirect_enabled?: boolean
           site_name?: string
           updated_at?: string
+          white_homepage_blogs?: boolean
         }
         Update: {
+          active_theme?: string
           created_at?: string
           description?: string
           headline?: string
@@ -214,6 +219,7 @@ export type Database = {
           redirect_enabled?: boolean
           site_name?: string
           updated_at?: string
+          white_homepage_blogs?: boolean
         }
         Relationships: []
       }
