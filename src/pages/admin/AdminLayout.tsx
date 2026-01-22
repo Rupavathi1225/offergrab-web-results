@@ -1,7 +1,11 @@
+import { useState } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ExternalLink, LogOut } from "lucide-react";
+import { ExternalLink, LogOut, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useThemeSettings } from "@/contexts/ThemeContext";
 
 const tabs = [
   { label: 'Landing Content', path: '/adm/landing' },
@@ -17,10 +21,63 @@ const tabs = [
 const AdminLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { toast } = useToast();
+  const { activeTheme, isLoading: themeIsLoading } = useThemeSettings();
+  const [isTogglingTheme, setIsTogglingTheme] = useState(false);
 
   const getCurrentTab = () => {
     const currentTab = tabs.find(tab => location.pathname === tab.path);
     return currentTab?.path || '/adm/landing';
+  };
+
+  const applyThemeClass = (theme: "black" | "white") => {
+    if (theme === "white") {
+      document.documentElement.classList.add("light-theme");
+      document.documentElement.classList.remove("dark-theme");
+    } else {
+      document.documentElement.classList.add("dark-theme");
+      document.documentElement.classList.remove("light-theme");
+    }
+  };
+
+  const handleToggleTheme = async () => {
+    if (themeIsLoading || isTogglingTheme) return;
+
+    const nextTheme: "black" | "white" = activeTheme === "white" ? "black" : "white";
+    setIsTogglingTheme(true);
+    try {
+      const { data: row, error: rowErr } = await supabase
+        .from("landing_content")
+        .select("id")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (rowErr) throw rowErr;
+      if (!row?.id) throw new Error("No landing_content row found.");
+
+      const { error: updateErr } = await supabase
+        .from("landing_content")
+        .update({ active_theme: nextTheme })
+        .eq("id", row.id);
+
+      if (updateErr) throw updateErr;
+
+      applyThemeClass(nextTheme);
+      toast({
+        title: "Theme updated",
+        description: `Switched to ${nextTheme === "white" ? "White" : "Black"} theme.`,
+      });
+    } catch (e: any) {
+      console.error("Theme toggle failed:", e);
+      toast({
+        title: "Could not change theme",
+        description: e?.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsTogglingTheme(false);
+    }
   };
 
   return (
@@ -31,6 +88,19 @@ const AdminLayout = () => {
           <div className="flex items-center justify-between">
             <h1 className="text-2xl font-display font-bold text-foreground">Admin Panel</h1>
             <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleToggleTheme}
+                disabled={themeIsLoading || isTogglingTheme}
+                title={activeTheme === "white" ? "Switch to Black theme" : "Switch to White theme"}
+              >
+                {activeTheme === "white" ? (
+                  <Moon className="w-4 h-4" />
+                ) : (
+                  <Sun className="w-4 h-4" />
+                )}
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
