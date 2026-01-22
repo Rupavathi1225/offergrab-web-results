@@ -293,12 +293,12 @@ const WhiteBlogPage = () => {
                   <h3 className="text-xs font-medium text-muted-foreground mb-3 text-center uppercase tracking-wider">
                     Related Searches
                   </h3>
-                  <div className="space-y-1">
+                  <div className="max-w-md mx-auto space-y-1">
                     {relatedSearches.map((search) => (
                       <div
                         key={search.id}
                         onClick={() => handleSearchClick(search)}
-                        className="group cursor-pointer border border-border/50 px-3 py-2 flex items-center justify-between hover:border-primary/50 hover:bg-primary/5 transition-all duration-150"
+                        className="group cursor-pointer border border-border/50 px-3 py-1.5 flex items-center justify-between hover:border-primary/50 hover:bg-primary/5 transition-all duration-150"
                       >
                         <span className="text-primary text-sm">{search.title}</span>
                         <span className="text-muted-foreground group-hover:text-primary transition-colors text-xs">
