@@ -63,9 +63,45 @@
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .dark {
+  .dark, .dark-theme {
     --background: 220 20% 7%;
     --foreground: 210 40% 98%;
+  }
+
+  .light-theme {
+    --background: 0 0% 100%;
+    --foreground: 220 20% 10%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 20% 10%;
+
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 220 14% 96%;
+    --secondary-foreground: 220 20% 10%;
+
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 10% 45%;
+
+    --accent: 217 91% 60%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 220 20% 10%;
+
+    --border: 220 14% 90%;
+    --input: 220 14% 90%;
+    --ring: 217 91% 60%;
   }
 }
 
