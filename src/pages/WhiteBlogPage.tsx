@@ -188,16 +188,16 @@ const WhiteBlogPage = () => {
               <div className="sticky top-8 space-y-6">
                 {/* Author Info Card */}
                 <div className="bg-muted/30 rounded-xl p-6 border border-border">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-                      <User className="w-6 h-6 text-primary" />
-                    </div>
-                    <div>
-                      <p className="font-semibold text-foreground">{blog.author || "Editorial Team"}</p>
-                      <p className="text-xs text-muted-foreground">Author</p>
-                    </div>
+                  <div className="flex flex-col items-center text-center mb-4">
+                    <img
+                      src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face"
+                      alt={blog.author || "Editorial Team"}
+                      className="w-20 h-20 rounded-full object-cover mb-3"
+                    />
+                    <p className="font-semibold text-foreground">{blog.author || "Editorial Team"}</p>
+                    <p className="text-xs text-muted-foreground">Author</p>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                     <Calendar className="w-4 h-4" />
                     <time dateTime={blog.created_at}>
                       {format(new Date(blog.created_at), "MMM d, yyyy 'at' h:mm a")}
@@ -219,17 +219,11 @@ const WhiteBlogPage = () => {
                           className="block group"
                         >
                           <div className="bg-muted/20 rounded-lg overflow-hidden border border-border hover:border-primary/50 transition-colors">
-                            {otherBlog.featured_image_url ? (
-                              <img
-                                src={otherBlog.featured_image_url}
-                                alt={otherBlog.title}
-                                className="w-full h-24 object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-24 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-                                <FileText className="w-8 h-8 text-primary/40" />
-                              </div>
-                            )}
+                            <img
+                              src={otherBlog.featured_image_url || "https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=400&h=200&fit=crop"}
+                              alt={otherBlog.title}
+                              className="w-full h-24 object-cover"
+                            />
                             <div className="p-3">
                               {otherBlog.category && (
                                 <span className="text-xs text-primary font-medium">{otherBlog.category}</span>
@@ -307,14 +301,7 @@ const WhiteBlogPage = () => {
                         className="group cursor-pointer bg-muted/50 border border-border rounded-lg px-4 py-3 flex items-center justify-between hover:bg-primary/10 hover:border-primary/50 transition-all duration-200"
                         style={{ animationDelay: `${index * 0.05}s` }}
                       >
-                        <div className="flex items-center gap-3">
-                          <span className="text-primary text-sm font-medium">{search.title}</span>
-                          {webResultsCounts && webResultsCounts[search.id] > 0 && (
-                            <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full">
-                              {webResultsCounts[search.id]} results
-                            </span>
-                          )}
-                        </div>
+                        <span className="text-primary text-sm font-medium">{search.title}</span>
                         <span className="text-muted-foreground group-hover:text-primary transition-colors text-sm">
                           →
                         </span>

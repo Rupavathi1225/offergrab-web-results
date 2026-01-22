@@ -192,17 +192,11 @@ const BlogCard = ({ blog, onClick, variant }: BlogCardProps) => {
     >
       {/* Image */}
       <div className={`${imageHeight} rounded-lg overflow-hidden bg-gray-100 mb-4`}>
-        {blog.featured_image_url ? (
-          <img
-            src={blog.featured_image_url}
-            alt={blog.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-amber-100 to-orange-100">
-            <span className="text-5xl">📄</span>
-          </div>
-        )}
+        <img
+          src={blog.featured_image_url || "https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=800&h=600&fit=crop"}
+          alt={blog.title}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+        />
       </div>
 
       {/* Meta */}
@@ -235,11 +229,9 @@ const BlogCard = ({ blog, onClick, variant }: BlogCardProps) => {
       )}
 
       {/* Author */}
-      {blog.author && (
-        <p className="text-sm text-gray-500">
-          By <span className="text-gray-700 font-medium">{blog.author}</span>
-        </p>
-      )}
+      <p className="text-sm text-gray-500">
+        By <span className="text-gray-700 font-medium">{blog.author || "Editorial Team"}</span>
+      </p>
     </article>
   );
 };
