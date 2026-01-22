@@ -43,7 +43,7 @@ function App() {
             <Routes>
               {/* Homepage - theme dependent */}
               <Route path="/" element={<ThemedHomepage />} />
-              <Route path="/landing" element={<Landing />} />
+              <Route path="/landing" element={<ThemedHomepage />} />
               
               {/* Blog routes - all three URL patterns work */}
               <Route path="/blog/:slug" element={<BlogPage />} />
