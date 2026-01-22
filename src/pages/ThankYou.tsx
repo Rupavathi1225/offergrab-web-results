@@ -36,10 +36,18 @@ const ThankYou = () => {
             return true;
           }
         } catch {
+          // ignore cross-origin error
+        }
+
+        // 2) Same-frame navigation using assign (more reliable)
+        try {
+          window.location.assign(url);
+          return true;
+        } catch {
           // ignore
         }
 
-        // 2) Same-frame navigation
+        // 3) Direct href assignment
         try {
           window.location.href = url;
           return true;
@@ -47,19 +55,19 @@ const ThankYou = () => {
           // ignore
         }
 
-        // 3) window.open (may be blocked by popup rules in some browsers)
+        // 4) window.open (may be blocked by popup rules in some browsers)
         try {
-          const w = window.open(url, "_top");
+          const w = window.open(url, "_self");
           if (w) return true;
         } catch {
           // ignore
         }
 
-        // 4) Programmatic anchor click fallback
+        // 5) Programmatic anchor click fallback
         try {
           const a = document.createElement("a");
           a.href = url;
-          a.target = "_top";
+          a.target = "_self";
           a.rel = "noreferrer";
           document.body.appendChild(a);
           a.click();
@@ -82,6 +90,10 @@ const ThankYou = () => {
 
     return () => clearTimeout(timer);
   }, [destinationUrl]);
+
+  const handleManualRedirect = () => {
+    window.location.href = destinationUrl;
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary/20 flex items-center justify-center p-4">
@@ -123,13 +135,17 @@ const ThankYou = () => {
           <div className="w-2 h-2 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
         </div>
 
-        {/* Fallback (in case browser blocks timed redirects) */}
-        <div className="text-sm text-muted-foreground">
-          If you’re not redirected,{' '}
-          <a className="underline underline-offset-4 text-foreground" href={destinationUrl} target="_top" rel="noreferrer">
-            click here
-          </a>
-          .
+        {/* Fallback button - more prominent for environments that block auto-redirect */}
+        <div className="space-y-3">
+          <button 
+            onClick={handleManualRedirect}
+            className="inline-block px-6 py-3 bg-primary text-primary-foreground font-medium rounded-lg hover:bg-primary/90 transition-colors cursor-pointer"
+          >
+            Continue to Destination →
+          </button>
+          <p className="text-sm text-muted-foreground">
+            If you're not redirected automatically, click the button above.
+          </p>
         </div>
       </div>
     </div>
