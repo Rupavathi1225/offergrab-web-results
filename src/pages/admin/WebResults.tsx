@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,12 +8,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Save, Trash2, Edit2, X, Globe, Sparkles, Loader2, Search, Copy, ChevronDown, Check } from "lucide-react";
+import { Plus, Save, Trash2, Edit2, X, Globe, Sparkles, Loader2, Search, Copy, ChevronDown } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Badge } from "@/components/ui/badge";
 import { countries, getCountryName } from "@/lib/countries";
 import BulkActionToolbar from "@/components/admin/BulkActionToolbar";
 import { convertToCSV, downloadCSV } from "@/lib/csvExport";
@@ -73,12 +70,10 @@ const WebResults = () => {
   const [searchQuery, setSearchQuery] = useState("");
   
   // Blog and Related Search filtering
-  const [selectedBlogIds, setSelectedBlogIds] = useState<string[]>([]);
+  const [selectedBlogId, setSelectedBlogId] = useState<string>("");
   const [selectedRelatedSearchId, setSelectedRelatedSearchId] = useState<string>("");
-  const [blogFilterOpen, setBlogFilterOpen] = useState(false);
   
   // AI Generator state
-  const [aiSelectedBlogId, setAiSelectedBlogId] = useState<string>("");
   const [selectedRelatedSearch, setSelectedRelatedSearch] = useState<string>("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedResults, setGeneratedResults] = useState<GeneratedWebResult[]>([]);
@@ -133,27 +128,10 @@ const WebResults = () => {
     }
   };
 
-  const selectedBlogIdSet = useMemo(() => new Set(selectedBlogIds), [selectedBlogIds]);
-
-  // Filter related searches based on selected blogs (if any)
-  const filteredRelatedSearches = useMemo(() => {
-    if (selectedBlogIds.length === 0) return relatedSearches;
-    return relatedSearches.filter((s) => s.blog_id && selectedBlogIdSet.has(s.blog_id));
-  }, [relatedSearches, selectedBlogIds, selectedBlogIdSet]);
-
-  const toggleBlogFilter = (blogId: string) => {
-    setSelectedBlogIds((prev) => {
-      if (prev.includes(blogId)) return prev.filter((id) => id !== blogId);
-      return [...prev, blogId];
-    });
-    // Keep filter consistency
-    setSelectedRelatedSearchId("");
-  };
-
-  const clearBlogFilter = () => {
-    setSelectedBlogIds([]);
-    setSelectedRelatedSearchId("");
-  };
+  // Filter related searches based on selected blog
+  const filteredRelatedSearches = selectedBlogId 
+    ? relatedSearches.filter(s => s.blog_id === selectedBlogId)
+    : relatedSearches;
 
   const generateWebResults = async () => {
     if (!selectedRelatedSearch) {
@@ -272,11 +250,11 @@ const WebResults = () => {
 
     try {
       // Attach ownership so future blog deletions only remove their own data
-        const ctxSearch = selectedRelatedSearchId
-          ? relatedSearches.find((s) => s.id === selectedRelatedSearchId)
-          : aiSelectedBlogId
-            ? relatedSearches.find((s) => s.blog_id === aiSelectedBlogId && s.target_wr === newResult.wr_page)
-            : undefined;
+      const ctxSearch = selectedRelatedSearchId
+        ? relatedSearches.find((s) => s.id === selectedRelatedSearchId)
+        : selectedBlogId
+          ? relatedSearches.find((s) => s.blog_id === selectedBlogId && s.target_wr === newResult.wr_page)
+          : undefined;
 
       const payload: any = ctxSearch
         ? { ...newResult, blog_id: ctxSearch.blog_id, related_search_id: ctxSearch.id }
@@ -495,17 +473,13 @@ const WebResults = () => {
 
   // Apply blog and related search filters
   let filteredResults = searchFiltered;
-  if (selectedBlogIds.length > 0) {
-    const blogWrPages = new Set(
-      relatedSearches
-        .filter((s) => s.blog_id && selectedBlogIdSet.has(s.blog_id))
-        .map((s) => s.target_wr)
-    );
-
+  if (selectedBlogId) {
     filteredResults = filteredResults.filter((r) => {
-      if (r.blog_id) return selectedBlogIdSet.has(r.blog_id);
-      // Legacy fallback: match by wr_page for results that aren't linked to a blog_id
-      return blogWrPages.has(r.wr_page);
+      if (r.blog_id) return r.blog_id === selectedBlogId;
+      const blogWrPages = relatedSearches
+        .filter((s) => s.blog_id === selectedBlogId)
+        .map((s) => s.target_wr);
+      return blogWrPages.includes(r.wr_page);
     });
   }
   if (selectedRelatedSearchId) {
@@ -654,79 +628,18 @@ const WebResults = () => {
         <h3 className="font-semibold text-foreground mb-3">Filter by Blog & Related Search</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <Label className="text-sm text-muted-foreground mb-1 block">Select Blogs</Label>
-            <Popover open={blogFilterOpen} onOpenChange={setBlogFilterOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" className="admin-input justify-between">
-                  <span className="truncate">
-                    {selectedBlogIds.length === 0
-                      ? "All Blogs"
-                      : `${selectedBlogIds.length} blog${selectedBlogIds.length === 1 ? "" : "s"} selected`}
-                  </span>
-                  <ChevronDown className="h-4 w-4 opacity-60" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[320px] p-0" align="start">
-                <Command>
-                  <CommandInput placeholder="Search blogs..." />
-                  <CommandList>
-                    <CommandEmpty>No blogs found.</CommandEmpty>
-                    <CommandGroup>
-                      <CommandItem
-                        onSelect={() => {
-                          clearBlogFilter();
-                          setBlogFilterOpen(false);
-                        }}
-                        className="flex items-center justify-between"
-                      >
-                        <span>All Blogs</span>
-                        {selectedBlogIds.length === 0 ? <Check className="h-4 w-4" /> : null}
-                      </CommandItem>
-                      {blogs.map((blog) => {
-                        const checked = selectedBlogIdSet.has(blog.id);
-                        return (
-                          <CommandItem
-                            key={blog.id}
-                            onSelect={() => toggleBlogFilter(blog.id)}
-                            className="flex items-center justify-between"
-                          >
-                            <span className="truncate pr-2">{blog.title}</span>
-                            <Checkbox checked={checked} />
-                          </CommandItem>
-                        );
-                      })}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
-              </PopoverContent>
-            </Popover>
-
-            {selectedBlogIds.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-2">
-                {selectedBlogIds.slice(0, 3).map((id) => {
-                  const blog = blogs.find((b) => b.id === id);
-                  return (
-                    <Badge key={id} variant="secondary" className="gap-1">
-                      <span className="max-w-[160px] truncate">{blog?.title ?? "Blog"}</span>
-                      <button
-                        type="button"
-                        onClick={() => toggleBlogFilter(id)}
-                        className="opacity-70 hover:opacity-100"
-                        aria-label="Remove blog filter"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  );
-                })}
-                {selectedBlogIds.length > 3 && (
-                  <Badge variant="secondary">+{selectedBlogIds.length - 3} more</Badge>
-                )}
-                <Button variant="ghost" size="sm" onClick={clearBlogFilter} className="h-7 px-2">
-                  Clear
-                </Button>
-              </div>
-            )}
+            <Label className="text-sm text-muted-foreground mb-1 block">Select Blog</Label>
+            <Select value={selectedBlogId} onValueChange={(v) => { setSelectedBlogId(v === 'all' ? '' : v); setSelectedRelatedSearchId(''); }}>
+              <SelectTrigger className="admin-input">
+                <SelectValue placeholder="All Blogs" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Blogs</SelectItem>
+                {blogs.map(blog => (
+                  <SelectItem key={blog.id} value={blog.id}>{blog.title}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label className="text-sm text-muted-foreground mb-1 block">Select Related Search</Label>
@@ -740,9 +653,10 @@ const WebResults = () => {
                 const search = relatedSearches.find(s => s.id === v);
                 if (search) setSelectedWr(search.target_wr);
               }}
+              disabled={!selectedBlogId}
             >
               <SelectTrigger className={`admin-input ${selectedRelatedSearchId ? 'border-primary bg-primary/10' : ''}`}>
-                <SelectValue placeholder={"Select Related Search"} />
+                <SelectValue placeholder={selectedBlogId ? "Select Related Search" : "Select Blog First"} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Related Searches</SelectItem>
@@ -781,9 +695,9 @@ const WebResults = () => {
             <div>
               <Label className="text-sm text-muted-foreground mb-2 block">1. Select Blog (Optional)</Label>
               <Select 
-                value={aiSelectedBlogId || 'all'} 
+                value={selectedBlogId || 'all'} 
                 onValueChange={(v) => { 
-                  setAiSelectedBlogId(v === 'all' ? '' : v); 
+                  setSelectedBlogId(v === 'all' ? '' : v); 
                   setSelectedRelatedSearch('');
                 }}
               >
@@ -981,11 +895,11 @@ const WebResults = () => {
           </Button>
         ))}
         <Button
-          variant={selectedWr === 0 && selectedBlogIds.length === 0 && !selectedRelatedSearchId && !searchQuery ? "default" : "outline"}
+          variant={selectedWr === 0 && !selectedBlogId && !selectedRelatedSearchId && !searchQuery ? "default" : "outline"}
           size="sm"
           onClick={() => {
             setSelectedWr(0);
-            clearBlogFilter();
+            setSelectedBlogId('');
             setSelectedRelatedSearchId('');
             setSelectedRelatedSearch('');
             setSearchQuery('');
@@ -1108,58 +1022,31 @@ const WebResults = () => {
       <div className="flex items-center gap-4 flex-wrap">
         <div className="flex items-center gap-2">
           <Label className="text-sm text-muted-foreground whitespace-nowrap">Filter by Blog:</Label>
-          <Popover open={blogFilterOpen} onOpenChange={setBlogFilterOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="admin-input w-[220px] justify-between">
-                <span className="truncate">
-                  {selectedBlogIds.length === 0
-                    ? "All Blogs"
-                    : `${selectedBlogIds.length} selected`}
-                </span>
-                <ChevronDown className="h-4 w-4 opacity-60" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[320px] p-0" align="start">
-              <Command>
-                <CommandInput placeholder="Search blogs..." />
-                <CommandList>
-                  <CommandEmpty>No blogs found.</CommandEmpty>
-                  <CommandGroup>
-                    <CommandItem
-                      onSelect={() => {
-                        clearBlogFilter();
-                        setBlogFilterOpen(false);
-                      }}
-                      className="flex items-center justify-between"
-                    >
-                      <span>All Blogs</span>
-                      {selectedBlogIds.length === 0 ? <Check className="h-4 w-4" /> : null}
-                    </CommandItem>
-                    {blogs.map((blog) => {
-                      const checked = selectedBlogIdSet.has(blog.id);
-                      return (
-                        <CommandItem
-                          key={blog.id}
-                          onSelect={() => toggleBlogFilter(blog.id)}
-                          className="flex items-center justify-between"
-                        >
-                          <span className="truncate pr-2">{blog.title}</span>
-                          <Checkbox checked={checked} />
-                        </CommandItem>
-                      );
-                    })}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+          <Select 
+            value={selectedBlogId || 'all'} 
+            onValueChange={(v) => { 
+              setSelectedBlogId(v === 'all' ? '' : v); 
+              setSelectedRelatedSearchId(''); 
+              setSelectedRelatedSearch('');
+            }}
+          >
+            <SelectTrigger className="admin-input w-[200px]">
+              <SelectValue placeholder="All Blogs" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Blogs</SelectItem>
+              {blogs.map(blog => (
+                <SelectItem key={blog.id} value={blog.id}>{blog.title}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        {selectedBlogIds.length > 0 && (
+        {selectedBlogId && (
           <Button 
             variant="ghost" 
             size="sm"
             onClick={() => {
-              clearBlogFilter();
+              setSelectedBlogId('');
               setSelectedRelatedSearchId('');
               setSelectedRelatedSearch('');
             }}
@@ -1175,9 +1062,9 @@ const WebResults = () => {
       <div className="glass-card p-6">
         <h3 className="font-semibold text-foreground mb-4">
           Existing Web Results ({filteredResults.length})
-          {selectedBlogIds.length > 0 && (
+          {selectedBlogId && (
             <span className="text-sm text-muted-foreground ml-2">
-              - filtered by {selectedBlogIds.length} blog{selectedBlogIds.length === 1 ? "" : "s"}
+              - filtered by: {blogs.find(b => b.id === selectedBlogId)?.title}
             </span>
           )}
         </h3>
