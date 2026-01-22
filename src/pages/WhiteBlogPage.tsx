@@ -3,6 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, ArrowLeft, Calendar, User } from "lucide-react";
 import { format } from "date-fns";
+import { trackClick } from "@/lib/tracking";
+import { trackInboundClick } from "@/lib/pixelTracking";
+import { generateRandomToken } from "@/lib/linkGenerator";
 
 interface Blog {
   id: string;
@@ -14,6 +17,7 @@ interface Blog {
   category: string | null;
   author: string | null;
   excerpt: string | null;
+  total_words?: number;
 }
 
 const WhiteBlogPage = () => {
@@ -36,6 +40,45 @@ const WhiteBlogPage = () => {
     },
     enabled: !!slug,
   });
+
+  // Fetch related searches for this specific blog only
+  const { data: relatedSearches } = useQuery({
+    queryKey: ["related-searches-white", blog?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("related_searches")
+        .select("*")
+        .eq("blog_id", blog!.id)
+        .eq("is_active", true)
+        .order("serial_number", { ascending: true })
+        .limit(4);
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!blog,
+  });
+
+  const handleSearchClick = (search: any) => {
+    trackClick('related_search', search.id, search.title, `/${slug}`);
+    trackInboundClick(search.title, `/wr/${search.target_wr}`, search.id);
+    navigate(`/wr/${search.target_wr}/${generateRandomToken(8)}`, {
+      state: {
+        fromBlog: true,
+        blogSlug: slug,
+        blogId: blog?.id
+      }
+    });
+  };
+
+  const splitContentAtWordCount = (content: string, wordCount: number): { firstPart: string; secondPart: string } => {
+    const words = content.split(/\s+/).filter(w => w.length > 0);
+    const limitedWords = words.slice(0, wordCount);
+    const thirtyPercent = Math.ceil(limitedWords.length * 0.3);
+    const firstPart = limitedWords.slice(0, thirtyPercent).join(' ');
+    const secondPart = limitedWords.slice(thirtyPercent).join(' ');
+    return { firstPart, secondPart };
+  };
 
   if (isLoading) {
     return (
@@ -61,6 +104,10 @@ const WhiteBlogPage = () => {
       </div>
     );
   }
+
+  const { firstPart, secondPart } = blog.content && blog.total_words 
+    ? splitContentAtWordCount(blog.content, blog.total_words) 
+    : { firstPart: blog.content || '', secondPart: '' };
 
   const canonicalUrl = `https://astepstair.com/${blog.slug}`;
 
@@ -127,8 +174,8 @@ const WhiteBlogPage = () => {
             </div>
           )}
 
-          {/* Content */}
-          {blog.content && (
+          {/* Content - First 30% */}
+          {firstPart && (
             <div
               className="prose prose-lg max-w-none
                 prose-headings:text-foreground prose-headings:font-bold
@@ -141,7 +188,49 @@ const WhiteBlogPage = () => {
                 prose-ol:list-decimal prose-ol:pl-6 prose-ol:my-5
                 prose-li:text-foreground/90 prose-li:mb-2
                 prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-muted-foreground"
-              dangerouslySetInnerHTML={{ __html: blog.content }}
+              dangerouslySetInnerHTML={{ __html: firstPart }}
+            />
+          )}
+
+          {/* Related Searches - After 30% content */}
+          {relatedSearches && relatedSearches.length > 0 && (
+            <div className="my-12 py-8 border-y border-border">
+              <h3 className="text-sm font-medium text-muted-foreground mb-4 text-center uppercase tracking-wider">
+                Related Searches
+              </h3>
+              <div className="space-y-3">
+                {relatedSearches.map((search, index) => (
+                  <div
+                    key={search.id}
+                    onClick={() => handleSearchClick(search)}
+                    className="group cursor-pointer bg-muted/50 border border-border rounded-lg px-4 py-3 flex items-center justify-between hover:bg-primary/10 hover:border-primary/50 transition-all duration-200"
+                    style={{ animationDelay: `${index * 0.05}s` }}
+                  >
+                    <span className="text-primary text-sm font-medium">{search.title}</span>
+                    <span className="text-muted-foreground group-hover:text-primary transition-colors text-sm">
+                      →
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Content - Remaining 70% */}
+          {secondPart && (
+            <div
+              className="prose prose-lg max-w-none
+                prose-headings:text-foreground prose-headings:font-bold
+                prose-h2:text-2xl prose-h2:mt-10 prose-h2:mb-4
+                prose-h3:text-xl prose-h3:mt-8 prose-h3:mb-3
+                prose-p:text-foreground/90 prose-p:leading-relaxed prose-p:mb-5
+                prose-a:text-primary prose-a:hover:underline
+                prose-strong:text-foreground prose-strong:font-semibold
+                prose-ul:list-disc prose-ul:pl-6 prose-ul:my-5
+                prose-ol:list-decimal prose-ol:pl-6 prose-ol:my-5
+                prose-li:text-foreground/90 prose-li:mb-2
+                prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-muted-foreground"
+              dangerouslySetInnerHTML={{ __html: secondPart }}
             />
           )}
         </article>
