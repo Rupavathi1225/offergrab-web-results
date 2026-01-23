@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -19,6 +20,25 @@ interface Blog {
 const BlogPage = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+
+  // Force legacy /blog/:slug pages to always be Black theme.
+  useEffect(() => {
+    const root = document.documentElement;
+    const hadLight = root.classList.contains("light-theme");
+    const hadDark = root.classList.contains("dark-theme");
+
+    root.classList.add("dark-theme");
+    root.classList.remove("light-theme");
+
+    return () => {
+      // Restore previous state
+      if (hadLight) root.classList.add("light-theme");
+      else root.classList.remove("light-theme");
+
+      if (hadDark) root.classList.add("dark-theme");
+      else root.classList.remove("dark-theme");
+    };
+  }, []);
 
   const { data: blog, isLoading, error } = useQuery({
     queryKey: ["blog", slug],
