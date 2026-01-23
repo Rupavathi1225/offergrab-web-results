@@ -47,7 +47,7 @@ function App() {
               
               {/* Blog routes - all three URL patterns work */}
               <Route path="/blog/:slug" element={<BlogPage />} />
-              <Route path="/bl/:slug" element={<UniversalBlogPage />} />
+              <Route path="/bl/:slug" element={<BlogPage />} />
               
               {/* Legacy shared links (keep working) */}
               <Route path="/webresult/:page/:wbr" element={<LegacyWebResultRedirect />} />
@@ -77,7 +77,7 @@ function App() {
               </Route>
               
               {/* White theme blog URL - catches /:slug last */}
-              <Route path="/:slug" element={<UniversalBlogPage />} />
+              <Route path="/:slug" element={<BlogPage />} />
               
               <Route path="*" element={<NotFound />} />
             </Routes>
