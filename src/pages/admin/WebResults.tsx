@@ -657,22 +657,33 @@ const WebResults = () => {
             <Label className="text-sm text-muted-foreground mb-1 block">Select Blogs</Label>
             <Popover open={blogFilterOpen} onOpenChange={setBlogFilterOpen}>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="admin-input justify-between">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="admin-input justify-between"
+                  aria-expanded={blogFilterOpen}
+                >
                   <span className="truncate">
                     {selectedBlogIds.length === 0
                       ? "All Blogs"
                       : `${selectedBlogIds.length} blog${selectedBlogIds.length === 1 ? "" : "s"} selected`}
                   </span>
-                  <ChevronDown className="h-4 w-4 opacity-60" />
+                  <ChevronDown
+                    className={`h-4 w-4 opacity-60 transition-transform ${blogFilterOpen ? "rotate-180" : ""}`}
+                  />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[320px] p-0" align="start">
+              <PopoverContent className="z-50 w-[320px] p-0 bg-popover text-popover-foreground border border-border shadow-md" align="start">
                 <Command>
                   <CommandInput placeholder="Search blogs..." />
                   <CommandList>
                     <CommandEmpty>No blogs found.</CommandEmpty>
                     <CommandGroup>
                       <CommandItem
+                        onMouseDown={(e) => {
+                          // Prevent focus/blur quirks that can close the popover before state updates
+                          e.preventDefault();
+                        }}
                         onSelect={() => {
                           clearBlogFilter();
                           setBlogFilterOpen(false);
@@ -687,11 +698,25 @@ const WebResults = () => {
                         return (
                           <CommandItem
                             key={blog.id}
-                            onSelect={() => toggleBlogFilter(blog.id)}
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                            }}
+                            onSelect={() => {
+                              toggleBlogFilter(blog.id);
+                              // keep open for multi-select
+                              setBlogFilterOpen(true);
+                            }}
                             className="flex items-center justify-between"
                           >
                             <span className="truncate pr-2">{blog.title}</span>
-                            <Checkbox checked={checked} />
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={() => {
+                                toggleBlogFilter(blog.id);
+                                setBlogFilterOpen(true);
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                            />
                           </CommandItem>
                         );
                       })}
