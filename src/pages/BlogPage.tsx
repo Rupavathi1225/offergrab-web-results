@@ -1,4 +1,3 @@
-import { useEffect, useLayoutEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,41 +19,6 @@ interface Blog {
 const BlogPage = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-
-  // Force blog pages to always render in Black theme (dark tokens)
-  useLayoutEffect(() => {
-    // Apply ASAP to avoid a white flash
-    const root = document.documentElement;
-    root.classList.add("dark-theme");
-    root.classList.remove("light-theme");
-  }, []);
-
-  useEffect(() => {
-    const root = document.documentElement;
-    const prevHadLight = root.classList.contains("light-theme");
-    const prevHadDark = root.classList.contains("dark-theme");
-
-    const enforceDark = () => {
-      root.classList.add("dark-theme");
-      root.classList.remove("light-theme");
-    };
-
-    enforceDark();
-
-    // ThemeProvider may re-apply light-theme after async DB fetch.
-    // Keep blog routes locked to dark-theme while this page is mounted.
-    const observer = new MutationObserver(() => {
-      if (root.classList.contains("light-theme")) enforceDark();
-    });
-
-    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
-
-    return () => {
-      observer.disconnect();
-      root.classList.toggle("light-theme", prevHadLight);
-      root.classList.toggle("dark-theme", prevHadDark);
-    };
-  }, []);
 
   const { data: blog, isLoading, error } = useQuery({
     queryKey: ["blog", slug],
