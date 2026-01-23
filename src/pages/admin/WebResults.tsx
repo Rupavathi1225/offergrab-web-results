@@ -75,7 +75,10 @@ const WebResults = () => {
   // Blog and Related Search filtering
   const [selectedBlogIds, setSelectedBlogIds] = useState<string[]>([]);
   const [selectedRelatedSearchId, setSelectedRelatedSearchId] = useState<string>("");
-  const [blogFilterOpen, setBlogFilterOpen] = useState(false);
+  // There are two blog filter UI locations on this page; they must not share the same
+  // Popover open-state or they will fight each other and close immediately.
+  const [blogFilterOpenMain, setBlogFilterOpenMain] = useState(false);
+  const [blogFilterOpenTable, setBlogFilterOpenTable] = useState(false);
   
   // AI Generator state
   const [aiSelectedBlogId, setAiSelectedBlogId] = useState<string>("");
@@ -655,13 +658,13 @@ const WebResults = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <Label className="text-sm text-muted-foreground mb-1 block">Select Blogs</Label>
-            <Popover open={blogFilterOpen} onOpenChange={setBlogFilterOpen}>
+            <Popover open={blogFilterOpenMain} onOpenChange={setBlogFilterOpenMain}>
               <PopoverTrigger asChild>
                 <Button
                   type="button"
                   variant="outline"
                   className="admin-input justify-between"
-                  aria-expanded={blogFilterOpen}
+                  aria-expanded={blogFilterOpenMain}
                 >
                   <span className="truncate">
                     {selectedBlogIds.length === 0
@@ -669,7 +672,7 @@ const WebResults = () => {
                       : `${selectedBlogIds.length} blog${selectedBlogIds.length === 1 ? "" : "s"} selected`}
                   </span>
                   <ChevronDown
-                    className={`h-4 w-4 opacity-60 transition-transform ${blogFilterOpen ? "rotate-180" : ""}`}
+                    className={`h-4 w-4 opacity-60 transition-transform ${blogFilterOpenMain ? "rotate-180" : ""}`}
                   />
                 </Button>
               </PopoverTrigger>
@@ -686,7 +689,7 @@ const WebResults = () => {
                         }}
                         onSelect={() => {
                           clearBlogFilter();
-                          setBlogFilterOpen(false);
+                          setBlogFilterOpenMain(false);
                         }}
                         className="flex items-center justify-between"
                       >
@@ -704,7 +707,7 @@ const WebResults = () => {
                             onSelect={() => {
                               toggleBlogFilter(blog.id);
                               // keep open for multi-select
-                              setBlogFilterOpen(true);
+                              setBlogFilterOpenMain(true);
                             }}
                             className="flex items-center justify-between"
                           >
@@ -713,7 +716,7 @@ const WebResults = () => {
                               checked={checked}
                               onCheckedChange={() => {
                                 toggleBlogFilter(blog.id);
-                                setBlogFilterOpen(true);
+                                setBlogFilterOpenMain(true);
                               }}
                               onClick={(e) => e.stopPropagation()}
                             />
@@ -1133,27 +1136,35 @@ const WebResults = () => {
       <div className="flex items-center gap-4 flex-wrap">
         <div className="flex items-center gap-2">
           <Label className="text-sm text-muted-foreground whitespace-nowrap">Filter by Blog:</Label>
-          <Popover open={blogFilterOpen} onOpenChange={setBlogFilterOpen}>
+          <Popover open={blogFilterOpenTable} onOpenChange={setBlogFilterOpenTable}>
             <PopoverTrigger asChild>
-              <Button variant="outline" className="admin-input w-[220px] justify-between">
+              <Button
+                type="button"
+                variant="outline"
+                className="admin-input w-[220px] justify-between"
+                aria-expanded={blogFilterOpenTable}
+              >
                 <span className="truncate">
                   {selectedBlogIds.length === 0
                     ? "All Blogs"
                     : `${selectedBlogIds.length} selected`}
                 </span>
-                <ChevronDown className="h-4 w-4 opacity-60" />
+                <ChevronDown
+                  className={`h-4 w-4 opacity-60 transition-transform ${blogFilterOpenTable ? "rotate-180" : ""}`}
+                />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[320px] p-0" align="start">
+            <PopoverContent className="z-50 w-[320px] p-0 bg-popover text-popover-foreground border border-border shadow-md" align="start">
               <Command>
                 <CommandInput placeholder="Search blogs..." />
                 <CommandList>
                   <CommandEmpty>No blogs found.</CommandEmpty>
                   <CommandGroup>
                     <CommandItem
+                      onMouseDown={(e) => e.preventDefault()}
                       onSelect={() => {
                         clearBlogFilter();
-                        setBlogFilterOpen(false);
+                        setBlogFilterOpenTable(false);
                       }}
                       className="flex items-center justify-between"
                     >
@@ -1165,11 +1176,22 @@ const WebResults = () => {
                       return (
                         <CommandItem
                           key={blog.id}
-                          onSelect={() => toggleBlogFilter(blog.id)}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onSelect={() => {
+                            toggleBlogFilter(blog.id);
+                            setBlogFilterOpenTable(true);
+                          }}
                           className="flex items-center justify-between"
                         >
                           <span className="truncate pr-2">{blog.title}</span>
-                          <Checkbox checked={checked} />
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={() => {
+                              toggleBlogFilter(blog.id);
+                              setBlogFilterOpenTable(true);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
+                          />
                         </CommandItem>
                       );
                     })}
