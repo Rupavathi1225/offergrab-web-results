@@ -41,14 +41,23 @@ export const ThemeProvider = ({ children }: ThemeProviderProps) => {
         if (error) throw error;
 
         if (data) {
+          // Normalize theme value from DB (can come in as 'White', 'BLACK', etc.)
+          const normalizedTheme: SiteTheme =
+            (data.active_theme || "")
+              .toString()
+              .trim()
+              .toLowerCase() === "white"
+              ? "white"
+              : "black";
+
           setSettings({
-            activeTheme: (data.active_theme as SiteTheme) || "black",
+            activeTheme: normalizedTheme,
             whiteHomepageBlogs: data.white_homepage_blogs ?? true,
             isLoading: false,
           });
 
           // Apply theme class to document
-          if (data.active_theme === "white") {
+          if (normalizedTheme === "white") {
             document.documentElement.classList.add("light-theme");
             document.documentElement.classList.remove("dark-theme");
           } else {
