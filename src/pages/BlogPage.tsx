@@ -27,10 +27,37 @@ const BlogPage = () => {
     const hadLight = root.classList.contains("light-theme");
     const hadDark = root.classList.contains("dark-theme");
 
+    // Mark the root as theme-locked so other parts of the app (or third-party code)
+    // can detect we are intentionally forcing a theme.
+    root.dataset.themeLock = "dark";
+
     root.classList.add("dark-theme");
     root.classList.remove("light-theme");
 
+    // Some flows (e.g., admin theme toggle in another tab/session, or async theme
+    // application) can re-add `light-theme`. If both classes exist, `.light-theme`
+    // wins in CSS due to ordering, so we enforce removal while locked.
+    const enforceDark = () => {
+      if (root.dataset.themeLock !== "dark") return;
+      if (root.classList.contains("light-theme")) {
+        root.classList.remove("light-theme");
+      }
+      if (!root.classList.contains("dark-theme")) {
+        root.classList.add("dark-theme");
+      }
+    };
+
+    enforceDark();
+
+    const observer = new MutationObserver(() => {
+      enforceDark();
+    });
+    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
+
     return () => {
+      observer.disconnect();
+      delete root.dataset.themeLock;
+
       // Restore previous state
       if (hadLight) root.classList.add("light-theme");
       else root.classList.remove("light-theme");
