@@ -60,41 +60,6 @@ interface GeneratedWebResult {
 }
 
 const WebResults = () => {
-  // Force this admin page to always render in Black theme, regardless of global site theme.
-  // We also restore whatever theme was active when leaving this page.
-  useEffect(() => {
-    const root = document.documentElement;
-    const prev = {
-      hadLight: root.classList.contains("light-theme"),
-      hadDark: root.classList.contains("dark-theme"),
-    };
-
-    const enforceDark = () => {
-      root.classList.add("dark-theme");
-      root.classList.remove("light-theme");
-    };
-
-    enforceDark();
-
-    const observer = new MutationObserver(() => {
-      // If something else tries to switch the page to light, immediately revert.
-      if (root.classList.contains("light-theme")) enforceDark();
-    });
-
-    observer.observe(root, { attributes: true, attributeFilter: ["class"] });
-
-    return () => {
-      observer.disconnect();
-
-      // Restore previous theme class state.
-      if (prev.hadLight) root.classList.add("light-theme");
-      else root.classList.remove("light-theme");
-
-      if (prev.hadDark) root.classList.add("dark-theme");
-      else root.classList.remove("dark-theme");
-    };
-  }, []);
-
   const [results, setResults] = useState<WebResult[]>([]);
   const [blogs, setBlogs] = useState<Blog[]>([]);
   const [relatedSearches, setRelatedSearches] = useState<RelatedSearch[]>([]);
