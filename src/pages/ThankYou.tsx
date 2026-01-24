@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { CheckCircle, Sparkles } from "lucide-react";
-import { trackClick } from "@/lib/tracking";
+import { trackClick, initSession } from "@/lib/tracking";
 
 const ThankYou = () => {
   const [searchParams] = useSearchParams();
@@ -23,10 +23,23 @@ const ThankYou = () => {
     document.title = "Thank You | Astepstair";
 
     // Track Thank You page view in Supabase (only once)
-    if (!hasTracked.current) {
+    // Use async IIFE to ensure session exists before tracking click
+    const doTrack = async () => {
+      if (hasTracked.current) return;
       hasTracked.current = true;
-      trackClick('thankyou_view', undefined, 'Thank You Page', '/ty', undefined, destinationUrl);
-    }
+      try {
+        // Ensure session is initialized (creates if missing)
+        await initSession();
+        // Now track the thankyou_view event
+        await trackClick('thankyou_view', undefined, 'Thank You Page', '/ty', undefined, destinationUrl);
+        // eslint-disable-next-line no-console
+        console.log('ThankYou: tracked thankyou_view successfully');
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('ThankYou: tracking failed', err);
+      }
+    };
+    doTrack();
 
     // Meta Pixel conversion event (equivalent to: fbq('track', 'Lead'))
     try {
@@ -113,6 +126,15 @@ const ThankYou = () => {
   }, [destinationUrl]);
 
   const handleManualRedirect = () => {
+    // Try top frame first (for iframe escaping), fallback to current frame
+    try {
+      if (window.top && window.top !== window) {
+        window.top.location.href = destinationUrl;
+        return;
+      }
+    } catch {
+      // cross-origin blocked, ignore
+    }
     window.location.href = destinationUrl;
   };
 
