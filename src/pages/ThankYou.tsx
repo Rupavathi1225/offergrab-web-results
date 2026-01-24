@@ -1,9 +1,11 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { CheckCircle, Sparkles } from "lucide-react";
+import { trackClick } from "@/lib/tracking";
 
 const ThankYou = () => {
   const [searchParams] = useSearchParams();
+  const hasTracked = useRef(false);
   
   // Get the destination URL from query params (defensive decode)
   const rawTo = searchParams.get("to") || "/landing";
@@ -20,6 +22,12 @@ const ThankYou = () => {
     // Set page title
     document.title = "Thank You | Astepstair";
 
+    // Track Thank You page view in Supabase (only once)
+    if (!hasTracked.current) {
+      hasTracked.current = true;
+      trackClick('thankyou_view', undefined, 'Thank You Page', '/ty', undefined, destinationUrl);
+    }
+
     // Meta Pixel conversion event (equivalent to: fbq('track', 'Lead'))
     try {
       if (typeof window !== "undefined" && typeof window.fbq === "function") {
@@ -32,7 +40,7 @@ const ThankYou = () => {
       // eslint-disable-next-line no-console
       console.warn("ThankYou: failed to send Lead event.", error);
     }
-  }, []);
+  }, [destinationUrl]);
 
   useEffect(() => {
     // Redirect after 2 seconds

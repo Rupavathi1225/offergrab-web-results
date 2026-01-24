@@ -63,6 +63,7 @@ interface LastDayStats {
   newPageViews: number;
   relatedSearchClicks: number;
   webResultClicks: number;
+  thankyouViews: number;
 }
 
 const Analytics = () => {
@@ -86,6 +87,7 @@ const Analytics = () => {
     newPageViews: 0,
     relatedSearchClicks: 0,
     webResultClicks: 0,
+    thankyouViews: 0,
   });
   const [loading, setLoading] = useState(true);
   const [filterCountry, setFilterCountry] = useState('all');
@@ -130,6 +132,7 @@ const Analytics = () => {
         newPageViews: activeSessionsLastDay.reduce((sum, s) => sum + (s.page_views || 0), 0),
         relatedSearchClicks: clicksLastDay.filter(c => c.click_type === 'related_search').length,
         webResultClicks: clicksLastDay.filter(c => c.click_type === 'web_result').length,
+        thankyouViews: clicksLastDay.filter(c => c.click_type === 'thankyou_view').length,
       });
 
       setStats({
@@ -248,7 +251,7 @@ const Analytics = () => {
           <span className="text-xs text-muted-foreground">Rolling window</span>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div className="stat-card">
             <Users className="w-5 h-5 text-primary mb-2" />
             <p className="text-3xl font-display font-bold text-primary mb-1">{lastDayStats.newSessions}</p>
@@ -268,6 +271,11 @@ const Analytics = () => {
             <Link className="w-5 h-5 text-primary mb-2" />
             <p className="text-3xl font-display font-bold text-primary mb-1">{lastDayStats.webResultClicks}</p>
             <p className="text-muted-foreground text-sm">Web results clicks</p>
+          </div>
+          <div className="stat-card">
+            <MousePointer className="w-5 h-5 text-emerald-500 mb-2" />
+            <p className="text-3xl font-display font-bold text-emerald-500 mb-1">{lastDayStats.thankyouViews}</p>
+            <p className="text-muted-foreground text-sm">Thank You views</p>
           </div>
         </div>
       </div>
