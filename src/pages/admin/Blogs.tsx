@@ -74,11 +74,20 @@ const Blogs = () => {
   const [editingBlog, setEditingBlog] = useState<Blog | null>(null);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isGeneratingContent, setIsGeneratingContent] = useState(false);
+  const [isGeneratingH1, setIsGeneratingH1] = useState(false);
+  const [isGeneratingH2, setIsGeneratingH2] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [generatedSearches, setGeneratedSearches] = useState<string[]>([]);
   const [selectedSearchesOrder, setSelectedSearchesOrder] = useState<number[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-const [totalWordTarget, setTotalWordTarget] = useState(800);
+  const [totalWordTarget, setTotalWordTarget] = useState(800);
+  
+  // Step-by-step generation state
+  const [h1Options, setH1Options] = useState<string[]>([]);
+  const [selectedH1, setSelectedH1] = useState<string>("");
+  const [h2Count, setH2Count] = useState(4);
+  const [generatedH2s, setGeneratedH2s] = useState<string[]>([]);
+  const [selectedH2s, setSelectedH2s] = useState<string[]>([]);
   
   const [formData, setFormData] = useState({
     title: "",
@@ -238,6 +247,11 @@ const [totalWordTarget, setTotalWordTarget] = useState(800);
     setGeneratedSearches([]);
     setSelectedSearchesOrder([]);
     setTotalWordTarget(800);
+    setH1Options([]);
+    setSelectedH1("");
+    setH2Count(4);
+    setGeneratedH2s([]);
+    setSelectedH2s([]);
   }, []);
 
   const handleDialogOpenChange = useCallback((open: boolean) => {
@@ -283,6 +297,102 @@ const [totalWordTarget, setTotalWordTarget] = useState(800);
     }
   };
 
+  // Step 1: Generate H1 title options
+  const generateH1Options = async () => {
+    const topic = formData.title || "general topic";
+    if (!topic.trim()) {
+      toast.error("Please enter a topic/keyword first");
+      return;
+    }
+
+    setIsGeneratingH1(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-blog-content", {
+        body: { 
+          title: topic, 
+          generateType: 'h1'
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.titles && data.titles.length > 0) {
+        setH1Options(data.titles);
+        toast.success("H1 title options generated! Select one.");
+      } else {
+        throw new Error("No titles generated");
+      }
+    } catch (error) {
+      console.error("Error generating H1:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to generate H1 options");
+    } finally {
+      setIsGeneratingH1(false);
+    }
+  };
+
+  // Select an H1 and update form
+  const selectH1Title = (title: string) => {
+    setSelectedH1(title);
+    setFormData(prev => ({
+      ...prev,
+      title: title,
+      slug: generateSlug(title),
+    }));
+    toast.success("H1 selected! Now generate H2 sections.");
+  };
+
+  // Step 2: Generate H2 section headings
+  const generateH2Sections = async () => {
+    if (!formData.title) {
+      toast.error("Please select an H1 title first");
+      return;
+    }
+
+    setIsGeneratingH2(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-blog-content", {
+        body: { 
+          title: formData.title, 
+          generateType: 'h2',
+          h2Count: h2Count
+        },
+      });
+
+      if (error) throw error;
+
+      if (data.h2Sections && data.h2Sections.length > 0) {
+        setGeneratedH2s(data.h2Sections);
+        setSelectedH2s(data.h2Sections); // Auto-select all
+        toast.success("H2 sections generated! Edit or proceed to generate content.");
+      } else {
+        throw new Error("No H2 sections generated");
+      }
+    } catch (error) {
+      console.error("Error generating H2:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to generate H2 sections");
+    } finally {
+      setIsGeneratingH2(false);
+    }
+  };
+
+  // Update an H2 heading
+  const updateH2 = (index: number, value: string) => {
+    setGeneratedH2s(prev => prev.map((h2, i) => i === index ? value : h2));
+    setSelectedH2s(prev => prev.map((h2, i) => i === index ? value : h2));
+  };
+
+  // Toggle H2 selection
+  const toggleH2Selection = (h2: string) => {
+    setSelectedH2s(prev => {
+      if (prev.includes(h2)) {
+        return prev.filter(s => s !== h2);
+      } else {
+        return [...prev, h2];
+      }
+    });
+  };
+
+  // Step 3: Generate full content with selected H2s
   const generateContent = async () => {
     if (!formData.title) {
       toast.error("Please enter a title first");
@@ -295,7 +405,9 @@ const [totalWordTarget, setTotalWordTarget] = useState(800);
         body: { 
           title: formData.title, 
           slug: formData.slug,
-          totalWordTarget: totalWordTarget
+          totalWordTarget: totalWordTarget,
+          h2Count: selectedH2s.length || h2Count,
+          generateType: 'full'
         },
       });
 
@@ -614,16 +726,123 @@ const [totalWordTarget, setTotalWordTarget] = useState(800);
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Title *</Label>
-                <Input
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) => handleTitleChange(e.target.value)}
-                  placeholder="Enter blog title"
-                  required
-                />
+              {/* Step 1: H1 Title Generation */}
+              <div className="space-y-3 p-4 border border-primary/30 rounded-lg bg-primary/5">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="bg-primary text-primary-foreground text-xs font-bold px-2 py-1 rounded">Step 1</span>
+                  <Label className="font-semibold">Generate H1 Title</Label>
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    value={formData.title}
+                    onChange={(e) => handleTitleChange(e.target.value)}
+                    placeholder="Enter topic/keyword to generate H1 options..."
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={generateH1Options}
+                    disabled={isGeneratingH1 || !formData.title.trim()}
+                    className="gap-2 whitespace-nowrap"
+                  >
+                    {isGeneratingH1 ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-4 h-4" />
+                    )}
+                    Generate H1
+                  </Button>
+                </div>
+                
+                {/* H1 Options */}
+                {h1Options.length > 0 && (
+                  <div className="space-y-2 mt-3">
+                    <Label className="text-xs text-muted-foreground">Select an H1 title:</Label>
+                    <div className="flex flex-col gap-2">
+                      {h1Options.map((title, index) => (
+                        <div
+                          key={index}
+                          onClick={() => selectH1Title(title)}
+                          className={`cursor-pointer p-3 rounded-lg border transition-all ${
+                            selectedH1 === title
+                              ? 'border-primary bg-primary/10 ring-2 ring-primary/20'
+                              : 'border-border hover:border-primary/50 hover:bg-muted/50'
+                          }`}
+                        >
+                          <span className={`text-sm ${selectedH1 === title ? 'font-semibold text-primary' : 'text-foreground'}`}>
+                            {title}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
+
+              {/* Step 2: H2 Sections Generation */}
+              {formData.title && (
+                <div className="space-y-3 p-4 border border-secondary/50 rounded-lg bg-secondary/10">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="bg-secondary text-secondary-foreground text-xs font-bold px-2 py-1 rounded">Step 2</span>
+                    <Label className="font-semibold">Generate H2 Sections</Label>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <Label className="text-xs whitespace-nowrap">Number of H2s:</Label>
+                      <Select
+                        value={h2Count.toString()}
+                        onValueChange={(value) => setH2Count(parseInt(value))}
+                      >
+                        <SelectTrigger className="w-20 h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[2, 3, 4, 5, 6, 7, 8].map((n) => (
+                            <SelectItem key={n} value={n.toString()}>{n}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={generateH2Sections}
+                      disabled={isGeneratingH2 || !formData.title}
+                      className="gap-2"
+                    >
+                      {isGeneratingH2 ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Sparkles className="w-4 h-4" />
+                      )}
+                      Generate H2s
+                    </Button>
+                  </div>
+                  
+                  {/* H2 List */}
+                  {generatedH2s.length > 0 && (
+                    <div className="space-y-2 mt-3">
+                      <Label className="text-xs text-muted-foreground">Edit H2 sections (each will have H3 paragraphs):</Label>
+                      <div className="flex flex-col gap-2">
+                        {generatedH2s.map((h2, index) => (
+                          <div key={index} className="flex items-center gap-2">
+                            <Checkbox
+                              checked={selectedH2s.includes(h2)}
+                              onCheckedChange={() => toggleH2Selection(h2)}
+                            />
+                            <Input
+                              value={h2}
+                              onChange={(e) => updateH2(index, e.target.value)}
+                              className="flex-1 h-9 text-sm"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="slug">Slug *</Label>
