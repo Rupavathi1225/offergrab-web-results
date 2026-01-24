@@ -19,6 +19,19 @@ const ThankYou = () => {
   useEffect(() => {
     // Set page title
     document.title = "Thank You | Astepstair";
+
+    // Meta Pixel conversion event (equivalent to: fbq('track', 'Lead'))
+    try {
+      if (typeof window !== "undefined" && typeof window.fbq === "function") {
+        window.fbq("track", "Lead");
+      } else {
+        // eslint-disable-next-line no-console
+        console.warn("ThankYou: fbq is not available; Lead event not sent.");
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn("ThankYou: failed to send Lead event.", error);
+    }
   }, []);
 
   useEffect(() => {
