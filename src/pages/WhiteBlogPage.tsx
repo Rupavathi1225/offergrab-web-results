@@ -289,19 +289,19 @@ const WhiteBlogPage = () => {
 
               {/* Related Searches - After 30% content */}
               {relatedSearches && relatedSearches.length > 0 && (
-                <div className="my-8 py-6 border-y border-border">
-                  <h3 className="text-xs font-medium text-muted-foreground mb-3 text-center uppercase tracking-wider">
+                <div className="my-10 py-8 border-y border-border">
+                  <h3 className="text-sm font-semibold text-muted-foreground mb-5 text-center uppercase tracking-wider">
                     Related Searches
                   </h3>
-                  <div className="max-w-md mx-auto space-y-1">
+                  <div className="max-w-lg mx-auto space-y-3">
                     {relatedSearches.map((search) => (
                       <div
                         key={search.id}
                         onClick={() => handleSearchClick(search)}
-                        className="group cursor-pointer border border-border/50 px-3 py-1.5 flex items-center justify-between hover:border-primary/50 hover:bg-primary/5 transition-all duration-150"
+                        className="group cursor-pointer border-2 border-border rounded-lg px-5 py-4 flex items-center justify-between hover:border-primary hover:bg-primary/10 transition-all duration-200 shadow-sm hover:shadow-md"
                       >
-                        <span className="text-primary text-sm">{search.title}</span>
-                        <span className="text-muted-foreground group-hover:text-primary transition-colors text-xs">
+                        <span className="text-primary font-medium text-base">{search.title}</span>
+                        <span className="text-muted-foreground group-hover:text-primary transition-colors text-lg font-bold">
                           →
                         </span>
                       </div>
