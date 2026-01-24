@@ -58,6 +58,13 @@ interface Stats {
   fallbackRedirects: number;
 }
 
+interface LastDayStats {
+  newSessions: number;
+  newPageViews: number;
+  relatedSearchClicks: number;
+  webResultClicks: number;
+}
+
 const Analytics = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [clicks, setClicks] = useState<Click[]>([]);
@@ -73,6 +80,12 @@ const Analytics = () => {
     landing2Views: 0,
     landing2Clicks: 0,
     fallbackRedirects: 0,
+  });
+  const [lastDayStats, setLastDayStats] = useState<LastDayStats>({
+    newSessions: 0,
+    newPageViews: 0,
+    relatedSearchClicks: 0,
+    webResultClicks: 0,
   });
   const [loading, setLoading] = useState(true);
   const [filterCountry, setFilterCountry] = useState('all');
@@ -99,6 +112,25 @@ const Analytics = () => {
       setClicks(clicksData);
 
       const uniqueCountries = new Set(sessionsData.map(s => s.country));
+
+      // "Last 1 day" == last 24 hours (rolling window)
+      const cutoffMs = Date.now() - 24 * 60 * 60 * 1000;
+      const isWithinLastDay = (iso: string) => {
+        const t = new Date(iso).getTime();
+        return Number.isFinite(t) && t >= cutoffMs;
+      };
+
+      const newSessions = sessionsData.filter(s => isWithinLastDay(s.first_seen));
+      const activeSessionsLastDay = sessionsData.filter(s => isWithinLastDay(s.last_active));
+      const clicksLastDay = clicksData.filter(c => isWithinLastDay(c.clicked_at));
+
+      setLastDayStats({
+        newSessions: newSessions.length,
+        // Best available approximation with current schema: sum page_views for sessions active in the last 24h
+        newPageViews: activeSessionsLastDay.reduce((sum, s) => sum + (s.page_views || 0), 0),
+        relatedSearchClicks: clicksLastDay.filter(c => c.click_type === 'related_search').length,
+        webResultClicks: clicksLastDay.filter(c => c.click_type === 'web_result').length,
+      });
 
       setStats({
         totalClicks: clicksData.length,
@@ -207,6 +239,37 @@ const Analytics = () => {
         <Button variant="outline" onClick={clearLogs}>
           <Trash2 className="w-4 h-4 mr-2" /> Clear Logs
         </Button>
+      </div>
+
+      {/* Last 24 Hours */}
+      <div className="glass-card p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-semibold text-foreground">Last 24 Hours</h3>
+          <span className="text-xs text-muted-foreground">Rolling window</span>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="stat-card">
+            <Users className="w-5 h-5 text-primary mb-2" />
+            <p className="text-3xl font-display font-bold text-primary mb-1">{lastDayStats.newSessions}</p>
+            <p className="text-muted-foreground text-sm">New sessions</p>
+          </div>
+          <div className="stat-card">
+            <Eye className="w-5 h-5 text-primary mb-2" />
+            <p className="text-3xl font-display font-bold text-primary mb-1">{lastDayStats.newPageViews}</p>
+            <p className="text-muted-foreground text-sm">New page views</p>
+          </div>
+          <div className="stat-card">
+            <Search className="w-5 h-5 text-primary mb-2" />
+            <p className="text-3xl font-display font-bold text-primary mb-1">{lastDayStats.relatedSearchClicks}</p>
+            <p className="text-muted-foreground text-sm">Related searches clicks</p>
+          </div>
+          <div className="stat-card">
+            <Link className="w-5 h-5 text-primary mb-2" />
+            <p className="text-3xl font-display font-bold text-primary mb-1">{lastDayStats.webResultClicks}</p>
+            <p className="text-muted-foreground text-sm">Web results clicks</p>
+          </div>
+        </div>
       </div>
 
       {/* Stats Grid */}
