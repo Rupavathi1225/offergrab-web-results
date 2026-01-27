@@ -274,8 +274,8 @@ const WhiteBlogPage = () => {
                 <div
                   className="prose prose-lg max-w-none
                     prose-headings:text-foreground
-                    prose-h2:text-2xl prose-h2:font-bold prose-h2:mt-8 prose-h2:mb-4
-                    prose-h3:text-lg prose-h3:font-bold prose-h3:mt-6 prose-h3:mb-3
+                    prose-h2:text-2xl prose-h2:!font-bold prose-h2:mt-8 prose-h2:mb-4
+                    prose-h3:text-lg prose-h3:!font-bold prose-h3:mt-6 prose-h3:mb-3
                     prose-p:text-foreground/90 prose-p:leading-relaxed prose-p:mb-5 prose-p:text-base
                     prose-a:text-primary prose-a:hover:underline
                     prose-strong:text-foreground prose-strong:font-semibold
@@ -315,8 +315,8 @@ const WhiteBlogPage = () => {
                 <div
                   className="prose prose-lg max-w-none
                     prose-headings:text-foreground
-                    prose-h2:text-2xl prose-h2:font-bold prose-h2:mt-8 prose-h2:mb-4
-                    prose-h3:text-lg prose-h3:font-bold prose-h3:mt-6 prose-h3:mb-3
+                    prose-h2:text-2xl prose-h2:!font-bold prose-h2:mt-8 prose-h2:mb-4
+                    prose-h3:text-lg prose-h3:!font-bold prose-h3:mt-6 prose-h3:mb-3
                     prose-p:text-foreground/90 prose-p:leading-relaxed prose-p:mb-5 prose-p:text-base
                     prose-a:text-primary prose-a:hover:underline
                     prose-strong:text-foreground prose-strong:font-semibold
