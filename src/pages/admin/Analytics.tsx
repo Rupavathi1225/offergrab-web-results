@@ -64,6 +64,17 @@ interface LastDayStats {
   relatedSearchClicks: number;
   webResultClicks: number;
   thankyouViews: number;
+  landing2Views: number;
+  fallbackRedirects: number;
+}
+
+interface LastDayDetailClick {
+  id: string;
+  session_id: string;
+  item_name: string | null;
+  page: string | null;
+  original_link: string | null;
+  clicked_at: string;
 }
 
 const Analytics = () => {
@@ -88,7 +99,11 @@ const Analytics = () => {
     relatedSearchClicks: 0,
     webResultClicks: 0,
     thankyouViews: 0,
+    landing2Views: 0,
+    fallbackRedirects: 0,
   });
+  const [lastDayDetailOpen, setLastDayDetailOpen] = useState<'landing2_view' | 'fallback_redirect' | null>(null);
+  const [lastDayDetailClicks, setLastDayDetailClicks] = useState<LastDayDetailClick[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterCountry, setFilterCountry] = useState('all');
   const [filterSource, setFilterSource] = useState('all');
@@ -133,6 +148,8 @@ const Analytics = () => {
         relatedSearchClicks: clicksLastDay.filter(c => c.click_type === 'related_search').length,
         webResultClicks: clicksLastDay.filter(c => c.click_type === 'web_result').length,
         thankyouViews: clicksLastDay.filter(c => c.click_type === 'thankyou_view').length,
+        landing2Views: clicksLastDay.filter(c => c.click_type === 'landing2_view').length,
+        fallbackRedirects: clicksLastDay.filter(c => c.click_type === 'fallback_redirect').length,
       });
 
       setStats({
@@ -206,6 +223,16 @@ const Analytics = () => {
     return uniqueItems.size;
   };
 
+  const openLastDayDetail = (type: 'landing2_view' | 'fallback_redirect') => {
+    const cutoffMs = Date.now() - 24 * 60 * 60 * 1000;
+    const filtered = clicks.filter(c => {
+      const t = new Date(c.clicked_at).getTime();
+      return Number.isFinite(t) && t >= cutoffMs && c.click_type === type;
+    });
+    setLastDayDetailClicks(filtered);
+    setLastDayDetailOpen(type);
+  };
+
   const filteredSessions = sessions.filter(session => {
     if (filterCountry !== 'all' && session.country_code !== filterCountry) return false;
     if (filterSource !== 'all' && session.source !== filterSource) return false;
@@ -251,7 +278,7 @@ const Analytics = () => {
           <span className="text-xs text-muted-foreground">Rolling window</span>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
           <div className="stat-card">
             <Users className="w-5 h-5 text-primary mb-2" />
             <p className="text-3xl font-display font-bold text-primary mb-1">{lastDayStats.newSessions}</p>
@@ -265,7 +292,7 @@ const Analytics = () => {
           <div className="stat-card">
             <Search className="w-5 h-5 text-primary mb-2" />
             <p className="text-3xl font-display font-bold text-primary mb-1">{lastDayStats.relatedSearchClicks}</p>
-            <p className="text-muted-foreground text-sm">Related searches clicks</p>
+            <p className="text-muted-foreground text-sm">Related searches</p>
           </div>
           <div className="stat-card">
             <Link className="w-5 h-5 text-primary mb-2" />
@@ -276,6 +303,30 @@ const Analytics = () => {
             <MousePointer className="w-5 h-5 text-emerald-500 mb-2" />
             <p className="text-3xl font-display font-bold text-emerald-500 mb-1">{lastDayStats.thankyouViews}</p>
             <p className="text-muted-foreground text-sm">Thank You views</p>
+          </div>
+          {/* Landing2 Views - Clickable */}
+          <div 
+            className="stat-card cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+            onClick={() => openLastDayDetail('landing2_view')}
+          >
+            <div className="flex items-center justify-between w-full">
+              <Eye className="w-5 h-5 text-amber-500 mb-2" />
+              <span className="text-xs text-muted-foreground hover:text-primary">more →</span>
+            </div>
+            <p className="text-3xl font-display font-bold text-amber-500 mb-1">{lastDayStats.landing2Views}</p>
+            <p className="text-muted-foreground text-sm">/q Views</p>
+          </div>
+          {/* Fallback Redirects - Clickable */}
+          <div 
+            className="stat-card cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+            onClick={() => openLastDayDetail('fallback_redirect')}
+          >
+            <div className="flex items-center justify-between w-full">
+              <Link className="w-5 h-5 text-rose-500 mb-2" />
+              <span className="text-xs text-muted-foreground hover:text-primary">more →</span>
+            </div>
+            <p className="text-3xl font-display font-bold text-rose-500 mb-1">{lastDayStats.fallbackRedirects}</p>
+            <p className="text-muted-foreground text-sm">Fallback redirects</p>
           </div>
         </div>
       </div>
@@ -506,6 +557,64 @@ const Analytics = () => {
                     <td className="font-mono text-xs">{click.item_id?.substring(0, 10)}...</td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Last 24 Hours Detail Dialog */}
+      <Dialog open={!!lastDayDetailOpen} onOpenChange={() => setLastDayDetailOpen(null)}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {lastDayDetailOpen === 'landing2_view' ? '/q (Landing2) Views' : 'Fallback Redirects'} - Last 24 Hours
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Total: {lastDayDetailClicks.length} events in the last 24 hours
+            </p>
+          </DialogHeader>
+          
+          <div className="overflow-x-auto">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Session ID</th>
+                  <th>Page</th>
+                  {lastDayDetailOpen === 'fallback_redirect' && <th>Redirect URL</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {lastDayDetailClicks.length === 0 ? (
+                  <tr>
+                    <td colSpan={lastDayDetailOpen === 'fallback_redirect' ? 4 : 3} className="text-center text-muted-foreground py-8">
+                      No events in the last 24 hours
+                    </td>
+                  </tr>
+                ) : (
+                  lastDayDetailClicks.map((click) => (
+                    <tr key={click.id}>
+                      <td className="text-xs">{new Date(click.clicked_at).toLocaleString()}</td>
+                      <td className="font-mono text-xs">{click.session_id.substring(0, 16)}...</td>
+                      <td className="text-xs text-muted-foreground">{click.page || '-'}</td>
+                      {lastDayDetailOpen === 'fallback_redirect' && (
+                        <td className="text-xs">
+                          {click.original_link ? (
+                            <a 
+                              href={click.original_link} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="text-primary hover:underline truncate max-w-[200px] inline-block"
+                            >
+                              {click.original_link.substring(0, 40)}...
+                            </a>
+                          ) : '-'}
+                        </td>
+                      )}
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
