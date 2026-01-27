@@ -4,13 +4,13 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Save, Trash2, GripVertical, Pencil, X, Search } from "lucide-react";
+import { Plus, Save, Trash2, GripVertical, Pencil, X, Search, FileSpreadsheet } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import BulkActionToolbar from "@/components/admin/BulkActionToolbar";
 import { generateRandomToken } from "@/lib/linkGenerator";
 import { convertToCSV, downloadCSV } from "@/lib/csvExport";
-
+import BulkSearchTitleEditor from "@/components/admin/BulkSearchTitleEditor";
 interface Blog {
   id: string;
   title: string;
@@ -34,6 +34,7 @@ const SearchButtons = () => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
+  const [showBulkEditor, setShowBulkEditor] = useState(false);
 
   useEffect(() => {
     fetchButtons();
@@ -253,6 +254,19 @@ const SearchButtons = () => {
     );
   }
 
+  // Show bulk editor if toggled
+  if (showBulkEditor) {
+    return (
+      <BulkSearchTitleEditor
+        onClose={() => setShowBulkEditor(false)}
+        onSuccess={() => {
+          fetchButtons();
+          setShowBulkEditor(false);
+        }}
+      />
+    );
+  }
+
   // Filter buttons based on search query
   const filteredButtons = buttons.filter(b => {
     if (!searchQuery) return true;
@@ -266,9 +280,15 @@ const SearchButtons = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-display font-bold text-foreground mb-2">Search Buttons</h1>
-        <p className="text-muted-foreground">Manage related search buttons on landing page</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-display font-bold text-foreground mb-2">Search Buttons</h1>
+          <p className="text-muted-foreground">Manage related search buttons on landing page</p>
+        </div>
+        <Button onClick={() => setShowBulkEditor(true)} variant="outline" className="flex items-center gap-2">
+          <FileSpreadsheet className="w-4 h-4" />
+          Bulk Title Editor
+        </Button>
       </div>
 
       {/* Search Box */}
