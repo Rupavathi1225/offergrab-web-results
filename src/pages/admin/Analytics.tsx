@@ -102,8 +102,9 @@ const Analytics = () => {
     landing2Views: 0,
     fallbackRedirects: 0,
   });
-  const [lastDayDetailOpen, setLastDayDetailOpen] = useState<'landing2_view' | 'fallback_redirect' | null>(null);
+  const [lastDayDetailOpen, setLastDayDetailOpen] = useState<'sessions' | 'page_views' | 'related_search' | 'web_result' | 'thankyou_view' | 'landing2_view' | 'fallback_redirect' | null>(null);
   const [lastDayDetailClicks, setLastDayDetailClicks] = useState<LastDayDetailClick[]>([]);
+  const [lastDaySessions, setLastDaySessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterCountry, setFilterCountry] = useState('all');
   const [filterSource, setFilterSource] = useState('all');
@@ -223,14 +224,40 @@ const Analytics = () => {
     return uniqueItems.size;
   };
 
-  const openLastDayDetail = (type: 'landing2_view' | 'fallback_redirect') => {
+  const openLastDayDetail = (type: 'sessions' | 'page_views' | 'related_search' | 'web_result' | 'thankyou_view' | 'landing2_view' | 'fallback_redirect') => {
     const cutoffMs = Date.now() - 24 * 60 * 60 * 1000;
-    const filtered = clicks.filter(c => {
-      const t = new Date(c.clicked_at).getTime();
-      return Number.isFinite(t) && t >= cutoffMs && c.click_type === type;
-    });
-    setLastDayDetailClicks(filtered);
+    
+    if (type === 'sessions' || type === 'page_views') {
+      // For sessions/page_views, filter sessions
+      const filtered = sessions.filter(s => {
+        const t = new Date(type === 'sessions' ? s.first_seen : s.last_active).getTime();
+        return Number.isFinite(t) && t >= cutoffMs;
+      });
+      setLastDaySessions(filtered);
+      setLastDayDetailClicks([]);
+    } else {
+      // For click types, filter clicks
+      const filtered = clicks.filter(c => {
+        const t = new Date(c.clicked_at).getTime();
+        return Number.isFinite(t) && t >= cutoffMs && c.click_type === type;
+      });
+      setLastDayDetailClicks(filtered);
+      setLastDaySessions([]);
+    }
     setLastDayDetailOpen(type);
+  };
+
+  const getDetailTitle = (type: string) => {
+    switch (type) {
+      case 'sessions': return 'New Sessions';
+      case 'page_views': return 'Active Sessions (Page Views)';
+      case 'related_search': return 'Related Searches Clicks';
+      case 'web_result': return 'Web Results Clicks';
+      case 'thankyou_view': return 'Thank You Page Views';
+      case 'landing2_view': return '/q (Landing2) Views';
+      case 'fallback_redirect': return 'Fallback Redirects';
+      default: return 'Details';
+    }
   };
 
   const filteredSessions = sessions.filter(session => {
@@ -279,28 +306,63 @@ const Analytics = () => {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-          <div className="stat-card">
-            <Users className="w-5 h-5 text-primary mb-2" />
+          {/* New Sessions - Clickable */}
+          <div 
+            className="stat-card cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+            onClick={() => openLastDayDetail('sessions')}
+          >
+            <div className="flex items-center justify-between w-full">
+              <Users className="w-5 h-5 text-primary mb-2" />
+              <span className="text-xs text-muted-foreground hover:text-primary">more →</span>
+            </div>
             <p className="text-3xl font-display font-bold text-primary mb-1">{lastDayStats.newSessions}</p>
             <p className="text-muted-foreground text-sm">New sessions</p>
           </div>
-          <div className="stat-card">
-            <Eye className="w-5 h-5 text-primary mb-2" />
+          {/* Page Views - Clickable */}
+          <div 
+            className="stat-card cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+            onClick={() => openLastDayDetail('page_views')}
+          >
+            <div className="flex items-center justify-between w-full">
+              <Eye className="w-5 h-5 text-primary mb-2" />
+              <span className="text-xs text-muted-foreground hover:text-primary">more →</span>
+            </div>
             <p className="text-3xl font-display font-bold text-primary mb-1">{lastDayStats.newPageViews}</p>
             <p className="text-muted-foreground text-sm">New page views</p>
           </div>
-          <div className="stat-card">
-            <Search className="w-5 h-5 text-primary mb-2" />
+          {/* Related Searches - Clickable */}
+          <div 
+            className="stat-card cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+            onClick={() => openLastDayDetail('related_search')}
+          >
+            <div className="flex items-center justify-between w-full">
+              <Search className="w-5 h-5 text-primary mb-2" />
+              <span className="text-xs text-muted-foreground hover:text-primary">more →</span>
+            </div>
             <p className="text-3xl font-display font-bold text-primary mb-1">{lastDayStats.relatedSearchClicks}</p>
             <p className="text-muted-foreground text-sm">Related searches</p>
           </div>
-          <div className="stat-card">
-            <Link className="w-5 h-5 text-primary mb-2" />
+          {/* Web Results - Clickable */}
+          <div 
+            className="stat-card cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+            onClick={() => openLastDayDetail('web_result')}
+          >
+            <div className="flex items-center justify-between w-full">
+              <Link className="w-5 h-5 text-primary mb-2" />
+              <span className="text-xs text-muted-foreground hover:text-primary">more →</span>
+            </div>
             <p className="text-3xl font-display font-bold text-primary mb-1">{lastDayStats.webResultClicks}</p>
             <p className="text-muted-foreground text-sm">Web results clicks</p>
           </div>
-          <div className="stat-card">
-            <MousePointer className="w-5 h-5 text-emerald-500 mb-2" />
+          {/* Thank You Views - Clickable */}
+          <div 
+            className="stat-card cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+            onClick={() => openLastDayDetail('thankyou_view')}
+          >
+            <div className="flex items-center justify-between w-full">
+              <MousePointer className="w-5 h-5 text-emerald-500 mb-2" />
+              <span className="text-xs text-muted-foreground hover:text-primary">more →</span>
+            </div>
             <p className="text-3xl font-display font-bold text-emerald-500 mb-1">{lastDayStats.thankyouViews}</p>
             <p className="text-muted-foreground text-sm">Thank You views</p>
           </div>
@@ -568,55 +630,102 @@ const Analytics = () => {
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {lastDayDetailOpen === 'landing2_view' ? '/q (Landing2) Views' : 'Fallback Redirects'} - Last 24 Hours
+              {getDetailTitle(lastDayDetailOpen || '')} - Last 24 Hours
             </DialogTitle>
             <p className="text-sm text-muted-foreground">
-              Total: {lastDayDetailClicks.length} events in the last 24 hours
+              Total: {(lastDayDetailOpen === 'sessions' || lastDayDetailOpen === 'page_views') 
+                ? lastDaySessions.length 
+                : lastDayDetailClicks.length} {(lastDayDetailOpen === 'sessions' || lastDayDetailOpen === 'page_views') ? 'sessions' : 'events'} in the last 24 hours
             </p>
           </DialogHeader>
           
           <div className="overflow-x-auto">
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>Time</th>
-                  <th>Session ID</th>
-                  <th>Page</th>
-                  {lastDayDetailOpen === 'fallback_redirect' && <th>Redirect URL</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {lastDayDetailClicks.length === 0 ? (
+            {/* Sessions/Page Views Table */}
+            {(lastDayDetailOpen === 'sessions' || lastDayDetailOpen === 'page_views') ? (
+              <table className="data-table">
+                <thead>
                   <tr>
-                    <td colSpan={lastDayDetailOpen === 'fallback_redirect' ? 4 : 3} className="text-center text-muted-foreground py-8">
-                      No events in the last 24 hours
-                    </td>
+                    <th>Time</th>
+                    <th>Session ID</th>
+                    <th>Country</th>
+                    <th>Source</th>
+                    <th>Device</th>
+                    <th>Page Views</th>
                   </tr>
-                ) : (
-                  lastDayDetailClicks.map((click) => (
-                    <tr key={click.id}>
-                      <td className="text-xs">{new Date(click.clicked_at).toLocaleString()}</td>
-                      <td className="font-mono text-xs">{click.session_id.substring(0, 16)}...</td>
-                      <td className="text-xs text-muted-foreground">{click.page || '-'}</td>
-                      {lastDayDetailOpen === 'fallback_redirect' && (
-                        <td className="text-xs">
-                          {click.original_link ? (
-                            <a 
-                              href={click.original_link} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-primary hover:underline truncate max-w-[200px] inline-block"
-                            >
-                              {click.original_link.substring(0, 40)}...
-                            </a>
-                          ) : '-'}
-                        </td>
-                      )}
+                </thead>
+                <tbody>
+                  {lastDaySessions.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="text-center text-muted-foreground py-8">
+                        No sessions in the last 24 hours
+                      </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    lastDaySessions.map((session) => (
+                      <tr key={session.id}>
+                        <td className="text-xs">{new Date(lastDayDetailOpen === 'sessions' ? session.first_seen : session.last_active).toLocaleString()}</td>
+                        <td className="font-mono text-xs">{session.session_id.substring(0, 16)}...</td>
+                        <td>
+                          <span className="badge-primary">{session.country_code}</span>
+                        </td>
+                        <td>
+                          <span className="badge-primary">{session.source}</span>
+                        </td>
+                        <td className="text-xs">{session.device}</td>
+                        <td className="text-xs font-medium">{session.page_views}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            ) : (
+              /* Clicks Table */
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Time</th>
+                    <th>Session ID</th>
+                    {(lastDayDetailOpen === 'related_search' || lastDayDetailOpen === 'web_result') && <th>Item Name</th>}
+                    <th>Page</th>
+                    {lastDayDetailOpen === 'fallback_redirect' && <th>Redirect URL</th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {lastDayDetailClicks.length === 0 ? (
+                    <tr>
+                      <td colSpan={lastDayDetailOpen === 'fallback_redirect' ? 4 : (lastDayDetailOpen === 'related_search' || lastDayDetailOpen === 'web_result') ? 4 : 3} className="text-center text-muted-foreground py-8">
+                        No events in the last 24 hours
+                      </td>
+                    </tr>
+                  ) : (
+                    lastDayDetailClicks.map((click) => (
+                      <tr key={click.id}>
+                        <td className="text-xs">{new Date(click.clicked_at).toLocaleString()}</td>
+                        <td className="font-mono text-xs">{click.session_id.substring(0, 16)}...</td>
+                        {(lastDayDetailOpen === 'related_search' || lastDayDetailOpen === 'web_result') && (
+                          <td className="text-xs font-medium">{click.item_name || '-'}</td>
+                        )}
+                        <td className="text-xs text-muted-foreground">{click.page || '-'}</td>
+                        {lastDayDetailOpen === 'fallback_redirect' && (
+                          <td className="text-xs">
+                            {click.original_link ? (
+                              <a 
+                                href={click.original_link} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-primary hover:underline truncate max-w-[200px] inline-block"
+                              >
+                                {click.original_link.substring(0, 40)}...
+                              </a>
+                            ) : '-'}
+                          </td>
+                        )}
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            )}
           </div>
         </DialogContent>
       </Dialog>
