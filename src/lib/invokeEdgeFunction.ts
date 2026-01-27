@@ -1,4 +1,5 @@
-import { supabase } from "@/integrations/supabase/client";
+// Direct fetch wrapper for Supabase Edge Functions
+// Avoids SDK issues on custom domains / Render deployments
 
 const SUPABASE_FUNCTIONS_BASE_URL =
   "https://juxjsxgmghpdhurjkmyd.supabase.co/functions/v1";
@@ -12,59 +13,41 @@ type InvokeErr = { data: null; error: Error };
 
 // Some hosting setups / browser extensions can cause `supabase.functions.invoke` to fail
 // with a generic network error. We fall back to a direct fetch against the function URL.
+/**
+ * Directly calls the Supabase Edge Function via fetch (skips the SDK wrapper).
+ * This avoids "Failed to send a request to the Edge Function" issues that occur
+ * on some hosting setups / custom domains / when browser extensions interfere.
+ */
 export async function invokeEdgeFunction<T>(
   functionName: string,
   body: unknown,
 ): Promise<InvokeOk<T> | InvokeErr> {
+  const url = `${SUPABASE_FUNCTIONS_BASE_URL}/${encodeURIComponent(functionName)}`;
+
   try {
-    const { data, error } = await supabase.functions.invoke(functionName, { body });
-    if (error) throw error;
-    return { data: data as T, error: null };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
+    const resp = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: SUPABASE_PUBLISHABLE_KEY,
+        Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify(body ?? {}),
+    });
 
-    // Fallback only for common network-style failures.
-    const shouldFallback =
-      msg.includes("Failed to send a request to the Edge Function") ||
-      msg.toLowerCase().includes("failed to fetch") ||
-      msg.toLowerCase().includes("network");
+    const text = await resp.text();
 
-    if (!shouldFallback) {
-      return { data: null, error: e instanceof Error ? e : new Error(msg) };
-    }
-
-    try {
-      const resp = await fetch(
-        `${SUPABASE_FUNCTIONS_BASE_URL}/${encodeURIComponent(functionName)}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            apikey: SUPABASE_PUBLISHABLE_KEY,
-            Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify(body ?? {}),
-        },
-      );
-
-      const text = await resp.text();
-      if (!resp.ok) {
-        // Preserve useful errors like 429/402.
-        const details = text?.trim() ? ` — ${text.trim()}` : "";
-        return {
-          data: null,
-          error: new Error(`Edge Function error (${resp.status})${details}`),
-        };
-      }
-
-      return { data: (text ? JSON.parse(text) : {}) as T, error: null };
-    } catch (fallbackErr) {
-      const fallbackMsg =
-        fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr);
+    if (!resp.ok) {
+      const details = text?.trim() ? ` — ${text.trim()}` : "";
       return {
         data: null,
-        error: new Error(`${msg} (fallback failed: ${fallbackMsg})`),
+        error: new Error(`Edge Function error (${resp.status})${details}`),
       };
     }
+
+    return { data: (text ? JSON.parse(text) : {}) as T, error: null };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { data: null, error: new Error(msg) };
   }
 }
