@@ -120,9 +120,9 @@ const WhiteBlogPage = () => {
   const splitContentAtWordCount = (content: string, wordCount: number): { firstPart: string; secondPart: string } => {
     const words = content.split(/\s+/).filter(w => w.length > 0);
     const limitedWords = words.slice(0, wordCount);
-    const fifteenPercent = Math.ceil(limitedWords.length * 0.15);
-    const firstPart = limitedWords.slice(0, fifteenPercent).join(' ');
-    const secondPart = limitedWords.slice(fifteenPercent).join(' ');
+    const tenPercent = Math.ceil(limitedWords.length * 0.10);
+    const firstPart = limitedWords.slice(0, tenPercent).join(' ');
+    const secondPart = limitedWords.slice(tenPercent).join(' ');
     return { firstPart, secondPart };
   };
 
