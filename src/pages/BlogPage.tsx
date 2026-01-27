@@ -116,9 +116,9 @@ const BlogPage = () => {
   const splitContentAtWordCount = (content: string, wordCount: number): { firstPart: string; secondPart: string } => {
     const words = content.split(/\s+/).filter(w => w.length > 0);
     const limitedWords = words.slice(0, wordCount);
-    const thirtyPercent = Math.ceil(limitedWords.length * 0.3);
-    const firstPart = limitedWords.slice(0, thirtyPercent).join(' ');
-    const secondPart = limitedWords.slice(thirtyPercent).join(' ');
+    const fifteenPercent = Math.ceil(limitedWords.length * 0.15);
+    const firstPart = limitedWords.slice(0, fifteenPercent).join(' ');
+    const secondPart = limitedWords.slice(fifteenPercent).join(' ');
     return { firstPart, secondPart };
   };
 
@@ -199,22 +199,22 @@ const BlogPage = () => {
             />
           )}
 
-          {/* Related Searches - Middle */}
+          {/* Related Searches - After 15% content */}
           {relatedSearches && relatedSearches.length > 0 && (
-            <div className="my-12 py-8 border-y border-border/50">
-              <h3 className="text-sm font-medium text-muted-foreground mb-4 text-center uppercase tracking-wider">
+            <div className="my-12 py-10 border-y-2 border-border/50">
+              <h3 className="text-base font-medium text-muted-foreground mb-6 text-center uppercase tracking-wider">
                 Related Searches
               </h3>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {relatedSearches.map((search, index) => (
                   <div
                     key={search.id}
                     onClick={() => handleSearchClick(search)}
-                    className="group cursor-pointer bg-card/80 border border-border/30 rounded-lg px-4 py-3 flex items-center justify-between hover:bg-primary/20 hover:border-primary/50 transition-all duration-200"
+                    className="group cursor-pointer bg-card/80 border-2 border-border/50 rounded-xl px-6 py-5 flex items-center justify-between hover:bg-primary/20 hover:border-primary/50 transition-all duration-200 shadow-md hover:shadow-lg"
                     style={{ animationDelay: `${index * 0.05}s` }}
                   >
-                    <span className="text-primary text-sm font-medium">{search.title}</span>
-                    <span className="text-muted-foreground group-hover:text-primary transition-colors text-sm">
+                    <span className="text-primary text-lg font-semibold">{search.title}</span>
+                    <span className="text-muted-foreground group-hover:text-primary transition-colors text-2xl font-bold">
                       →
                     </span>
                   </div>

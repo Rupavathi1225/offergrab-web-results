@@ -120,9 +120,9 @@ const WhiteBlogPage = () => {
   const splitContentAtWordCount = (content: string, wordCount: number): { firstPart: string; secondPart: string } => {
     const words = content.split(/\s+/).filter(w => w.length > 0);
     const limitedWords = words.slice(0, wordCount);
-    const thirtyPercent = Math.ceil(limitedWords.length * 0.3);
-    const firstPart = limitedWords.slice(0, thirtyPercent).join(' ');
-    const secondPart = limitedWords.slice(thirtyPercent).join(' ');
+    const fifteenPercent = Math.ceil(limitedWords.length * 0.15);
+    const firstPart = limitedWords.slice(0, fifteenPercent).join(' ');
+    const secondPart = limitedWords.slice(fifteenPercent).join(' ');
     return { firstPart, secondPart };
   };
 
@@ -287,21 +287,21 @@ const WhiteBlogPage = () => {
                 />
               )}
 
-              {/* Related Searches - After 30% content */}
+              {/* Related Searches - After 15% content */}
               {relatedSearches && relatedSearches.length > 0 && (
-                <div className="my-10 py-8 border-y border-border">
-                  <h3 className="text-sm font-semibold text-muted-foreground mb-5 text-center uppercase tracking-wider">
+                <div className="my-12 py-10 border-y-2 border-border">
+                  <h3 className="text-base font-semibold text-muted-foreground mb-6 text-center uppercase tracking-wider">
                     Related Searches
                   </h3>
-                  <div className="max-w-lg mx-auto space-y-3">
+                  <div className="max-w-2xl mx-auto space-y-4">
                     {relatedSearches.map((search) => (
                       <div
                         key={search.id}
                         onClick={() => handleSearchClick(search)}
-                        className="group cursor-pointer border-2 border-border rounded-lg px-5 py-4 flex items-center justify-between hover:border-primary hover:bg-primary/10 transition-all duration-200 shadow-sm hover:shadow-md"
+                        className="group cursor-pointer border-2 border-border rounded-xl px-6 py-5 flex items-center justify-between hover:border-primary hover:bg-primary/10 transition-all duration-200 shadow-md hover:shadow-lg"
                       >
-                        <span className="text-primary font-medium text-base">{search.title}</span>
-                        <span className="text-muted-foreground group-hover:text-primary transition-colors text-lg font-bold">
+                        <span className="text-primary font-semibold text-lg">{search.title}</span>
+                        <span className="text-muted-foreground group-hover:text-primary transition-colors text-2xl font-bold">
                           →
                         </span>
                       </div>
