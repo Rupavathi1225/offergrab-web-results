@@ -132,19 +132,19 @@ const Landing = () => {
         </section>
 
         {searches.length > 0 && (
-          <section className="max-w-xl mx-auto">
-            <p className="text-center text-muted-foreground text-sm mb-6">Related Searches</p>
+          <section className="max-w-2xl mx-auto">
+            <p className="text-center text-muted-foreground text-base mb-6">Related Searches</p>
 
-            <div className="space-y-3">
+            <div className="space-y-4">
               {searches.map((search, index) => (
                 <article
                   key={search.id}
                   onClick={() => handleSearchClick(search)}
-                  className="group cursor-pointer bg-card/80 border border-border/30 rounded-lg px-4 py-3 flex items-center justify-between hover:bg-primary/20 hover:border-primary/50 transition-all duration-200"
+                  className="group cursor-pointer bg-card/80 border-2 border-border/50 rounded-xl px-6 py-5 flex items-center justify-between hover:bg-primary/20 hover:border-primary/50 transition-all duration-200 shadow-md hover:shadow-lg"
                   style={{ animationDelay: `${index * 0.05}s` }}
                 >
-                  <span className="text-primary text-sm font-medium">{search.title}</span>
-                  <span className="text-muted-foreground group-hover:text-primary transition-colors text-sm">
+                  <span className="text-primary text-lg font-semibold">{search.title}</span>
+                  <span className="text-muted-foreground group-hover:text-primary transition-colors text-2xl font-bold">
                     →
                   </span>
                 </article>
