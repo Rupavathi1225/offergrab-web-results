@@ -277,10 +277,11 @@ const Blogs = () => {
 
     setIsGeneratingImage(true);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-blog-image", {
-        body: { title: formData.title },
-      });
-
+      const { invokeEdgeFunction } = await import("@/lib/invokeEdgeFunction");
+      const { data, error } = await invokeEdgeFunction<{ imageUrl?: string; error?: string }>(
+        "generate-blog-image",
+        { title: formData.title },
+      );
       if (error) throw error;
 
       if (data.imageUrl) {
@@ -307,13 +308,11 @@ const Blogs = () => {
 
     setIsGeneratingH1(true);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-blog-content", {
-        body: { 
-          title: topic, 
-          generateType: 'h1'
-        },
-      });
-
+      const { invokeEdgeFunction } = await import("@/lib/invokeEdgeFunction");
+      const { data, error } = await invokeEdgeFunction<{ titles?: string[]; error?: string }>(
+        "generate-blog-content",
+        { title: topic, generateType: "h1" },
+      );
       if (error) throw error;
 
       if (data.titles && data.titles.length > 0) {
@@ -350,14 +349,11 @@ const Blogs = () => {
 
     setIsGeneratingH2(true);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-blog-content", {
-        body: { 
-          title: formData.title, 
-          generateType: 'h2',
-          h2Count: h2Count
-        },
-      });
-
+      const { invokeEdgeFunction } = await import("@/lib/invokeEdgeFunction");
+      const { data, error } = await invokeEdgeFunction<{ h2Sections?: string[]; error?: string }>(
+        "generate-blog-content",
+        { title: formData.title, generateType: "h2", h2Count },
+      );
       if (error) throw error;
 
       if (data.h2Sections && data.h2Sections.length > 0) {
@@ -401,16 +397,19 @@ const Blogs = () => {
 
     setIsGeneratingContent(true);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-blog-content", {
-        body: { 
-          title: formData.title, 
-          slug: formData.slug,
-          totalWordTarget: totalWordTarget,
-          h2Count: selectedH2s.length || h2Count,
-          generateType: 'full'
-        },
+      const { invokeEdgeFunction } = await import("@/lib/invokeEdgeFunction");
+      const { data, error } = await invokeEdgeFunction<{
+        content?: string;
+        relatedSearches?: string[];
+        outline?: unknown;
+        error?: string;
+      }>("generate-blog-content", {
+        title: formData.title,
+        slug: formData.slug,
+        totalWordTarget,
+        h2Count: selectedH2s.length || h2Count,
+        generateType: "full",
       });
-
       if (error) throw error;
 
       if (data.content) {
