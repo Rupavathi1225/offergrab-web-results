@@ -19,6 +19,7 @@ import BulkActionToolbar from "@/components/admin/BulkActionToolbar";
 import { convertToCSV, downloadCSV } from "@/lib/csvExport";
 import { generateMaskedLink, formatDate, formatWebResultForCopy, generateRandomToken } from "@/lib/linkGenerator";
 import SitelinksEditor from "@/components/admin/SitelinksEditor";
+import { BlogMultiSelectPopover } from "@/components/admin/BlogMultiSelectPopover";
 
 interface WebResult {
   id: string;
@@ -76,7 +77,8 @@ const WebResults = () => {
   // Blog and Related Search filtering
   const [selectedBlogIds, setSelectedBlogIds] = useState<string[]>([]);
   const [selectedRelatedSearchId, setSelectedRelatedSearchId] = useState<string>("");
-  const [blogFilterOpen, setBlogFilterOpen] = useState(false);
+  const [blogContextFilterOpen, setBlogContextFilterOpen] = useState(false);
+  const [blogTableFilterOpen, setBlogTableFilterOpen] = useState(false);
   
   // AI Generator state
   const [aiSelectedBlogId, setAiSelectedBlogId] = useState<string>("");
@@ -660,84 +662,16 @@ const WebResults = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <Label className="text-sm text-muted-foreground mb-1 block">Select Blogs</Label>
-            <Popover open={blogFilterOpen} onOpenChange={setBlogFilterOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="admin-input justify-between w-full"
-                  aria-expanded={blogFilterOpen}
-                >
-                  <span className="truncate">
-                    {selectedBlogIds.length === 0
-                      ? "All Blogs"
-                      : `${selectedBlogIds.length} blog${selectedBlogIds.length === 1 ? "" : "s"} selected`}
-                  </span>
-                  <ChevronDown
-                    className={`h-4 w-4 opacity-60 transition-transform ${blogFilterOpen ? "rotate-180" : ""}`}
-                  />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent 
-                className="z-[200] w-[320px] p-0 bg-popover text-popover-foreground border border-border shadow-lg" 
-                align="start"
-                onInteractOutside={(e) => {
-                  // Allow clicks on the popover trigger to toggle
-                  const target = e.target as HTMLElement;
-                  if (target.closest('[data-blog-filter-trigger]')) {
-                    e.preventDefault();
-                  }
-                }}
-              >
-                <div className="p-2 border-b border-border">
-                  <Input
-                    placeholder="Search blogs..."
-                    className="h-8"
-                    onChange={(e) => {
-                      const search = e.target.value.toLowerCase();
-                      const items = document.querySelectorAll('[data-blog-item]');
-                      items.forEach((item) => {
-                        const title = item.getAttribute('data-blog-title')?.toLowerCase() || '';
-                        (item as HTMLElement).style.display = title.includes(search) ? '' : 'none';
-                      });
-                    }}
-                  />
-                </div>
-                <div className="max-h-[300px] overflow-y-auto p-1">
-                  {/* All Blogs Option */}
-                  <div
-                    onClick={() => {
-                      clearBlogFilter();
-                      setBlogFilterOpen(false);
-                    }}
-                    className="flex items-center justify-between px-2 py-1.5 rounded-sm cursor-pointer hover:bg-accent hover:text-accent-foreground"
-                  >
-                    <span>All Blogs</span>
-                    {selectedBlogIds.length === 0 && <Check className="h-4 w-4" />}
-                  </div>
-                  
-                  {/* Individual Blog Items */}
-                  {blogs.map((blog) => {
-                    const checked = selectedBlogIdSet.has(blog.id);
-                    return (
-                      <div
-                        key={blog.id}
-                        data-blog-item
-                        data-blog-title={blog.title}
-                        onClick={() => toggleBlogFilter(blog.id)}
-                        className="flex items-center justify-between px-2 py-1.5 rounded-sm cursor-pointer hover:bg-accent hover:text-accent-foreground"
-                      >
-                        <span className="truncate pr-2">{blog.title}</span>
-                        <Checkbox
-                          checked={checked}
-                          className="pointer-events-none"
-                        />
-                      </div>
-                    );
-                  })}
-                </div>
-              </PopoverContent>
-            </Popover>
+            <BlogMultiSelectPopover
+              open={blogContextFilterOpen}
+              onOpenChange={setBlogContextFilterOpen}
+              blogs={blogs}
+              selectedBlogIds={selectedBlogIds}
+              onToggleBlog={toggleBlogFilter}
+              onClear={clearBlogFilter}
+              triggerClassName="admin-input justify-between w-full"
+              contentClassName="z-[200] w-[320px] p-0 bg-popover text-popover-foreground border border-border shadow-lg"
+            />
 
             {selectedBlogIds.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-2">
@@ -1146,51 +1080,16 @@ const WebResults = () => {
       <div className="flex items-center gap-4 flex-wrap">
         <div className="flex items-center gap-2">
           <Label className="text-sm text-muted-foreground whitespace-nowrap">Filter by Blog:</Label>
-          <Popover open={blogFilterOpen} onOpenChange={setBlogFilterOpen}>
-            <PopoverTrigger asChild>
-              <Button variant="outline" className="admin-input w-[220px] justify-between">
-                <span className="truncate">
-                  {selectedBlogIds.length === 0
-                    ? "All Blogs"
-                    : `${selectedBlogIds.length} selected`}
-                </span>
-                <ChevronDown className="h-4 w-4 opacity-60" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[320px] p-0" align="start">
-              <Command>
-                <CommandInput placeholder="Search blogs..." />
-                <CommandList>
-                  <CommandEmpty>No blogs found.</CommandEmpty>
-                  <CommandGroup>
-                    <CommandItem
-                      onSelect={() => {
-                        clearBlogFilter();
-                        setBlogFilterOpen(false);
-                      }}
-                      className="flex items-center justify-between"
-                    >
-                      <span>All Blogs</span>
-                      {selectedBlogIds.length === 0 ? <Check className="h-4 w-4" /> : null}
-                    </CommandItem>
-                    {blogs.map((blog) => {
-                      const checked = selectedBlogIdSet.has(blog.id);
-                      return (
-                        <CommandItem
-                          key={blog.id}
-                          onSelect={() => toggleBlogFilter(blog.id)}
-                          className="flex items-center justify-between"
-                        >
-                          <span className="truncate pr-2">{blog.title}</span>
-                          <Checkbox checked={checked} />
-                        </CommandItem>
-                      );
-                    })}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+          <BlogMultiSelectPopover
+            open={blogTableFilterOpen}
+            onOpenChange={setBlogTableFilterOpen}
+            blogs={blogs}
+            selectedBlogIds={selectedBlogIds}
+            onToggleBlog={toggleBlogFilter}
+            onClear={clearBlogFilter}
+            triggerClassName="admin-input w-[220px] justify-between"
+            contentClassName="z-[200] w-[320px] p-0 bg-popover text-popover-foreground border border-border shadow-lg"
+          />
         </div>
         {selectedBlogIds.length > 0 && (
           <Button 
