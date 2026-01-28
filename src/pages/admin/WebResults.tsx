@@ -660,12 +660,12 @@ const WebResults = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <Label className="text-sm text-muted-foreground mb-1 block">Select Blogs</Label>
-            <Popover open={blogFilterOpen} onOpenChange={setBlogFilterOpen} modal={false}>
+            <Popover open={blogFilterOpen} onOpenChange={setBlogFilterOpen}>
               <PopoverTrigger asChild>
                 <Button
                   type="button"
                   variant="outline"
-                  className="admin-input justify-between"
+                  className="admin-input justify-between w-full"
                   aria-expanded={blogFilterOpen}
                 >
                   <span className="truncate">
@@ -679,48 +679,63 @@ const WebResults = () => {
                 </Button>
               </PopoverTrigger>
               <PopoverContent 
-                className="z-[100] w-[320px] p-0 bg-popover text-popover-foreground border border-border shadow-md" 
+                className="z-[200] w-[320px] p-0 bg-popover text-popover-foreground border border-border shadow-lg" 
                 align="start"
-                onOpenAutoFocus={(e) => e.preventDefault()}
+                onInteractOutside={(e) => {
+                  // Allow clicks on the popover trigger to toggle
+                  const target = e.target as HTMLElement;
+                  if (target.closest('[data-blog-filter-trigger]')) {
+                    e.preventDefault();
+                  }
+                }}
               >
-                <Command shouldFilter={true}>
-                  <CommandInput placeholder="Search blogs..." />
-                  <CommandList className="max-h-[300px]">
-                    <CommandEmpty>No blogs found.</CommandEmpty>
-                    <CommandGroup>
-                      <CommandItem
-                        value="all-blogs-option"
-                        onSelect={() => {
-                          clearBlogFilter();
-                          setBlogFilterOpen(false);
-                        }}
-                        className="flex items-center justify-between cursor-pointer"
+                <div className="p-2 border-b border-border">
+                  <Input
+                    placeholder="Search blogs..."
+                    className="h-8"
+                    onChange={(e) => {
+                      const search = e.target.value.toLowerCase();
+                      const items = document.querySelectorAll('[data-blog-item]');
+                      items.forEach((item) => {
+                        const title = item.getAttribute('data-blog-title')?.toLowerCase() || '';
+                        (item as HTMLElement).style.display = title.includes(search) ? '' : 'none';
+                      });
+                    }}
+                  />
+                </div>
+                <div className="max-h-[300px] overflow-y-auto p-1">
+                  {/* All Blogs Option */}
+                  <div
+                    onClick={() => {
+                      clearBlogFilter();
+                      setBlogFilterOpen(false);
+                    }}
+                    className="flex items-center justify-between px-2 py-1.5 rounded-sm cursor-pointer hover:bg-accent hover:text-accent-foreground"
+                  >
+                    <span>All Blogs</span>
+                    {selectedBlogIds.length === 0 && <Check className="h-4 w-4" />}
+                  </div>
+                  
+                  {/* Individual Blog Items */}
+                  {blogs.map((blog) => {
+                    const checked = selectedBlogIdSet.has(blog.id);
+                    return (
+                      <div
+                        key={blog.id}
+                        data-blog-item
+                        data-blog-title={blog.title}
+                        onClick={() => toggleBlogFilter(blog.id)}
+                        className="flex items-center justify-between px-2 py-1.5 rounded-sm cursor-pointer hover:bg-accent hover:text-accent-foreground"
                       >
-                        <span>All Blogs</span>
-                        {selectedBlogIds.length === 0 ? <Check className="h-4 w-4" /> : null}
-                      </CommandItem>
-                      {blogs.map((blog) => {
-                        const checked = selectedBlogIdSet.has(blog.id);
-                        return (
-                          <CommandItem
-                            key={blog.id}
-                            value={blog.title}
-                            onSelect={() => {
-                              toggleBlogFilter(blog.id);
-                            }}
-                            className="flex items-center justify-between cursor-pointer"
-                          >
-                            <span className="truncate pr-2">{blog.title}</span>
-                            <Checkbox
-                              checked={checked}
-                              className="pointer-events-none"
-                            />
-                          </CommandItem>
-                        );
-                      })}
-                    </CommandGroup>
-                  </CommandList>
-                </Command>
+                        <span className="truncate pr-2">{blog.title}</span>
+                        <Checkbox
+                          checked={checked}
+                          className="pointer-events-none"
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
               </PopoverContent>
             </Popover>
 
