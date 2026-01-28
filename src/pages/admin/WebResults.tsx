@@ -1445,6 +1445,7 @@ const WebResults = () => {
             <SitelinksEditor
               webResultId={sitelinksTarget.id}
               webResultTitle={sitelinksTarget.title}
+              webResultLink={sitelinksTarget.link}
               onClose={() => {
                 setShowSitelinksDialog(false);
                 setSitelinksTarget(null);

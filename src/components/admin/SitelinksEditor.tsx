@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Trash2, Save, Link, ExternalLink } from "lucide-react";
+import { Trash2, Save, ExternalLink, Copy } from "lucide-react";
 
 interface Sitelink {
   id?: string;
@@ -19,13 +19,26 @@ interface Sitelink {
 interface SitelinksEditorProps {
   webResultId: string;
   webResultTitle: string;
+  webResultLink: string; // The main link from the web result
   onClose: () => void;
 }
 
-const SitelinksEditor = ({ webResultId, webResultTitle, onClose }: SitelinksEditorProps) => {
+const SitelinksEditor = ({ webResultId, webResultTitle, webResultLink, onClose }: SitelinksEditorProps) => {
   const [sitelinks, setSitelinks] = useState<Sitelink[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Apply the web result's main link to all 4 sitelink URL fields
+  const applyLinkToAll = () => {
+    if (!webResultLink) {
+      toast({ title: "No link available", description: "The web result has no link to apply.", variant: "destructive" });
+      return;
+    }
+    setSitelinks((prev) =>
+      prev.map((s) => ({ ...s, url: webResultLink }))
+    );
+    toast({ title: "Applied!", description: "Link applied to all 4 sitelinks." });
+  };
 
   // Predefined action-based sitelink suggestions
   const sitelinkSuggestions = [
@@ -158,6 +171,33 @@ const SitelinksEditor = ({ webResultId, webResultTitle, onClose }: SitelinksEdit
         <p className="text-xs text-muted-foreground mt-1">
           <strong>Web Result:</strong> {webResultTitle}
         </p>
+      </div>
+
+      {/* Use Same URL for All */}
+      <div className="bg-accent/30 border border-accent rounded-lg p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <Label className="font-medium">Use Same URL for All Sitelinks</Label>
+            <p className="text-xs text-muted-foreground mt-1">
+              Apply the web result's main link to all 4 sitelink URL fields
+            </p>
+            {webResultLink && (
+              <p className="text-xs text-primary mt-1 truncate max-w-md">
+                {webResultLink}
+              </p>
+            )}
+          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={applyLinkToAll}
+            disabled={!webResultLink}
+            className="flex items-center gap-2"
+          >
+            <Copy className="w-4 h-4" />
+            Apply to All
+          </Button>
+        </div>
       </div>
 
       {/* Quick suggestions */}
