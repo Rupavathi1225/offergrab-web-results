@@ -66,6 +66,7 @@ interface GeneratedWebResult {
   isSelected: boolean;
   isSponsored: boolean;
   sitelinks: GeneratedSitelink[];
+  selectedSitelinkIdx?: number; // Track which sitelink is selected for suggestion targeting
 }
 
 const WebResults = () => {
@@ -975,7 +976,7 @@ const WebResults = () => {
                             <div className="flex items-center justify-between mb-2">
                               <Label className="text-xs font-medium text-primary flex items-center gap-1.5">
                                 <Link2 className="w-3 h-3" />
-                                Sitelinks (4)
+                                Sitelinks (4) - Click a sitelink to select, then click suggestion
                               </Label>
                               <Button
                                 type="button"
@@ -988,43 +989,87 @@ const WebResults = () => {
                                 Use Same URL
                               </Button>
                             </div>
-                            {/* Quick suggestions for sitelink titles */}
-                            <div className="flex flex-wrap gap-1 mb-2">
-                              {["Apply Now", "Get Quote", "Contact Us", "Learn More", "Shop Deals", "Book Today", "Sign Up", "View Plans"].map((suggestion) => (
-                                <Button
-                                  key={suggestion}
-                                  type="button"
-                                  variant="outline"
-                                  size="sm"
-                                  className="h-5 text-[10px] px-1.5 py-0"
-                                  onClick={() => {
-                                    // Find first empty or first sitelink to update
-                                    const emptyIdx = result.sitelinks?.findIndex(s => !s.title.trim());
-                                    const targetIdx = emptyIdx !== -1 ? emptyIdx : 0;
-                                    updateGeneratedSitelink(index, targetIdx, 'title', suggestion);
-                                  }}
-                                >
-                                  {suggestion}
-                                </Button>
-                              ))}
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
+                            {/* Sitelink cards with title and URL fields */}
+                            <div className="space-y-2">
                               {result.sitelinks.map((sitelink, sitelinkIdx) => (
                                 <div 
                                   key={sitelinkIdx} 
-                                  className={`flex items-center gap-2 p-2 rounded border text-xs ${sitelink.is_active ? 'border-primary/30 bg-primary/5' : 'border-border/30 bg-muted/20 opacity-60'}`}
+                                  className={`p-2 rounded border text-xs transition-all cursor-pointer ${
+                                    result.selectedSitelinkIdx === sitelinkIdx 
+                                      ? 'border-primary bg-primary/10 ring-1 ring-primary' 
+                                      : sitelink.is_active 
+                                        ? 'border-primary/30 bg-primary/5 hover:border-primary/50' 
+                                        : 'border-border/30 bg-muted/20 opacity-60'
+                                  }`}
+                                  onClick={() => {
+                                    // Set this sitelink as selected
+                                    setGeneratedResults(prev => prev.map((r, i) => 
+                                      i === index ? { ...r, selectedSitelinkIdx: sitelinkIdx } : r
+                                    ));
+                                  }}
                                 >
-                                  <Switch
-                                    checked={sitelink.is_active}
-                                    onCheckedChange={(val) => updateGeneratedSitelink(index, sitelinkIdx, 'is_active', val)}
-                                    className="scale-75"
-                                  />
-                                  <Input
-                                    value={sitelink.title}
-                                    onChange={(e) => updateGeneratedSitelink(index, sitelinkIdx, 'title', e.target.value)}
-                                    placeholder="Title"
-                                    className="h-7 text-xs flex-1"
-                                  />
+                                  <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                      <span className="bg-primary text-primary-foreground rounded-full w-5 h-5 flex items-center justify-center text-[10px] font-bold">
+                                        {sitelinkIdx + 1}
+                                      </span>
+                                      <span className="font-medium">Sitelink {sitelinkIdx + 1}</span>
+                                      {result.selectedSitelinkIdx === sitelinkIdx && (
+                                        <span className="text-[10px] text-primary font-medium">(Selected)</span>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Label className="text-[10px] text-muted-foreground">Active</Label>
+                                      <Switch
+                                        checked={sitelink.is_active}
+                                        onCheckedChange={(val) => updateGeneratedSitelink(index, sitelinkIdx, 'is_active', val)}
+                                        className="scale-75"
+                                        onClick={(e) => e.stopPropagation()}
+                                      />
+                                    </div>
+                                  </div>
+                                  {/* Quick suggestions - only show for selected sitelink */}
+                                  {result.selectedSitelinkIdx === sitelinkIdx && (
+                                    <div className="flex flex-wrap gap-1 mb-2">
+                                      {["Apply Now", "Get Quote", "Contact Us", "Learn More", "Shop Deals", "Book Today", "Sign Up", "View Plans"].map((suggestion) => (
+                                        <Button
+                                          key={suggestion}
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          className="h-5 text-[10px] px-1.5 py-0"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            updateGeneratedSitelink(index, sitelinkIdx, 'title', suggestion);
+                                          }}
+                                        >
+                                          {suggestion}
+                                        </Button>
+                                      ))}
+                                    </div>
+                                  )}
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <Label className="text-[10px] text-muted-foreground">Title</Label>
+                                      <Input
+                                        value={sitelink.title}
+                                        onChange={(e) => updateGeneratedSitelink(index, sitelinkIdx, 'title', e.target.value)}
+                                        placeholder="e.g., Apply Now"
+                                        className="h-7 text-xs mt-1"
+                                        onClick={(e) => e.stopPropagation()}
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label className="text-[10px] text-muted-foreground">URL</Label>
+                                      <Input
+                                        value={sitelink.url}
+                                        onChange={(e) => updateGeneratedSitelink(index, sitelinkIdx, 'url', e.target.value)}
+                                        placeholder="https://example.com"
+                                        className="h-7 text-xs mt-1"
+                                        onClick={(e) => e.stopPropagation()}
+                                      />
+                                    </div>
+                                  </div>
                                 </div>
                               ))}
                             </div>
