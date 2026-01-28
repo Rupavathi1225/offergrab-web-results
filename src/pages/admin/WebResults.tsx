@@ -52,6 +52,12 @@ interface RelatedSearch {
   blog_id: string | null;
 }
 
+interface GeneratedSitelink {
+  title: string;
+  url: string;
+  is_active: boolean;
+}
+
 interface GeneratedWebResult {
   name: string;
   title: string;
@@ -59,6 +65,7 @@ interface GeneratedWebResult {
   link: string;
   isSelected: boolean;
   isSponsored: boolean;
+  sitelinks: GeneratedSitelink[];
 }
 
 const WebResults = () => {
@@ -184,6 +191,7 @@ const WebResults = () => {
           ...r,
           isSelected: false,
           isSponsored: false,
+          sitelinks: [],
         })));
         toast({ title: "Success", description: `${data.webResults.length} web results generated! Select up to 4.` });
       } else {
@@ -219,10 +227,45 @@ const WebResults = () => {
 
   const toggleGeneratedResultSponsored = (index: number) => {
     setGeneratedResults(prev => 
-      prev.map((r, i) => 
-        i === index ? { ...r, isSponsored: !r.isSponsored } : r
-      )
+      prev.map((r, i) => {
+        if (i !== index) return r;
+        const newIsSponsored = !r.isSponsored;
+        // When enabling sponsored, initialize 4 empty sitelinks with the web result's link
+        if (newIsSponsored && r.sitelinks.length === 0) {
+          const defaultSitelinks: GeneratedSitelink[] = [
+            { title: "Apply Now", url: r.link, is_active: true },
+            { title: "Learn More", url: r.link, is_active: true },
+            { title: "Get Quote", url: r.link, is_active: true },
+            { title: "Contact Us", url: r.link, is_active: true },
+          ];
+          return { ...r, isSponsored: newIsSponsored, sitelinks: defaultSitelinks };
+        }
+        return { ...r, isSponsored: newIsSponsored };
+      })
     );
+  };
+
+  const updateGeneratedSitelink = (resultIndex: number, sitelinkIndex: number, field: keyof GeneratedSitelink, value: string | boolean) => {
+    setGeneratedResults(prev => 
+      prev.map((r, i) => {
+        if (i !== resultIndex) return r;
+        const updatedSitelinks = r.sitelinks.map((s, si) => 
+          si === sitelinkIndex ? { ...s, [field]: value } : s
+        );
+        return { ...r, sitelinks: updatedSitelinks };
+      })
+    );
+  };
+
+  const applyLinkToAllSitelinks = (resultIndex: number) => {
+    setGeneratedResults(prev => 
+      prev.map((r, i) => {
+        if (i !== resultIndex) return r;
+        const updatedSitelinks = r.sitelinks.map(s => ({ ...s, url: r.link }));
+        return { ...r, sitelinks: updatedSitelinks };
+      })
+    );
+    toast({ title: "Applied!", description: "Link applied to all sitelinks." });
   };
 
   const updateGeneratedResult = (index: number, field: keyof GeneratedWebResult, value: string) => {
@@ -254,12 +297,44 @@ const WebResults = () => {
         serial_number: idx + 1,
         is_active: true,
         allowed_countries: ['worldwide'],
-        blog_id: search.blog_id, // Link to blog for proper cascade delete
-        related_search_id: search.id, // Link to related search
+        blog_id: search.blog_id,
+        related_search_id: search.id,
       }));
 
-      const { error } = await supabase.from('web_results').insert(resultsToInsert);
+      const { data: insertedResults, error } = await supabase
+        .from('web_results')
+        .insert(resultsToInsert)
+        .select('id');
       if (error) throw error;
+
+      // Insert sitelinks for sponsored results
+      if (insertedResults && insertedResults.length > 0) {
+        const sitelinksToInsert: { web_result_id: string; title: string; url: string; position: number; is_active: boolean }[] = [];
+        
+        selectedResults.forEach((r, idx) => {
+          if (r.isSponsored && r.sitelinks.length > 0 && insertedResults[idx]) {
+            r.sitelinks.forEach((sitelink, sitelinkIdx) => {
+              if (sitelink.title.trim() && sitelink.url.trim()) {
+                sitelinksToInsert.push({
+                  web_result_id: insertedResults[idx].id,
+                  title: sitelink.title.trim(),
+                  url: sitelink.url.trim(),
+                  position: sitelinkIdx + 1,
+                  is_active: sitelink.is_active,
+                });
+              }
+            });
+          }
+        });
+
+        if (sitelinksToInsert.length > 0) {
+          const { error: sitelinksError } = await supabase.from('sitelinks').insert(sitelinksToInsert);
+          if (sitelinksError) {
+            console.error('Error saving sitelinks:', sitelinksError);
+            // Don't fail the whole operation, just log
+          }
+        }
+      }
 
       setGeneratedResults([]);
       setSelectedRelatedSearch("");
@@ -894,10 +969,46 @@ const WebResults = () => {
                             placeholder="https://..."
                           />
                         </div>
-                        {result.isSponsored && (
-                          <span className="inline-block text-xs bg-yellow-500/20 text-yellow-400 px-2 py-0.5 rounded w-fit">
-                            Sponsored
-                          </span>
+                        {/* Sitelinks section - shown when sponsored is enabled */}
+                        {result.isSponsored && result.sitelinks.length > 0 && (
+                          <div className="mt-3 pt-3 border-t border-border/50">
+                            <div className="flex items-center justify-between mb-2">
+                              <Label className="text-xs font-medium text-primary flex items-center gap-1.5">
+                                <Link2 className="w-3 h-3" />
+                                Sitelinks (4)
+                              </Label>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => applyLinkToAllSitelinks(index)}
+                                className="h-6 text-xs px-2"
+                              >
+                                <Copy className="w-3 h-3 mr-1" />
+                                Use Same URL
+                              </Button>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              {result.sitelinks.map((sitelink, sitelinkIdx) => (
+                                <div 
+                                  key={sitelinkIdx} 
+                                  className={`flex items-center gap-2 p-2 rounded border text-xs ${sitelink.is_active ? 'border-primary/30 bg-primary/5' : 'border-border/30 bg-muted/20 opacity-60'}`}
+                                >
+                                  <Switch
+                                    checked={sitelink.is_active}
+                                    onCheckedChange={(val) => updateGeneratedSitelink(index, sitelinkIdx, 'is_active', val)}
+                                    className="scale-75"
+                                  />
+                                  <Input
+                                    value={sitelink.title}
+                                    onChange={(e) => updateGeneratedSitelink(index, sitelinkIdx, 'title', e.target.value)}
+                                    placeholder="Title"
+                                    className="h-7 text-xs flex-1"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         )}
                       </div>
                       <div className="flex items-center gap-2">
