@@ -231,7 +231,7 @@ const WebResults = () => {
         if (i !== index) return r;
         const newIsSponsored = !r.isSponsored;
         // When enabling sponsored, initialize 4 empty sitelinks with the web result's link
-        if (newIsSponsored && r.sitelinks.length === 0) {
+        if (newIsSponsored && (!r.sitelinks || r.sitelinks.length === 0)) {
           const defaultSitelinks: GeneratedSitelink[] = [
             { title: "Apply Now", url: r.link, is_active: true },
             { title: "Learn More", url: r.link, is_active: true },
@@ -312,7 +312,7 @@ const WebResults = () => {
         const sitelinksToInsert: { web_result_id: string; title: string; url: string; position: number; is_active: boolean }[] = [];
         
         selectedResults.forEach((r, idx) => {
-          if (r.isSponsored && r.sitelinks.length > 0 && insertedResults[idx]) {
+          if (r.isSponsored && r.sitelinks && r.sitelinks.length > 0 && insertedResults[idx]) {
             r.sitelinks.forEach((sitelink, sitelinkIdx) => {
               if (sitelink.title.trim() && sitelink.url.trim()) {
                 sitelinksToInsert.push({
@@ -970,7 +970,7 @@ const WebResults = () => {
                           />
                         </div>
                         {/* Sitelinks section - shown when sponsored is enabled */}
-                        {result.isSponsored && result.sitelinks.length > 0 && (
+                        {result.isSponsored && result.sitelinks && result.sitelinks.length > 0 && (
                           <div className="mt-3 pt-3 border-t border-border/50">
                             <div className="flex items-center justify-between mb-2">
                               <Label className="text-xs font-medium text-primary flex items-center gap-1.5">
