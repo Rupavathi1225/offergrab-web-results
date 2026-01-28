@@ -362,6 +362,47 @@ export type Database = {
         }
         Relationships: []
       }
+      sitelinks: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          position: number
+          title: string
+          updated_at: string
+          url: string
+          web_result_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          position?: number
+          title: string
+          updated_at?: string
+          url: string
+          web_result_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          position?: number
+          title?: string
+          updated_at?: string
+          url?: string
+          web_result_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sitelinks_web_result_id_fkey"
+            columns: ["web_result_id"]
+            isOneToOne: false
+            referencedRelation: "web_results"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       web_result_update_history: {
         Row: {
           id: string

@@ -20,6 +20,15 @@ interface WebResultItem {
   fallback_link: string | null;
 }
 
+interface Sitelink {
+  id: string;
+  web_result_id: string;
+  title: string;
+  url: string;
+  position: number;
+  is_active: boolean;
+}
+
 interface LandingContent {
   site_name: string;
   redirect_enabled?: boolean;
@@ -77,6 +86,7 @@ const WebResult = () => {
   const [results, setResults] = useState<WebResultItem[]>([]);
   const [content, setContent] = useState<LandingContent | null>(null);
   const [prelandings, setPrelandings] = useState<Record<string, Prelanding>>({});
+  const [sitelinks, setSitelinks] = useState<Record<string, Sitelink[]>>({});
   const [loading, setLoading] = useState(true);
   const [maskedNames, setMaskedNames] = useState<string[]>([]);
   const [userCountry, setUserCountry] = useState<string>("XX");
@@ -147,7 +157,7 @@ const WebResult = () => {
           if (!search?.id) {
             setResults([]);
           } else {
-            const [resultsRes, contentRes, prelandingsRes] = await Promise.all([
+            const [resultsRes, contentRes, prelandingsRes, sitelinksRes] = await Promise.all([
               supabase
                 .from("web_results")
                 .select("*")
@@ -160,6 +170,7 @@ const WebResult = () => {
                 .limit(1)
                 .maybeSingle(),
               supabase.from("prelandings").select("id, web_result_id, is_active").eq("is_active", true),
+              supabase.from("sitelinks").select("*").eq("is_active", true).order("position", { ascending: true }),
             ]);
 
             if (resultsRes.data) setResults(resultsRes.data);
@@ -174,13 +185,25 @@ const WebResult = () => {
               });
               setPrelandings(prelandingMap);
             }
+
+            // Group sitelinks by web_result_id
+            if (sitelinksRes.data) {
+              const sitelinkMap: Record<string, Sitelink[]> = {};
+              sitelinksRes.data.forEach((s: any) => {
+                if (!sitelinkMap[s.web_result_id]) {
+                  sitelinkMap[s.web_result_id] = [];
+                }
+                sitelinkMap[s.web_result_id].push(s);
+              });
+              setSitelinks(sitelinkMap);
+            }
           }
         }
         return;
       }
 
       // Default (no blog context): show global results by page
-      const [resultsRes, contentRes, prelandingsRes] = await Promise.all([
+      const [resultsRes, contentRes, prelandingsRes, sitelinksRes] = await Promise.all([
         supabase
           .from('web_results')
           .select('*')
@@ -189,6 +212,7 @@ const WebResult = () => {
           .order('serial_number', { ascending: true }),
         supabase.from('landing_content').select('site_name, redirect_enabled').limit(1).maybeSingle(),
         supabase.from('prelandings').select('id, web_result_id, is_active').eq('is_active', true),
+        supabase.from("sitelinks").select("*").eq("is_active", true).order("position", { ascending: true }),
       ]);
 
       if (resultsRes.data) setResults(resultsRes.data);
@@ -202,6 +226,18 @@ const WebResult = () => {
           }
         });
         setPrelandings(prelandingMap);
+      }
+
+      // Group sitelinks by web_result_id
+      if (sitelinksRes.data) {
+        const sitelinkMap: Record<string, Sitelink[]> = {};
+        sitelinksRes.data.forEach((s: any) => {
+          if (!sitelinkMap[s.web_result_id]) {
+            sitelinkMap[s.web_result_id] = [];
+          }
+          sitelinkMap[s.web_result_id].push(s);
+        });
+        setSitelinks(sitelinkMap);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -247,6 +283,17 @@ const WebResult = () => {
     });
   };
 
+  // Handle sitelink click - navigate directly to the sitelink URL
+  const handleSitelinkClick = (sitelink: Sitelink, result: WebResultItem, index: number) => {
+    const lid = index + 1;
+    
+    // Track click for the sitelink
+    trackClick("sitelink", result.id, sitelink.title, `/wr/${wrPage}/${wbr}`, lid, sitelink.url);
+    
+    // Navigate to the sitelink URL
+    window.location.href = sitelink.url;
+  };
+
   const handleBack = () => {
     if (fromBlog && blogSlug) {
       // Return to the specific blog page
@@ -278,6 +325,11 @@ const WebResult = () => {
     return name.charAt(0).toUpperCase();
   };
 
+  // Get sitelinks for a specific web result (up to 4)
+  const getResultSitelinks = (resultId: string): Sitelink[] => {
+    return (sitelinks[resultId] || []).slice(0, 4);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -305,45 +357,86 @@ const WebResult = () => {
         </div>
       </header>
 
-      {/* Sponsored Results Section */}
+      {/* Sponsored Results Section with Sitelinks */}
       {sponsoredResults.length > 0 && (
         <section className="bg-[#1a1f35] border-b border-border/30">
           <div className="container mx-auto px-4 py-6">
             <div className="max-w-3xl mx-auto space-y-6">
-              {sponsoredResults.map((result, index) => (
-                <div
-                  key={result.id}
-                  className="animate-fade-in"
-                  style={{ animationDelay: `${index * 0.05}s` }}
-                >
-                  <div className="text-sm text-muted-foreground mb-1">
-                    <span className="text-xs">Sponsored</span>
+              {sponsoredResults.map((result, index) => {
+                const resultSitelinks = getResultSitelinks(result.id);
+                
+                return (
+                  <div
+                    key={result.id}
+                    className="animate-fade-in"
+                    style={{ animationDelay: `${index * 0.05}s` }}
+                  >
+                    {/* Sponsored label - always visible */}
+                    <div className="text-sm text-muted-foreground mb-1">
+                      <span className="text-xs bg-muted/20 px-1.5 py-0.5 rounded">Sponsored</span>
+                    </div>
+
+                    {/* Main ad content with optional logo */}
+                    <div className="flex items-start gap-3">
+                      {result.logo_url && (
+                        <img
+                          src={result.logo_url}
+                          alt={result.name}
+                          className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none";
+                          }}
+                        />
+                      )}
+
+                      <div className="flex-1 min-w-0">
+                        <h3 
+                          className="text-primary hover:underline cursor-pointer font-serif text-lg mb-1 tracking-wide underline"
+                          onClick={() => handleResultClick(result, index)}
+                        >
+                          {result.title}
+                        </h3>
+                        <p 
+                          className="text-muted-foreground text-xs mb-2 cursor-pointer hover:underline hover:text-primary truncate"
+                          onClick={() => handleResultClick(result, index)}
+                        >
+                          {getMaskedUrl(index + 1)}
+                        </p>
+                        {result.description && (
+                          <p className="text-muted-foreground/80 text-sm italic mb-3 line-clamp-2">
+                            {result.description}
+                          </p>
+                        )}
+
+                        {/* Main CTA Button - subtle/transparent styling */}
+                        <button
+                          onClick={() => handleResultClick(result, index)}
+                          className="bg-primary/90 hover:bg-primary text-primary-foreground px-6 py-2.5 rounded font-medium text-sm flex items-center gap-2 transition-colors backdrop-blur-sm"
+                        >
+                          <span>➤</span> Visit Website
+                        </button>
+
+                        {/* Sitelinks - up to 4 independent clickable URLs */}
+                        {resultSitelinks.length > 0 && (
+                          <div className="mt-4 pt-3 border-t border-border/30">
+                            <div className="flex flex-wrap gap-2">
+                              {resultSitelinks.map((sitelink) => (
+                                <button
+                                  key={sitelink.id}
+                                  onClick={() => handleSitelinkClick(sitelink, result, index)}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary hover:text-primary-foreground bg-transparent hover:bg-primary/20 border border-primary/30 hover:border-primary/50 rounded-md transition-all duration-200"
+                                >
+                                  {sitelink.title}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <h3 
-                    className="text-primary hover:underline cursor-pointer font-serif text-lg mb-1 tracking-wide underline"
-                    onClick={() => handleResultClick(result, index)}
-                  >
-                    {result.title}
-                  </h3>
-                  <p 
-                    className="text-muted-foreground text-xs mb-2 cursor-pointer hover:underline hover:text-primary"
-                    onClick={() => handleResultClick(result, index)}
-                  >
-                    {getMaskedUrl(index + 1)}
-                  </p>
-                  {result.description && (
-                    <p className="text-muted-foreground/80 text-sm italic mb-3">
-                      {result.description}
-                    </p>
-                  )}
-                  <button
-                    onClick={() => handleResultClick(result, index)}
-                    className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-2.5 rounded font-medium text-sm flex items-center gap-2 transition-colors"
-                  >
-                    <span>➤</span> Visit Website
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </section>

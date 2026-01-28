@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
-import { Plus, Save, Trash2, Edit2, X, Globe, Sparkles, Loader2, Search, Copy, ChevronDown, Check } from "lucide-react";
+import { Plus, Save, Trash2, Edit2, X, Globe, Sparkles, Loader2, Search, Copy, ChevronDown, Check, Link2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -18,6 +18,7 @@ import { countries, getCountryName } from "@/lib/countries";
 import BulkActionToolbar from "@/components/admin/BulkActionToolbar";
 import { convertToCSV, downloadCSV } from "@/lib/csvExport";
 import { generateMaskedLink, formatDate, formatWebResultForCopy, generateRandomToken } from "@/lib/linkGenerator";
+import SitelinksEditor from "@/components/admin/SitelinksEditor";
 
 interface WebResult {
   id: string;
@@ -94,6 +95,10 @@ const WebResults = () => {
     date: true,
     country: true,
   });
+
+  // Sitelinks editor state
+  const [showSitelinksDialog, setShowSitelinksDialog] = useState(false);
+  const [sitelinksTarget, setSitelinksTarget] = useState<WebResult | null>(null);
 
   const emptyResult: Omit<WebResult, 'id'> = {
     name: '',
@@ -1305,6 +1310,17 @@ const WebResults = () => {
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
+                        {/* Sitelinks button - only for sponsored ads */}
+                        {result.is_sponsored && (
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            title="Manage Sitelinks"
+                            onClick={() => { setSitelinksTarget(result); setShowSitelinksDialog(true); }}
+                          >
+                            <Link2 className="w-4 h-4 text-primary" />
+                          </Button>
+                        )}
                         <Button 
                           variant="ghost" 
                           size="icon"
@@ -1511,6 +1527,22 @@ const WebResults = () => {
                 </Button>
               </div>
             </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Sitelinks Editor Dialog */}
+      <Dialog open={showSitelinksDialog} onOpenChange={setShowSitelinksDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          {sitelinksTarget && (
+            <SitelinksEditor
+              webResultId={sitelinksTarget.id}
+              webResultTitle={sitelinksTarget.title}
+              onClose={() => {
+                setShowSitelinksDialog(false);
+                setSitelinksTarget(null);
+              }}
+            />
           )}
         </DialogContent>
       </Dialog>
