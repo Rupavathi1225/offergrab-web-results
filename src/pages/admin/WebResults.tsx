@@ -988,6 +988,26 @@ const WebResults = () => {
                                 Use Same URL
                               </Button>
                             </div>
+                            {/* Quick suggestions for sitelink titles */}
+                            <div className="flex flex-wrap gap-1 mb-2">
+                              {["Apply Now", "Get Quote", "Contact Us", "Learn More", "Shop Deals", "Book Today", "Sign Up", "View Plans"].map((suggestion) => (
+                                <Button
+                                  key={suggestion}
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-5 text-[10px] px-1.5 py-0"
+                                  onClick={() => {
+                                    // Find first empty or first sitelink to update
+                                    const emptyIdx = result.sitelinks?.findIndex(s => !s.title.trim());
+                                    const targetIdx = emptyIdx !== -1 ? emptyIdx : 0;
+                                    updateGeneratedSitelink(index, targetIdx, 'title', suggestion);
+                                  }}
+                                >
+                                  {suggestion}
+                                </Button>
+                              ))}
+                            </div>
                             <div className="grid grid-cols-2 gap-2">
                               {result.sitelinks.map((sitelink, sitelinkIdx) => (
                                 <div 
