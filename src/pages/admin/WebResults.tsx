@@ -37,7 +37,12 @@ interface WebResult {
   created_at?: string;
   blog_id?: string | null;
   related_search_id?: string | null;
+  wr_type?: string;
+  category_id?: string | null;
 }
+
+// Available categories for WR201
+const WR_CATEGORIES = ['Technology', 'Education', 'Health', 'Lifestyle', 'Finance', 'Business'];
 
 interface Blog {
   id: string;
@@ -122,7 +127,13 @@ const WebResults = () => {
     allowed_countries: ['worldwide'],
     fallback_link: '',
     is_active: true,
+    wr_type: 'WR101',
+    category_id: null,
   };
+
+  // WR Type filter state
+  const [filterWrType, setFilterWrType] = useState<string>('all');
+  const [filterCategoryId, setFilterCategoryId] = useState<string>('all');
 
   const [newResult, setNewResult] = useState(emptyResult);
 
@@ -618,6 +629,14 @@ const WebResults = () => {
   }
   if (selectedWr !== 0 && !selectedRelatedSearchId) {
     filteredResults = filteredResults.filter(r => r.wr_page === selectedWr);
+  }
+  // Apply WR Type filter
+  if (filterWrType !== 'all') {
+    filteredResults = filteredResults.filter(r => (r.wr_type || 'WR101') === filterWrType);
+  }
+  // Apply Category filter (for WR201)
+  if (filterCategoryId !== 'all') {
+    filteredResults = filteredResults.filter(r => r.category_id === filterCategoryId);
   }
 
   // Get unique wr_pages with their related search titles
@@ -1278,7 +1297,7 @@ const WebResults = () => {
               min={0}
             />
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-6 flex-wrap">
             <div className="flex items-center gap-2">
               <Switch
                 checked={newResult.is_active}
@@ -1293,6 +1312,43 @@ const WebResults = () => {
               />
               <label className="text-sm text-primary">Sponsored</label>
             </div>
+          </div>
+          
+          {/* WR Type and Category selection */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div>
+              <label className="block text-sm text-muted-foreground mb-1">WR Type</label>
+              <Select 
+                value={newResult.wr_type || 'WR101'} 
+                onValueChange={(v) => setNewResult({ ...newResult, wr_type: v, category_id: v === 'WR201' ? newResult.category_id : null })}
+              >
+                <SelectTrigger className="admin-input">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="WR101">WR101 (Normal - Related Search)</SelectItem>
+                  <SelectItem value="WR201">WR201 (Category-based Sponsored)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {newResult.wr_type === 'WR201' && (
+              <div>
+                <label className="block text-sm text-muted-foreground mb-1">Category (for WR201) *</label>
+                <Select 
+                  value={newResult.category_id || ''} 
+                  onValueChange={(v) => setNewResult({ ...newResult, category_id: v })}
+                >
+                  <SelectTrigger className="admin-input">
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {WR_CATEGORIES.map(cat => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
         </div>
         <Button onClick={handleAdd} className="mt-4">
@@ -1315,7 +1371,39 @@ const WebResults = () => {
             contentClassName="z-[200] w-[320px] p-0 bg-popover text-popover-foreground border border-border shadow-lg"
           />
         </div>
-        {selectedBlogIds.length > 0 && (
+        
+        {/* WR Type Filter */}
+        <div className="flex items-center gap-2">
+          <Label className="text-sm text-muted-foreground whitespace-nowrap">WR Type:</Label>
+          <Select value={filterWrType} onValueChange={setFilterWrType}>
+            <SelectTrigger className="admin-input w-[120px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="WR101">WR101 (Normal)</SelectItem>
+              <SelectItem value="WR201">WR201 (Category)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        
+        {/* Category Filter (for WR201) */}
+        <div className="flex items-center gap-2">
+          <Label className="text-sm text-muted-foreground whitespace-nowrap">Category:</Label>
+          <Select value={filterCategoryId} onValueChange={setFilterCategoryId}>
+            <SelectTrigger className="admin-input w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {WR_CATEGORIES.map(cat => (
+                <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        
+        {(selectedBlogIds.length > 0 || filterWrType !== 'all' || filterCategoryId !== 'all') && (
           <Button 
             variant="ghost" 
             size="sm"
@@ -1323,11 +1411,13 @@ const WebResults = () => {
               clearBlogFilter();
               setSelectedRelatedSearchId('');
               setSelectedRelatedSearch('');
+              setFilterWrType('all');
+              setFilterCategoryId('all');
             }}
             className="text-muted-foreground hover:text-foreground"
           >
             <X className="w-4 h-4 mr-1" />
-            Clear Filter
+            Clear All Filters
           </Button>
         )}
       </div>
@@ -1350,6 +1440,8 @@ const WebResults = () => {
                 <th>#</th>
                 <th>Name</th>
                 <th>Title</th>
+                <th>Type</th>
+                <th>Category</th>
                 <th>Blog</th>
                 <th>Related Search</th>
                 <th>Country</th>
@@ -1382,11 +1474,23 @@ const WebResults = () => {
                         )}
                         {result.name}
                         {result.is_sponsored && (
-                          <span className="text-xs bg-yellow-500/20 text-yellow-400 px-1.5 py-0.5 rounded">Ad</span>
+                          <span className="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded">Ad</span>
                         )}
                       </div>
                     </td>
                     <td className="max-w-xs truncate">{result.title}</td>
+                    <td>
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${
+                        (result.wr_type || 'WR101') === 'WR201' 
+                          ? 'bg-accent text-accent-foreground' 
+                          : 'bg-muted text-muted-foreground'
+                      }`}>
+                        {result.wr_type || 'WR101'}
+                      </span>
+                    </td>
+                    <td className="text-xs text-muted-foreground">
+                      {result.category_id || '-'}
+                    </td>
                     <td className="text-xs text-muted-foreground">{blog?.title || 'N/A'}</td>
                     <td className="text-xs text-muted-foreground max-w-[120px] truncate">{search?.title || 'N/A'}</td>
                     <td className="text-xs text-muted-foreground max-w-[150px] truncate" title={getCountryDisplayNames(result.allowed_countries)}>
