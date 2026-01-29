@@ -207,9 +207,12 @@ const SearchButtons = () => {
 
   const copySelected = () => {
     const selected = buttons.filter(b => selectedIds.has(b.id));
-    const text = selected.map(b => `${window.location.origin}/wr/${b.target_wr}/${generateRandomToken(8)}`).join('\n');
+    // Tab-separated format: Title \t Link (for spreadsheet pasting)
+    const header = "Title\tLink";
+    const rows = selected.map(b => `${b.title}\t${window.location.origin}/wr/${b.target_wr}/${generateRandomToken(8)}`);
+    const text = [header, ...rows].join('\n');
     navigator.clipboard.writeText(text);
-    toast({ title: "Copied!", description: `${selected.length} related search links copied to clipboard.` });
+    toast({ title: "Copied!", description: `${selected.length} related searches (title + link) copied to clipboard.` });
   };
 
   const bulkActivate = async () => {
