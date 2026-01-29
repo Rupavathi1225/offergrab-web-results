@@ -41,6 +41,15 @@ interface ParsedRow {
   new_url: string;
   new_description?: string;
   new_country?: string; // Country column for updating allowed_countries
+  // Sitelink columns
+  old_site1link?: string;
+  old_site2link?: string;
+  old_site3link?: string;
+  old_site4link?: string;
+  new_site1link?: string;
+  new_site2link?: string;
+  new_site3link?: string;
+  new_site4link?: string;
 }
 
 interface MatchedRow {
@@ -54,6 +63,15 @@ interface MatchedRow {
   newUrl: string;
   newDescription: string;
   newCountry: string;
+  // Sitelinks
+  currentSite1Link: string;
+  currentSite2Link: string;
+  currentSite3Link: string;
+  currentSite4Link: string;
+  newSite1Link: string;
+  newSite2Link: string;
+  newSite3Link: string;
+  newSite4Link: string;
   status: 'matched' | 'not_found' | 'error';
   errorMessage?: string;
   selected: boolean;
@@ -177,6 +195,16 @@ const BulkWebResultEditor = () => {
           // Check for Name column (for AI matching)
           const nameIndex = headers.findIndex(h => h === 'name');
           
+          // Sitelink columns
+          const oldSite1Index = headers.findIndex(h => h === 'old_site1link' || h === 'site1link');
+          const oldSite2Index = headers.findIndex(h => h === 'old_site2link' || h === 'site2link');
+          const oldSite3Index = headers.findIndex(h => h === 'old_site3link' || h === 'site3link');
+          const oldSite4Index = headers.findIndex(h => h === 'old_site4link' || h === 'site4link');
+          const newSite1Index = headers.findIndex(h => h === 'new_site1link');
+          const newSite2Index = headers.findIndex(h => h === 'new_site2link');
+          const newSite3Index = headers.findIndex(h => h === 'new_site3link');
+          const newSite4Index = headers.findIndex(h => h === 'new_site4link');
+          
           // At least one matching column required
           const hasMatchingColumn = webResultIdIndex !== -1 || oldUrlIndex !== -1 || nameIndex !== -1 || webResultTitleIndex !== -1;
           
@@ -223,7 +251,21 @@ const BulkWebResultEditor = () => {
               parsedRow.sheet_name = String(row[webResultTitleIndex]).trim();
             }
             
-            if (parsedRow.new_title || parsedRow.new_url || parsedRow.new_description || parsedRow.new_country) {
+            // Sitelink columns
+            if (oldSite1Index !== -1 && row[oldSite1Index]) parsedRow.old_site1link = String(row[oldSite1Index]).trim();
+            if (oldSite2Index !== -1 && row[oldSite2Index]) parsedRow.old_site2link = String(row[oldSite2Index]).trim();
+            if (oldSite3Index !== -1 && row[oldSite3Index]) parsedRow.old_site3link = String(row[oldSite3Index]).trim();
+            if (oldSite4Index !== -1 && row[oldSite4Index]) parsedRow.old_site4link = String(row[oldSite4Index]).trim();
+            if (newSite1Index !== -1 && row[newSite1Index]) parsedRow.new_site1link = String(row[newSite1Index]).trim();
+            if (newSite2Index !== -1 && row[newSite2Index]) parsedRow.new_site2link = String(row[newSite2Index]).trim();
+            if (newSite3Index !== -1 && row[newSite3Index]) parsedRow.new_site3link = String(row[newSite3Index]).trim();
+            if (newSite4Index !== -1 && row[newSite4Index]) parsedRow.new_site4link = String(row[newSite4Index]).trim();
+            
+            // Check for any meaningful data (including sitelinks)
+            const hasMeaningfulData = parsedRow.new_title || parsedRow.new_url || parsedRow.new_description || parsedRow.new_country ||
+              parsedRow.new_site1link || parsedRow.new_site2link || parsedRow.new_site3link || parsedRow.new_site4link;
+            
+            if (hasMeaningfulData) {
               rows.push(parsedRow);
             }
           }
@@ -301,6 +343,15 @@ const BulkWebResultEditor = () => {
           newUrl: row.new_url,
           newDescription: row.new_description || '',
           newCountry: row.new_country || '',
+          // Sitelinks - current will be fetched later, new from parsed row
+          currentSite1Link: row.old_site1link || '',
+          currentSite2Link: row.old_site2link || '',
+          currentSite3Link: row.old_site3link || '',
+          currentSite4Link: row.old_site4link || '',
+          newSite1Link: row.new_site1link || '',
+          newSite2Link: row.new_site2link || '',
+          newSite3Link: row.new_site3link || '',
+          newSite4Link: row.new_site4link || '',
           status: 'matched' as const,
           selected: true, // Auto-select matched rows
         };
@@ -316,6 +367,15 @@ const BulkWebResultEditor = () => {
           newUrl: row.new_url,
           newDescription: row.new_description || '',
           newCountry: row.new_country || '',
+          // Sitelinks
+          currentSite1Link: row.old_site1link || '',
+          currentSite2Link: row.old_site2link || '',
+          currentSite3Link: row.old_site3link || '',
+          currentSite4Link: row.old_site4link || '',
+          newSite1Link: row.new_site1link || '',
+          newSite2Link: row.new_site2link || '',
+          newSite3Link: row.new_site3link || '',
+          newSite4Link: row.new_site4link || '',
           status: 'not_found' as const,
           errorMessage: 'No matching web result found',
           selected: false,
@@ -403,6 +463,15 @@ const BulkWebResultEditor = () => {
           newUrl: parsedRow?.new_url || '',
           newDescription: parsedRow?.new_description || '',
           newCountry: parsedRow?.new_country || '',
+          // Sitelinks
+          currentSite1Link: parsedRow?.old_site1link || '',
+          currentSite2Link: parsedRow?.old_site2link || '',
+          currentSite3Link: parsedRow?.old_site3link || '',
+          currentSite4Link: parsedRow?.old_site4link || '',
+          newSite1Link: parsedRow?.new_site1link || '',
+          newSite2Link: parsedRow?.new_site2link || '',
+          newSite3Link: parsedRow?.new_site3link || '',
+          newSite4Link: parsedRow?.new_site4link || '',
           status: 'matched' as const,
           selected: true, // Auto-select all matched rows
           confidenceScore: matchData.confidence,
@@ -419,6 +488,15 @@ const BulkWebResultEditor = () => {
           newUrl: '',
           newDescription: '',
           newCountry: '',
+          // Sitelinks
+          currentSite1Link: '',
+          currentSite2Link: '',
+          currentSite3Link: '',
+          currentSite4Link: '',
+          newSite1Link: '',
+          newSite2Link: '',
+          newSite3Link: '',
+          newSite4Link: '',
           status: 'not_found' as const,
           errorMessage: 'No matching name found in uploaded data',
           selected: false,
@@ -529,6 +607,15 @@ const BulkWebResultEditor = () => {
         newUrl: manualNewUrl.trim(),
         newDescription: manualNewDescription.trim(),
         newCountry: '', // Manual entry doesn't support country yet
+        // Sitelinks - not supported in manual entry
+        currentSite1Link: '',
+        currentSite2Link: '',
+        currentSite3Link: '',
+        currentSite4Link: '',
+        newSite1Link: '',
+        newSite2Link: '',
+        newSite3Link: '',
+        newSite4Link: '',
         status: 'matched',
         selected: true,
         confidenceScore: 100, // Manual match = 100% confidence
@@ -724,6 +811,16 @@ const BulkWebResultEditor = () => {
       // Check for Name column (for AI matching)
       const nameIndex = headers.findIndex(h => h === 'name');
       
+      // Sitelink columns
+      const oldSite1Index = headers.findIndex(h => h === 'old_site1link' || h === 'site1link');
+      const oldSite2Index = headers.findIndex(h => h === 'old_site2link' || h === 'site2link');
+      const oldSite3Index = headers.findIndex(h => h === 'old_site3link' || h === 'site3link');
+      const oldSite4Index = headers.findIndex(h => h === 'old_site4link' || h === 'site4link');
+      const newSite1Index = headers.findIndex(h => h === 'new_site1link');
+      const newSite2Index = headers.findIndex(h => h === 'new_site2link');
+      const newSite3Index = headers.findIndex(h => h === 'new_site3link');
+      const newSite4Index = headers.findIndex(h => h === 'new_site4link');
+      
       // At least one matching column required
       const hasMatchingColumn = webResultIdIndex !== -1 || oldUrlIndex !== -1 || nameIndex !== -1 || webResultTitleIndex !== -1;
       
@@ -769,7 +866,21 @@ const BulkWebResultEditor = () => {
           parsedRow.sheet_name = String(row[webResultTitleIndex]).trim();
         }
         
-        if (parsedRow.new_title || parsedRow.new_url || parsedRow.new_description || parsedRow.new_country) {
+        // Sitelink columns
+        if (oldSite1Index !== -1 && row[oldSite1Index]) parsedRow.old_site1link = String(row[oldSite1Index]).trim();
+        if (oldSite2Index !== -1 && row[oldSite2Index]) parsedRow.old_site2link = String(row[oldSite2Index]).trim();
+        if (oldSite3Index !== -1 && row[oldSite3Index]) parsedRow.old_site3link = String(row[oldSite3Index]).trim();
+        if (oldSite4Index !== -1 && row[oldSite4Index]) parsedRow.old_site4link = String(row[oldSite4Index]).trim();
+        if (newSite1Index !== -1 && row[newSite1Index]) parsedRow.new_site1link = String(row[newSite1Index]).trim();
+        if (newSite2Index !== -1 && row[newSite2Index]) parsedRow.new_site2link = String(row[newSite2Index]).trim();
+        if (newSite3Index !== -1 && row[newSite3Index]) parsedRow.new_site3link = String(row[newSite3Index]).trim();
+        if (newSite4Index !== -1 && row[newSite4Index]) parsedRow.new_site4link = String(row[newSite4Index]).trim();
+        
+        // Check for any meaningful data (including sitelinks)
+        const hasMeaningfulData = parsedRow.new_title || parsedRow.new_url || parsedRow.new_description || parsedRow.new_country ||
+          parsedRow.new_site1link || parsedRow.new_site2link || parsedRow.new_site3link || parsedRow.new_site4link;
+        
+        if (hasMeaningfulData) {
           rows.push(parsedRow);
         }
       }
@@ -876,6 +987,50 @@ const BulkWebResultEditor = () => {
           throw updateError;
         }
         
+        // Update sitelinks if any new sitelink URLs are provided
+        const hasSitelinkUpdates = row.newSite1Link || row.newSite2Link || row.newSite3Link || row.newSite4Link;
+        if (hasSitelinkUpdates && row.webResultId) {
+          // Fetch existing sitelinks for this web result
+          const { data: existingSitelinks } = await supabase
+            .from('sitelinks')
+            .select('id, position, title, url, is_active')
+            .eq('web_result_id', row.webResultId)
+            .order('position', { ascending: true });
+          
+          const sitelinkUpdates = [
+            { position: 1, newUrl: row.newSite1Link },
+            { position: 2, newUrl: row.newSite2Link },
+            { position: 3, newUrl: row.newSite3Link },
+            { position: 4, newUrl: row.newSite4Link },
+          ];
+          
+          for (const update of sitelinkUpdates) {
+            if (!update.newUrl) continue;
+            
+            const existingSitelink = existingSitelinks?.find(s => s.position === update.position);
+            
+            if (existingSitelink) {
+              // Update existing sitelink
+              await supabase
+                .from('sitelinks')
+                .update({ url: update.newUrl, updated_at: new Date().toISOString() })
+                .eq('id', existingSitelink.id);
+            } else {
+              // Create new sitelink with default title
+              const defaultTitles = ['Apply Now', 'Learn More', 'Get Quote', 'Contact Us'];
+              await supabase
+                .from('sitelinks')
+                .insert({
+                  web_result_id: row.webResultId,
+                  title: defaultTitles[update.position - 1] || `Sitelink ${update.position}`,
+                  url: update.newUrl,
+                  position: update.position,
+                  is_active: true,
+                });
+            }
+          }
+        }
+        
         successCount++;
         
         // Update row status
@@ -923,7 +1078,7 @@ const BulkWebResultEditor = () => {
             Bulk Web Result Editor
           </CardTitle>
           <CardDescription>
-            Upload a CSV or XLSX file to bulk update web result titles and URLs with preview and rollback support.
+            Upload a CSV or XLSX file to bulk update web result titles, URLs, and sitelinks with preview and rollback support.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -963,7 +1118,7 @@ const BulkWebResultEditor = () => {
                     {file ? file.name : 'Click to upload CSV or XLSX file'}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    Required columns: new_title, new_url, and (Name OR web_result_id OR old_url)
+                    Required: new_title, new_url, matching column. Optional: new_site1link...new_site4link
                   </span>
                 </label>
               </div>
@@ -994,7 +1149,7 @@ const BulkWebResultEditor = () => {
                 <div className="text-xs text-muted-foreground space-y-1">
                   <p>⚠️ The Google Sheet must be publicly accessible (Share → Anyone with the link can view)</p>
                   <p>Required columns: new_title, new_url, and (Name OR web_result_id OR original_link)</p>
-                  <p>Optional: new_description (or "Web Result Description")</p>
+                  <p>Optional: new_description, new_site1link, new_site2link, new_site3link, new_site4link</p>
                 </div>
               </div>
             </TabsContent>
@@ -1179,6 +1334,10 @@ const BulkWebResultEditor = () => {
                     <TableHead>New URL</TableHead>
                     <TableHead>New Description</TableHead>
                     <TableHead>New Country</TableHead>
+                    <TableHead>New Site1Link</TableHead>
+                    <TableHead>New Site2Link</TableHead>
+                    <TableHead>New Site3Link</TableHead>
+                    <TableHead>New Site4Link</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1249,6 +1408,18 @@ const BulkWebResultEditor = () => {
                       </TableCell>
                       <TableCell className="max-w-32 truncate font-medium text-primary" title={row.newCountry ? getCountryName(row.newCountry.toUpperCase()) : ''}>
                         {row.newCountry ? getCountryName(row.newCountry.toUpperCase()) : '-'}
+                      </TableCell>
+                      <TableCell className="max-w-32 truncate font-medium text-primary" title={row.newSite1Link}>
+                        {row.newSite1Link || '-'}
+                      </TableCell>
+                      <TableCell className="max-w-32 truncate font-medium text-primary" title={row.newSite2Link}>
+                        {row.newSite2Link || '-'}
+                      </TableCell>
+                      <TableCell className="max-w-32 truncate font-medium text-primary" title={row.newSite3Link}>
+                        {row.newSite3Link || '-'}
+                      </TableCell>
+                      <TableCell className="max-w-32 truncate font-medium text-primary" title={row.newSite4Link}>
+                        {row.newSite4Link || '-'}
                       </TableCell>
                     </TableRow>
                   ))}
