@@ -18,20 +18,6 @@ interface WebResultItem {
   serial_number: number;
   allowed_countries: string[] | null;
   fallback_link: string | null;
-  wr_type?: string;
-  category_id?: string | null;
-}
-
-interface WR201Item {
-  id: string;
-  name: string;
-  title: string;
-  description: string | null;
-  link: string;
-  logo_url: string | null;
-  is_sponsored: boolean;
-  serial_number: number;
-  category_id: string | null;
 }
 
 interface Sitelink {
@@ -51,11 +37,6 @@ interface LandingContent {
 interface Prelanding {
   id: string;
   is_active: boolean;
-}
-
-interface BlogInfo {
-  id: string;
-  category: string | null;
 }
 
 
@@ -103,15 +84,12 @@ const WebResult = () => {
   const wrPage = parseInt(page || '1');
   
   const [results, setResults] = useState<WebResultItem[]>([]);
-  const [wr201Results, setWr201Results] = useState<WR201Item[]>([]);
   const [content, setContent] = useState<LandingContent | null>(null);
   const [prelandings, setPrelandings] = useState<Record<string, Prelanding>>({});
   const [sitelinks, setSitelinks] = useState<Record<string, Sitelink[]>>({});
   const [loading, setLoading] = useState(true);
   const [maskedNames, setMaskedNames] = useState<string[]>([]);
   const [userCountry, setUserCountry] = useState<string>("XX");
-  const [showWr201, setShowWr201] = useState(false);
-  const [blogCategory, setBlogCategory] = useState<string | null>(null);
 
   // Get blog context from navigation state
   const fromBlog = location.state?.fromBlog;
@@ -160,7 +138,7 @@ const WebResult = () => {
       if (fromBlog && blogSlug) {
         const { data: blog, error: blogErr } = await supabase
           .from("blogs")
-          .select("id, category")
+          .select("id")
           .eq("slug", blogSlug)
           .maybeSingle();
         if (blogErr) throw blogErr;
@@ -168,9 +146,6 @@ const WebResult = () => {
         if (!blog?.id) {
           setResults([]);
         } else {
-          // Store blog category for WR201 lookup
-          setBlogCategory(blog.category);
-          
           const { data: search, error: searchErr } = await supabase
             .from("related_searches")
             .select("id")
@@ -188,7 +163,6 @@ const WebResult = () => {
                 .select("*")
                 .eq("related_search_id", search.id)
                 .eq("is_active", true)
-                .or("wr_type.is.null,wr_type.eq.WR101") // Only WR101 results
                 .order("serial_number", { ascending: true }),
               supabase
                 .from("landing_content")
@@ -235,7 +209,6 @@ const WebResult = () => {
           .select('*')
           .eq('wr_page', wrPage)
           .eq('is_active', true)
-          .or("wr_type.is.null,wr_type.eq.WR101") // Only WR101 results
           .order('serial_number', { ascending: true }),
         supabase.from('landing_content').select('site_name, redirect_enabled').limit(1).maybeSingle(),
         supabase.from('prelandings').select('id, web_result_id, is_active').eq('is_active', true),
@@ -272,44 +245,6 @@ const WebResult = () => {
       setLoading(false);
     }
   };
-
-  // Check if any WR101 result matches user country - if not, fetch WR201 results
-  useEffect(() => {
-    const checkCountryMatchAndFetchWR201 = async () => {
-      if (results.length === 0 || userCountry === "XX" || loading) return;
-      
-      // Check if ANY WR101 result allows user's country
-      const hasCountryMatch = results.some(result => 
-        isCountryAllowed(result.allowed_countries, userCountry)
-      );
-      
-      // If no country match and we have a blog category, show WR201
-      if (!hasCountryMatch && blogCategory) {
-        setShowWr201(true);
-        
-        // Fetch WR201 results for this category (max 3 displayed from min 6 stored)
-        const { data: wr201Data, error } = await supabase
-          .from('web_results')
-          .select('id, name, title, description, link, logo_url, is_sponsored, serial_number, category_id')
-          .eq('wr_type', 'WR201')
-          .eq('category_id', blogCategory)
-          .eq('is_active', true)
-          .eq('is_sponsored', true)
-          .order('serial_number', { ascending: true })
-          .limit(3); // Display max 3
-        
-        if (!error && wr201Data) {
-          setWr201Results(wr201Data);
-          console.log(`WR201: Loaded ${wr201Data.length} category-based sponsored results for category: ${blogCategory}`);
-        }
-      } else {
-        setShowWr201(false);
-        setWr201Results([]);
-      }
-    };
-    
-    checkCountryMatchAndFetchWR201();
-  }, [results, userCountry, loading, blogCategory]);
 
   const handleResultClick = async (result: WebResultItem, index: number) => {
     const lid = index + 1;
@@ -549,68 +484,6 @@ const WebResult = () => {
           </div>
         </div>
       </main>
-
-      {/* WR201 Category-based Sponsored Results - Only shown when country doesn't match */}
-      {showWr201 && wr201Results.length > 0 && (
-        <section className="bg-accent/10 border-t border-border/30">
-          <div className="container mx-auto px-4 py-6">
-            <div className="max-w-3xl mx-auto">
-              <p className="text-muted-foreground text-sm mb-4 flex items-center gap-2">
-                <span className="text-xs bg-accent/20 px-2 py-0.5 rounded">Sponsored Results</span>
-                <span className="text-xs text-muted-foreground/60">({blogCategory})</span>
-              </p>
-              
-              <div className="space-y-4">
-                {wr201Results.map((result, index) => (
-                  <div
-                    key={result.id}
-                    className="p-4 rounded-lg border border-border/50 bg-card/50 hover:border-primary/30 transition-colors animate-fade-in"
-                    style={{ animationDelay: `${index * 0.1}s` }}
-                  >
-                    <div className="flex items-start gap-3">
-                      {result.logo_url && (
-                        <img
-                          src={result.logo_url}
-                          alt={result.name}
-                          className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
-                          onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = "none";
-                          }}
-                        />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <h3 
-                          className="text-primary hover:underline cursor-pointer font-medium text-base mb-1"
-                          onClick={() => {
-                            trackClick("wr201_sponsored", result.id, result.title, `/wr/${wrPage}/${wbr}`, index + 1, result.link);
-                            window.location.href = result.link;
-                          }}
-                        >
-                          {result.title}
-                        </h3>
-                        {result.description && (
-                          <p className="text-muted-foreground text-sm line-clamp-2">
-                            {result.description}
-                          </p>
-                        )}
-                        <button
-                          onClick={() => {
-                            trackClick("wr201_sponsored", result.id, result.title, `/wr/${wrPage}/${wbr}`, index + 1, result.link);
-                            window.location.href = result.link;
-                          }}
-                          className="mt-3 bg-primary/80 hover:bg-primary text-primary-foreground px-4 py-2 rounded text-sm font-medium transition-colors"
-                        >
-                          Visit Site
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-      )}
     </div>
   );
 };
