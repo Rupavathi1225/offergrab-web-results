@@ -517,18 +517,40 @@ const WebResults = () => {
     let copyText = '';
     
     if (field === 'all') {
-      // Copy headers row + data row (7 columns: Title, Description, Blog, Related Search, Original Link, Date, Country)
-      const headers = ['Web Result Title', 'Web Result Description', 'Blog', 'Related Search', 'Original Link', 'Date', 'Country'];
-      const values = [
-        result.title || '',
-        result.description || '',
-        blog?.title || 'No Blog',
-        search?.title || 'N/A',
-        result.link || '',
-        result.created_at ? formatDate(result.created_at) : formatDate(new Date().toISOString()),
-        getCountryDisplayNames(result.allowed_countries),
-      ];
-      copyText = headers.join('\t') + '\n' + values.join('\t');
+      // Fetch sitelinks for this result
+      const fetchSitelinks = async () => {
+        const { data: sitelinks } = await supabase
+          .from('sitelinks')
+          .select('url, position')
+          .eq('web_result_id', result.id)
+          .order('position', { ascending: true });
+        
+        const site1 = sitelinks?.find(s => s.position === 1)?.url || '';
+        const site2 = sitelinks?.find(s => s.position === 2)?.url || '';
+        const site3 = sitelinks?.find(s => s.position === 3)?.url || '';
+        const site4 = sitelinks?.find(s => s.position === 4)?.url || '';
+        
+        // Copy headers row + data row (11 columns: Title, Description, Blog, Related Search, Original Link, Date, Country, Site1Link, Site2Link, Site3Link, Site4Link)
+        const headers = ['Web Result Title', 'Web Result Description', 'Blog', 'Related Search', 'Original Link', 'Date', 'Country', 'Site1Link', 'Site2Link', 'Site3Link', 'Site4Link'];
+        const values = [
+          result.title || '',
+          result.description || '',
+          blog?.title || 'No Blog',
+          search?.title || 'N/A',
+          result.link || '',
+          result.created_at ? formatDate(result.created_at) : formatDate(new Date().toISOString()),
+          getCountryDisplayNames(result.allowed_countries),
+          site1,
+          site2,
+          site3,
+          site4,
+        ];
+        const text = headers.join('\t') + '\n' + values.join('\t');
+        navigator.clipboard.writeText(text);
+        toast({ title: "Copied!", description: "All details with sitelinks copied to clipboard." });
+      };
+      fetchSitelinks();
+      return;
     } else if (field === 'title') {
       copyText = result.title || '';
     } else if (field === 'description') {
@@ -548,7 +570,7 @@ const WebResults = () => {
     }
     
     navigator.clipboard.writeText(copyText);
-    toast({ title: "Copied!", description: `${field === 'all' ? 'All details with headers' : field} copied to clipboard.` });
+    toast({ title: "Copied!", description: `${field} copied to clipboard.` });
   };
 
   // Generate masked link for a web result
@@ -647,15 +669,37 @@ const WebResults = () => {
     toast({ title: "Exported!", description: `${selected.length} results exported to CSV.` });
   };
 
-  const copySelected = () => {
+  const copySelected = async () => {
     const selected = filteredResults.filter(r => selectedIds.has(r.id));
     
-    // Headers row - 7 fields including country
-    const headers = ['Web Result Title', 'Web Result Description', 'Blog', 'Related Search', 'Original Link', 'Date', 'Country'];
+    // Fetch sitelinks for all selected results
+    const { data: allSitelinks } = await supabase
+      .from('sitelinks')
+      .select('web_result_id, url, position')
+      .in('web_result_id', selected.map(r => r.id))
+      .order('position', { ascending: true });
+    
+    // Group sitelinks by web_result_id
+    const sitelinksByResult = new Map<string, { url: string; position: number }[]>();
+    allSitelinks?.forEach(s => {
+      if (!sitelinksByResult.has(s.web_result_id)) {
+        sitelinksByResult.set(s.web_result_id, []);
+      }
+      sitelinksByResult.get(s.web_result_id)!.push(s);
+    });
+    
+    // Headers row - 11 fields including sitelinks
+    const headers = ['Web Result Title', 'Web Result Description', 'Blog', 'Related Search', 'Original Link', 'Date', 'Country', 'Site1Link', 'Site2Link', 'Site3Link', 'Site4Link'];
     
     // Data rows for each selected result
     const dataRows = selected.map(r => {
       const { search, blog } = getWebResultContext(r);
+      const sitelinks = sitelinksByResult.get(r.id) || [];
+      
+      const site1 = sitelinks.find(s => s.position === 1)?.url || '';
+      const site2 = sitelinks.find(s => s.position === 2)?.url || '';
+      const site3 = sitelinks.find(s => s.position === 3)?.url || '';
+      const site4 = sitelinks.find(s => s.position === 4)?.url || '';
       
       return [
         r.title || '',
@@ -665,12 +709,16 @@ const WebResults = () => {
         r.link || '',
         r.created_at ? formatDate(r.created_at) : formatDate(new Date().toISOString()),
         getCountryDisplayNames(r.allowed_countries),
+        site1,
+        site2,
+        site3,
+        site4,
       ].join('\t');
     });
     
     const text = headers.join('\t') + '\n' + dataRows.join('\n');
     navigator.clipboard.writeText(text);
-    toast({ title: "Copied!", description: `${selected.length} results copied to clipboard.` });
+    toast({ title: "Copied!", description: `${selected.length} results with sitelinks copied to clipboard.` });
   };
 
   const bulkActivate = async () => {
