@@ -448,6 +448,7 @@ export type Database = {
         Row: {
           allowed_countries: string[] | null
           blog_id: string | null
+          category_id: string | null
           created_at: string
           description: string | null
           fallback_link: string | null
@@ -462,10 +463,12 @@ export type Database = {
           title: string
           updated_at: string
           wr_page: number
+          wr_type: string
         }
         Insert: {
           allowed_countries?: string[] | null
           blog_id?: string | null
+          category_id?: string | null
           created_at?: string
           description?: string | null
           fallback_link?: string | null
@@ -480,10 +483,12 @@ export type Database = {
           title: string
           updated_at?: string
           wr_page?: number
+          wr_type?: string
         }
         Update: {
           allowed_countries?: string[] | null
           blog_id?: string | null
+          category_id?: string | null
           created_at?: string
           description?: string | null
           fallback_link?: string | null
@@ -498,6 +503,7 @@ export type Database = {
           title?: string
           updated_at?: string
           wr_page?: number
+          wr_type?: string
         }
         Relationships: [
           {
