@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,10 @@ import BulkActionToolbar from "@/components/admin/BulkActionToolbar";
 import { generateRandomToken } from "@/lib/linkGenerator";
 import { convertToCSV, downloadCSV } from "@/lib/csvExport";
 import BulkSearchTitleEditor from "@/components/admin/BulkSearchTitleEditor";
+import { BlogMultiSelectPopover, BlogMultiSelectItem } from "@/components/admin/BlogMultiSelectPopover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ChevronDown, Check } from "lucide-react";
+
 interface Blog {
   id: string;
   title: string;
@@ -35,6 +39,12 @@ const SearchButtons = () => {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [showBulkEditor, setShowBulkEditor] = useState(false);
+  
+  // Multi-select filters
+  const [filterBlogIds, setFilterBlogIds] = useState<string[]>([]);
+  const [filterSearchIds, setFilterSearchIds] = useState<string[]>([]);
+  const [blogFilterOpen, setBlogFilterOpen] = useState(false);
+  const [searchFilterOpen, setSearchFilterOpen] = useState(false);
 
   useEffect(() => {
     fetchButtons();
@@ -246,6 +256,77 @@ const SearchButtons = () => {
     }
   };
 
+  // Get related searches filtered by selected blogs for the search filter dropdown
+  const availableSearchesForFilter = useMemo(() => {
+    if (filterBlogIds.length === 0) {
+      // If no blogs selected, show all related searches
+      return buttons;
+    }
+    // Only show related searches that belong to the selected blogs
+    return buttons.filter(b => b.blog_id && filterBlogIds.includes(b.blog_id));
+  }, [buttons, filterBlogIds]);
+
+  // Filter buttons based on search query and selected filters
+  const filteredButtons = useMemo(() => {
+    return buttons.filter(b => {
+      // Blog filter
+      if (filterBlogIds.length > 0 && (!b.blog_id || !filterBlogIds.includes(b.blog_id))) {
+        return false;
+      }
+      
+      // Related search filter
+      if (filterSearchIds.length > 0 && !filterSearchIds.includes(b.id)) {
+        return false;
+      }
+      
+      // Text search
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        const blogTitle = getBlogTitle(b.blog_id).toLowerCase();
+        if (!b.title.toLowerCase().includes(query) && !blogTitle.includes(query)) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
+  }, [buttons, filterBlogIds, filterSearchIds, searchQuery, blogs]);
+
+  const toggleFilterBlog = (blogId: string) => {
+    setFilterBlogIds(prev => {
+      const newIds = prev.includes(blogId)
+        ? prev.filter(id => id !== blogId)
+        : [...prev, blogId];
+      
+      // When blogs change, reset search filter to only include valid searches
+      if (filterSearchIds.length > 0) {
+        const validSearchIds = buttons
+          .filter(b => newIds.length === 0 || (b.blog_id && newIds.includes(b.blog_id)))
+          .map(b => b.id);
+        setFilterSearchIds(prev => prev.filter(id => validSearchIds.includes(id)));
+      }
+      
+      return newIds;
+    });
+  };
+
+  const toggleFilterSearch = (searchId: string) => {
+    setFilterSearchIds(prev => 
+      prev.includes(searchId)
+        ? prev.filter(id => id !== searchId)
+        : [...prev, searchId]
+    );
+  };
+
+  const clearBlogFilter = () => {
+    setFilterBlogIds([]);
+    setFilterSearchIds([]);
+  };
+
+  const clearSearchFilter = () => {
+    setFilterSearchIds([]);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -267,17 +348,6 @@ const SearchButtons = () => {
     );
   }
 
-  // Filter buttons based on search query
-  const filteredButtons = buttons.filter(b => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    const blogTitle = getBlogTitle(b.blog_id).toLowerCase();
-    return (
-      b.title.toLowerCase().includes(query) ||
-      blogTitle.includes(query)
-    );
-  });
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -291,15 +361,130 @@ const SearchButtons = () => {
         </Button>
       </div>
 
-      {/* Search Box */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Search by title or blog name..."
-          className="pl-10"
+      {/* Filters Row */}
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Text Search */}
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by title or blog name..."
+            className="pl-10"
+          />
+        </div>
+
+        {/* Blog Multi-Select Filter */}
+        <BlogMultiSelectPopover
+          open={blogFilterOpen}
+          onOpenChange={setBlogFilterOpen}
+          blogs={blogs.map(b => ({ id: b.id, title: b.title }))}
+          selectedBlogIds={filterBlogIds}
+          onToggleBlog={toggleFilterBlog}
+          onClear={clearBlogFilter}
+          triggerClassName="min-w-[160px] justify-between"
+          contentClassName="w-[280px] p-0"
         />
+
+        {/* Related Search Multi-Select Filter */}
+        <Popover open={searchFilterOpen} onOpenChange={setSearchFilterOpen} modal={false}>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              className="min-w-[180px] justify-between"
+              aria-expanded={searchFilterOpen}
+              data-search-filter-trigger
+            >
+              <span className="truncate">
+                {filterSearchIds.length === 0
+                  ? "All Related Searches"
+                  : `${filterSearchIds.length} search${filterSearchIds.length === 1 ? "" : "es"} selected`}
+              </span>
+              <ChevronDown className={`h-4 w-4 opacity-60 transition-transform ${searchFilterOpen ? "rotate-180" : ""}`} />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="start"
+            className="w-[320px] p-0"
+            onOpenAutoFocus={(e) => e.preventDefault()}
+            onInteractOutside={(e) => {
+              const target = e.target as HTMLElement;
+              if (target.closest("[data-search-filter-trigger]")) e.preventDefault();
+            }}
+          >
+            <div className="max-h-[300px] overflow-y-auto p-1">
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  clearSearchFilter();
+                  setSearchFilterOpen(false);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    clearSearchFilter();
+                    setSearchFilterOpen(false);
+                  }
+                }}
+                className="flex items-center justify-between px-2 py-1.5 rounded-sm cursor-pointer hover:bg-accent hover:text-accent-foreground"
+              >
+                <span>All Related Searches</span>
+                {filterSearchIds.length === 0 ? <Check className="h-4 w-4" /> : null}
+              </div>
+
+              {availableSearchesForFilter.length === 0 ? (
+                <div className="px-2 py-3 text-sm text-muted-foreground text-center">
+                  {filterBlogIds.length > 0 ? "No related searches for selected blogs" : "No related searches available"}
+                </div>
+              ) : (
+                availableSearchesForFilter.map((search) => {
+                  const checked = filterSearchIds.includes(search.id);
+                  const blogTitle = getBlogTitle(search.blog_id);
+                  return (
+                    <div
+                      key={search.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => toggleFilterSearch(search.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          toggleFilterSearch(search.id);
+                        }
+                      }}
+                      className="flex items-center justify-between px-2 py-1.5 rounded-sm cursor-pointer hover:bg-accent hover:text-accent-foreground"
+                    >
+                      <div className="flex flex-col min-w-0 flex-1 pr-2">
+                        <span className="truncate text-sm">{search.title}</span>
+                        <span className="truncate text-xs text-muted-foreground">{blogTitle}</span>
+                      </div>
+                      <Checkbox checked={checked} className="pointer-events-none shrink-0" />
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        {/* Clear All Filters */}
+        {(filterBlogIds.length > 0 || filterSearchIds.length > 0 || searchQuery) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setFilterBlogIds([]);
+              setFilterSearchIds([]);
+              setSearchQuery("");
+            }}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <X className="w-4 h-4 mr-1" />
+            Clear filters
+          </Button>
+        )}
       </div>
 
       {/* Add New */}
