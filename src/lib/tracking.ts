@@ -137,7 +137,7 @@ export const initSession = async (): Promise<void> => {
 };
 
 export const trackClick = async (
-  clickType: 'related_search' | 'web_result' | 'prelanding_submit' | 'landing2_view' | 'landing2_click' | 'fallback_redirect' | 'thankyou_view' | 'sitelink',
+  clickType: 'related_search' | 'web_result' | 'prelanding_submit' | 'landing2_view' | 'landing2_click' | 'fallback_redirect' | 'thankyou_view' | 'sitelink' | 'wr201_sponsored',
   itemId?: string,
   itemName?: string,
   page?: string,
