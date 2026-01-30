@@ -101,6 +101,45 @@ export type Database = {
         }
         Relationships: []
       }
+      consultation_pages: {
+        Row: {
+          created_at: string
+          cta_text: string | null
+          destination_link: string
+          id: string
+          image_url: string | null
+          is_active: boolean
+          name: string
+          slug: string
+          trust_line: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          cta_text?: string | null
+          destination_link: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name: string
+          slug: string
+          trust_line?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          cta_text?: string | null
+          destination_link?: string
+          id?: string
+          image_url?: string | null
+          is_active?: boolean
+          name?: string
+          slug?: string
+          trust_line?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       email_captures: {
         Row: {
           captured_at: string
