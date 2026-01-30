@@ -410,6 +410,8 @@ const WebResults = () => {
           allowed_countries: editingResult.allowed_countries,
           fallback_link: editingResult.fallback_link,
           is_active: editingResult.is_active,
+          wr_type: editingResult.wr_type || 'WR101',
+          category_id: editingResult.wr_type === 'WR201' ? editingResult.category_id : null,
         })
         .eq('id', editingResult.id);
 
