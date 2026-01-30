@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useThemeSettings } from "@/contexts/ThemeContext";
 
+// Add new tab for Consultation Pages
 const tabs = [
   { label: 'Landing Content', path: '/adm/landing' },
   { label: 'Search Buttons', path: '/adm/searches' },
@@ -16,6 +17,7 @@ const tabs = [
   { label: 'Analytics', path: '/adm/analytics' },
   { label: 'Bulk Editor', path: '/adm/bulk-web-result-editor' },
   { label: 'Fallback URLs', path: '/adm/fallback-urls' },
+  { label: 'Consultation Pages', path: '/adm/consultation-pages' }, // ✅ new tab
 ];
 
 const AdminLayout = () => {
