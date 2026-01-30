@@ -99,6 +99,8 @@ const WebResults = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedResults, setGeneratedResults] = useState<GeneratedWebResult[]>([]);
   const [aiResultCount, setAiResultCount] = useState<number>(6);
+  const [aiWrType, setAiWrType] = useState<string>("WR101");
+  const [aiCategoryId, setAiCategoryId] = useState<string>("");
   
   // Copy fields selection (horizontal row for spreadsheet) - 7 fields including country
   const [copyFields, setCopyFields] = useState({
@@ -311,6 +313,8 @@ const WebResults = () => {
         allowed_countries: ['worldwide'],
         blog_id: search.blog_id,
         related_search_id: search.id,
+        wr_type: aiWrType,
+        category_id: aiWrType === 'WR201' ? aiCategoryId || null : null,
       }));
 
       const { data: insertedResults, error } = await supabase
@@ -942,9 +946,36 @@ const WebResults = () => {
             </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <Label className="text-sm text-muted-foreground mb-2 block">3. Number of Results to Generate</Label>
+              <Label className="text-sm text-muted-foreground mb-2 block">3. WR Type</Label>
+              <Select value={aiWrType} onValueChange={(v) => { setAiWrType(v); if (v === 'WR101') setAiCategoryId(''); }}>
+                <SelectTrigger className={`admin-input ${aiWrType === 'WR201' ? 'border-orange-500 bg-orange-500/10' : ''}`}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="WR101">WR101 (Standard)</SelectItem>
+                  <SelectItem value="WR201">WR201 (Category-Based)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {aiWrType === 'WR201' && (
+              <div>
+                <Label className="text-sm text-muted-foreground mb-2 block">4. Category</Label>
+                <Select value={aiCategoryId} onValueChange={setAiCategoryId}>
+                  <SelectTrigger className={`admin-input ${aiCategoryId ? 'border-primary bg-primary/10' : 'border-destructive'}`}>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {WR_CATEGORIES.map(cat => (
+                      <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div>
+              <Label className="text-sm text-muted-foreground mb-2 block">{aiWrType === 'WR201' ? '5.' : '4.'} Results Count</Label>
               <Select value={String(aiResultCount)} onValueChange={(v) => setAiResultCount(Number(v))}>
                 <SelectTrigger className="admin-input">
                   <SelectValue />
@@ -959,7 +990,7 @@ const WebResults = () => {
             <div className="flex items-end">
               <Button 
                 onClick={generateWebResults} 
-                disabled={!selectedRelatedSearch || isGenerating}
+                disabled={!selectedRelatedSearch || isGenerating || (aiWrType === 'WR201' && !aiCategoryId)}
                 className="gap-2 w-full"
               >
                 {isGenerating ? (
@@ -967,7 +998,7 @@ const WebResults = () => {
                 ) : (
                   <Sparkles className="w-4 h-4" />
                 )}
-                Generate {aiResultCount} Web Results
+                Generate {aiResultCount} {aiWrType}
               </Button>
             </div>
           </div>
