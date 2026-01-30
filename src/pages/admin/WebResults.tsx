@@ -1758,6 +1758,47 @@ const WebResults = () => {
                   </div>
                 </div>
               </div>
+              
+              {/* WR Type and Category */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-muted-foreground mb-1">WR Type</label>
+                  <Select 
+                    value={editingResult.wr_type || 'WR101'} 
+                    onValueChange={(v) => setEditingResult({ 
+                      ...editingResult, 
+                      wr_type: v, 
+                      category_id: v === 'WR201' ? editingResult.category_id : null 
+                    })}
+                  >
+                    <SelectTrigger className={`admin-input ${editingResult.wr_type === 'WR201' ? 'border-orange-500 bg-orange-500/10' : ''}`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="WR101">WR101 (Standard)</SelectItem>
+                      <SelectItem value="WR201">WR201 (Category-Based)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {editingResult.wr_type === 'WR201' && (
+                  <div>
+                    <label className="block text-sm text-muted-foreground mb-1">Category *</label>
+                    <Select 
+                      value={editingResult.category_id || ''} 
+                      onValueChange={(v) => setEditingResult({ ...editingResult, category_id: v })}
+                    >
+                      <SelectTrigger className={`admin-input ${editingResult.category_id ? 'border-primary bg-primary/10' : 'border-destructive'}`}>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {WR_CATEGORIES.map(cat => (
+                          <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
 
               {/* Country Selection */}
               <div>
