@@ -29,8 +29,6 @@ import Analytics from "./pages/admin/Analytics";
 import BulkWebResultEditor from "./pages/admin/BulkWebResultEditor";
 import FallbackUrls from "./pages/admin/FallbackUrls";
 import NotFound from "./pages/NotFound";
-import ConsultationPages from "./pages/admin/ConsultationPages";
-
 
 const queryClient = new QueryClient();
 
@@ -76,7 +74,6 @@ function App() {
                 <Route path="analytics" element={<Analytics />} />
                 <Route path="bulk-web-result-editor" element={<BulkWebResultEditor />} />
                 <Route path="fallback-urls" element={<FallbackUrls />} />
-                <Route path="consultation-pages" element={<ConsultationPages />} />
               </Route>
               
               {/* White theme blog URL - catches /:slug last */}

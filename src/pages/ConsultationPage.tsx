@@ -18,7 +18,6 @@ interface ConsultationPageData {
 const ConsultationPage = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-
   const [pageData, setPageData] = useState<ConsultationPageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -26,21 +25,10 @@ const ConsultationPage = () => {
   useEffect(() => {
     initSession();
     fetchPageData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
-  const cleanSlug = (rawSlug?: string) => {
-    if (!rawSlug) return null;
-    return rawSlug
-      .replace(/^\/?cnos\//, "") // remove /cnos/ if present
-      .replace(/-+$/, "")        // remove trailing dashes
-      .trim();
-  };
-
   const fetchPageData = async () => {
-    const normalizedSlug = cleanSlug(slug);
-
-    if (!normalizedSlug) {
+    if (!slug) {
       setNotFound(true);
       setLoading(false);
       return;
@@ -49,7 +37,7 @@ const ConsultationPage = () => {
     const { data, error } = await supabase
       .from("consultation_pages")
       .select("*")
-      .eq("slug", normalizedSlug)
+      .eq("slug", slug)
       .eq("is_active", true)
       .maybeSingle();
 
@@ -57,34 +45,21 @@ const ConsultationPage = () => {
       setNotFound(true);
     } else {
       setPageData(data);
-
-      trackClick(
-        "consultation_view",
-        data.id,
-        data.name,
-        `/cnos/${normalizedSlug}`
-      );
+      // Track page view
+      trackClick("consultation_view", data.id, data.name, `/cnos/${slug}`);
     }
-
     setLoading(false);
   };
 
   const handleCTAClick = () => {
     if (!pageData) return;
-
-    trackClick(
-      "consultation_click",
-      pageData.id,
-      pageData.name,
-      `/cnos/${pageData.slug}`,
-      undefined,
-      pageData.destination_link
-    );
-
+    
+    // Track the click
+    trackClick("consultation_click", pageData.id, pageData.name, `/cnos/${pageData.slug}`, undefined, pageData.destination_link);
+    
+    // Redirect to destination
     window.location.href = pageData.destination_link;
   };
-
-  /* -------------------- UI STATES -------------------- */
 
   if (loading) {
     return (
@@ -98,12 +73,8 @@ const ConsultationPage = () => {
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-slate-800 mb-2">
-            Page Not Found
-          </h1>
-          <p className="text-slate-600 mb-4">
-            This consultation page doesn't exist or is inactive.
-          </p>
+          <h1 className="text-2xl font-bold text-slate-800 mb-2">Page Not Found</h1>
+          <p className="text-slate-600 mb-4">This consultation page doesn't exist or is inactive.</p>
           <button
             onClick={() => navigate("/")}
             className="text-blue-600 hover:underline"
@@ -115,21 +86,18 @@ const ConsultationPage = () => {
     );
   }
 
-  /* -------------------- PAGE -------------------- */
-
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50">
       {/* Header */}
       <header className="py-6 border-b border-slate-200">
         <div className="container mx-auto px-4">
-          <h1 className="text-xl font-bold text-slate-800 text-center">
-            Astepstair
-          </h1>
+          <h1 className="text-xl font-bold text-slate-800 text-center">Astepstair</h1>
         </div>
       </header>
 
-      {/* Main */}
-      <main className="container mx-auto px-4 py-12 max-w-2xl flex-grow">
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-12 max-w-2xl">
+        {/* Image Section */}
         {pageData.image_url && (
           <div className="mb-8 flex justify-center">
             <img
@@ -140,16 +108,17 @@ const ConsultationPage = () => {
           </div>
         )}
 
+        {/* Title */}
         <h2 className="text-2xl md:text-3xl font-bold text-slate-800 text-center mb-6">
           {pageData.name}
         </h2>
 
+        {/* Trust Line */}
         <p className="text-slate-600 text-center text-lg mb-8 max-w-lg mx-auto">
-          {pageData.trust_line ||
-            "To proceed, please complete a short, secure consultation form."}
+          {pageData.trust_line || "To proceed, please complete a short, secure consultation form."}
         </p>
 
-        {/* Arrows */}
+        {/* Big Arrow Section */}
         <div className="flex flex-col items-center mb-8">
           <div className="animate-bounce">
             <ArrowDown className="w-16 h-16 text-blue-600" strokeWidth={2.5} />
@@ -161,7 +130,7 @@ const ConsultationPage = () => {
           </div>
         </div>
 
-        {/* CTA */}
+        {/* CTA Button */}
         <div className="flex justify-center mb-10">
           <button
             onClick={handleCTAClick}
@@ -171,7 +140,7 @@ const ConsultationPage = () => {
           </button>
         </div>
 
-        {/* Trust badges */}
+        {/* Trust Badges */}
         <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-slate-500 mb-12">
           <div className="flex items-center gap-2">
             <Shield className="w-4 h-4 text-green-600" />
@@ -187,20 +156,21 @@ const ConsultationPage = () => {
           </div>
         </div>
 
+        {/* Additional Trust Message */}
         <div className="text-center text-slate-500 text-sm">
           <p>This helps us understand your requirement better.</p>
         </div>
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-200 py-6">
+      <footer className="border-t border-slate-200 py-6 mt-auto">
         <div className="container mx-auto px-4 text-center text-slate-500 text-sm">
           <div className="flex items-center justify-center gap-4 mb-2">
-            <a href="/about-us" className="hover:text-slate-700">
+            <a href="/about-us" className="hover:text-slate-700 transition-colors">
               About Us
             </a>
             <span className="text-slate-300">•</span>
-            <a href="/privacy-policy" className="hover:text-slate-700">
+            <a href="/privacy-policy" className="hover:text-slate-700 transition-colors">
               Privacy Policy
             </a>
           </div>
