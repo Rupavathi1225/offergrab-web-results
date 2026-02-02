@@ -29,6 +29,10 @@ export type Database = {
           title: string
           total_words: number | null
           updated_at: string
+          urgency_action: string | null
+          urgency_enabled: boolean | null
+          urgency_hours: number | null
+          urgency_text: string | null
         }
         Insert: {
           author?: string | null
@@ -44,6 +48,10 @@ export type Database = {
           title: string
           total_words?: number | null
           updated_at?: string
+          urgency_action?: string | null
+          urgency_enabled?: boolean | null
+          urgency_hours?: number | null
+          urgency_text?: string | null
         }
         Update: {
           author?: string | null
@@ -59,6 +67,10 @@ export type Database = {
           title?: string
           total_words?: number | null
           updated_at?: string
+          urgency_action?: string | null
+          urgency_enabled?: boolean | null
+          urgency_hours?: number | null
+          urgency_text?: string | null
         }
         Relationships: []
       }
