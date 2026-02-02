@@ -19,6 +19,7 @@ import BlogByNumber from "./pages/BlogByNumber";
 import FastMoney from "./pages/FastMoney";
 import Landing2 from "./pages/Landing2";
 import LegacyWebResultRedirect from "./pages/LegacyWebResultRedirect";
+import ConsultationPage from "./pages/ConsultationPage";
 import AdminLayout from "./pages/admin/AdminLayout";
 import LandingContent from "./pages/admin/LandingContent";
 import SearchButtons from "./pages/admin/SearchButtons";
@@ -28,6 +29,7 @@ import Blogs from "./pages/admin/Blogs";
 import Analytics from "./pages/admin/Analytics";
 import BulkWebResultEditor from "./pages/admin/BulkWebResultEditor";
 import FallbackUrls from "./pages/admin/FallbackUrls";
+import ConsultationPages from "./pages/admin/ConsultationPages";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -44,6 +46,9 @@ function App() {
               {/* Homepage - theme dependent */}
               <Route path="/" element={<ThemedHomepage />} />
               <Route path="/landing" element={<ThemedHomepage />} />
+              
+              {/* Consultation pages */}
+              <Route path="/cnos/:slug" element={<ConsultationPage />} />
               
               {/* Blog routes - all three URL patterns work */}
               <Route path="/blog/:slug" element={<BlogPage />} />
@@ -74,6 +79,7 @@ function App() {
                 <Route path="analytics" element={<Analytics />} />
                 <Route path="bulk-web-result-editor" element={<BulkWebResultEditor />} />
                 <Route path="fallback-urls" element={<FallbackUrls />} />
+                <Route path="consultation-pages" element={<ConsultationPages />} />
               </Route>
               
               {/* White theme blog URL - catches /:slug last */}
