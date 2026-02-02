@@ -77,6 +77,13 @@ interface LastDayDetailClick {
   clicked_at: string;
 }
 
+interface EnhancedThankYouDetail {
+  click: LastDayDetailClick;
+  session: Session | null;
+  duplicateCount: number;
+  isFirstForSession: boolean;
+}
+
 const Analytics = () => {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [clicks, setClicks] = useState<Click[]>([]);
@@ -118,13 +125,57 @@ const Analytics = () => {
 
   const fetchData = async () => {
     try {
-      const [sessionsRes, clicksRes] = await Promise.all([
-        supabase.from('sessions').select('*').order('last_active', { ascending: false }),
-        supabase.from('clicks').select('*').order('clicked_at', { ascending: false }),
-      ]);
+      // Fetch ALL sessions using pagination to avoid 1000 row limit
+      let allSessions: Session[] = [];
+      let allClicks: Click[] = [];
+      
+      // Fetch sessions with pagination
+      let from = 0;
+      const pageSize = 1000;
+      let hasMoreSessions = true;
+      
+      while (hasMoreSessions) {
+        const { data: sessionsBatch, error } = await supabase
+          .from('sessions')
+          .select('*')
+          .order('last_active', { ascending: false })
+          .range(from, from + pageSize - 1);
+        
+        if (error) throw error;
+        
+        if (sessionsBatch && sessionsBatch.length > 0) {
+          allSessions = [...allSessions, ...sessionsBatch];
+          from += pageSize;
+          hasMoreSessions = sessionsBatch.length === pageSize;
+        } else {
+          hasMoreSessions = false;
+        }
+      }
+      
+      // Fetch clicks with pagination
+      from = 0;
+      let hasMoreClicks = true;
+      
+      while (hasMoreClicks) {
+        const { data: clicksBatch, error } = await supabase
+          .from('clicks')
+          .select('*')
+          .order('clicked_at', { ascending: false })
+          .range(from, from + pageSize - 1);
+        
+        if (error) throw error;
+        
+        if (clicksBatch && clicksBatch.length > 0) {
+          allClicks = [...allClicks, ...clicksBatch];
+          from += pageSize;
+          hasMoreClicks = clicksBatch.length === pageSize;
+        } else {
+          hasMoreClicks = false;
+        }
+      }
 
-      const sessionsData = sessionsRes.data || [];
-      const clicksData = clicksRes.data || [];
+      const sessionsData = allSessions;
+      const clicksData = allClicks;
 
       setSessions(sessionsData);
       setClicks(clicksData);
@@ -675,6 +726,113 @@ const Analytics = () => {
                         <td className="text-xs font-medium">{session.page_views}</td>
                       </tr>
                     ))
+                  )}
+                </tbody>
+              </table>
+            ) : lastDayDetailOpen === 'thankyou_view' ? (
+              /* Enhanced Thank You Views Table */
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Session ID</th>
+                    <th>Country</th>
+                    <th>Source</th>
+                    <th>Device</th>
+                    <th>IP Address</th>
+                    <th>Page Path</th>
+                    <th>Destination</th>
+                    <th>Session Clicks</th>
+                    <th>Duplicate?</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lastDayDetailClicks.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="text-center text-muted-foreground py-8">
+                        No Thank You views in the last 24 hours
+                      </td>
+                    </tr>
+                  ) : (
+                    (() => {
+                      // Group by session_id to detect duplicates
+                      const sessionClickCounts: Record<string, number> = {};
+                      const sessionFirstClick: Record<string, string> = {};
+                      
+                      lastDayDetailClicks.forEach((click) => {
+                        sessionClickCounts[click.session_id] = (sessionClickCounts[click.session_id] || 0) + 1;
+                        if (!sessionFirstClick[click.session_id] || new Date(click.clicked_at) < new Date(sessionFirstClick[click.session_id])) {
+                          sessionFirstClick[click.session_id] = click.clicked_at;
+                        }
+                      });
+                      
+                      return lastDayDetailClicks.map((click) => {
+                        const sessionData = sessions.find(s => s.session_id === click.session_id);
+                        const clickCount = sessionClickCounts[click.session_id];
+                        const isFirstClick = sessionFirstClick[click.session_id] === click.clicked_at;
+                        const isDuplicate = clickCount > 1 && !isFirstClick;
+                        
+                        return (
+                          <tr key={click.id} className={isDuplicate ? 'opacity-60' : ''}>
+                            <td className="text-xs whitespace-nowrap">{new Date(click.clicked_at).toLocaleString()}</td>
+                            <td className="font-mono text-xs">{click.session_id.substring(0, 16)}...</td>
+                            <td>
+                              {sessionData ? (
+                                <span className="badge-primary">{sessionData.country_code || 'XX'}</span>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                              <span className="text-xs text-muted-foreground ml-1">
+                                {sessionData?.country || ''}
+                              </span>
+                            </td>
+                            <td>
+                              {sessionData ? (
+                                <span className="badge-primary">{sessionData.source || 'direct'}</span>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </td>
+                            <td className="text-xs">
+                              {sessionData?.device || '-'}
+                            </td>
+                            <td className="font-mono text-xs">
+                              {sessionData?.ip_address ? (
+                                // Mask last octet for privacy
+                                sessionData.ip_address.replace(/\.\d+$/, '.***')
+                              ) : '-'}
+                            </td>
+                            <td className="text-xs text-muted-foreground">{click.page || '/ty'}</td>
+                            <td className="text-xs">
+                              {click.original_link ? (
+                                <a 
+                                  href={click.original_link} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-primary hover:underline truncate max-w-[150px] inline-block"
+                                >
+                                  {click.original_link.substring(0, 30)}...
+                                </a>
+                              ) : '-'}
+                            </td>
+                            <td className="text-xs">
+                              <span className={clickCount > 1 ? 'text-amber-500 font-medium' : 'text-muted-foreground'}>
+                                {clickCount}x
+                              </span>
+                            </td>
+                            <td className="text-xs">
+                              {isDuplicate ? (
+                                <span className="badge bg-amber-500/20 text-amber-500 text-[10px] px-2 py-0.5 rounded">Duplicate</span>
+                              ) : isFirstClick && clickCount > 1 ? (
+                                <span className="badge bg-emerald-500/20 text-emerald-500 text-[10px] px-2 py-0.5 rounded">First</span>
+                              ) : (
+                                <span className="text-emerald-500">Unique</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()
                   )}
                 </tbody>
               </table>
