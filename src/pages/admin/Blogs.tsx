@@ -46,6 +46,10 @@ interface Blog {
   status: string;
   is_active: boolean;
   total_words: number;
+  urgency_enabled: boolean;
+  urgency_hours: number;
+  urgency_text: string | null;
+  urgency_action: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -98,6 +102,10 @@ const Blogs = () => {
     category: "",
     status: "published",
     total_words: 800,
+    urgency_enabled: false,
+    urgency_hours: 3,
+    urgency_text: "Within 3 hours, a consultation form will be available. Please come back or leave your email to get notified.",
+    urgency_action: "email",
   });
 
   const { data: blogs, isLoading } = useQuery({
@@ -242,6 +250,10 @@ const Blogs = () => {
       category: "",
       status: "published",
       total_words: 800,
+      urgency_enabled: false,
+      urgency_hours: 3,
+      urgency_text: "Within 3 hours, a consultation form will be available. Please come back or leave your email to get notified.",
+      urgency_action: "email",
     });
     setEditingBlog(null);
     setGeneratedSearches([]);
@@ -506,6 +518,10 @@ const Blogs = () => {
       category: blog.category || "",
       status: blog.status,
       total_words: blog.total_words || 800,
+      urgency_enabled: blog.urgency_enabled || false,
+      urgency_hours: blog.urgency_hours || 3,
+      urgency_text: blog.urgency_text || "Within 3 hours, a consultation form will be available. Please come back or leave your email to get notified.",
+      urgency_action: blog.urgency_action || "email",
     });
     setIsDialogOpen(true);
   };
@@ -1033,6 +1049,73 @@ const Blogs = () => {
                   </p>
                 </div>
               )}
+
+              {/* Urgency Section */}
+              <div className="space-y-3 p-4 border border-purple-500/30 rounded-lg bg-purple-500/5">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="bg-purple-500 text-white text-xs font-bold px-2 py-1 rounded">Urgency</span>
+                  <Label className="font-semibold">Urgency Box Settings</Label>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <Switch
+                    checked={formData.urgency_enabled}
+                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, urgency_enabled: checked }))}
+                  />
+                  <Label>Enable Urgency Box</Label>
+                </div>
+
+                {formData.urgency_enabled && (
+                  <div className="space-y-4 mt-3">
+                    {/* Timer Hours */}
+                    <div className="space-y-2">
+                      <Label className="text-sm">Timer (Hours)</Label>
+                      <Select
+                        value={formData.urgency_hours.toString()}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, urgency_hours: parseInt(value) }))}
+                      >
+                        <SelectTrigger className="w-32">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[1, 2, 3, 4, 5, 6, 12, 24].map((n) => (
+                            <SelectItem key={n} value={n.toString()}>{n} hour{n > 1 ? 's' : ''}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Urgency Text */}
+                    <div className="space-y-2">
+                      <Label className="text-sm">Urgency Message</Label>
+                      <Textarea
+                        value={formData.urgency_text}
+                        onChange={(e) => setFormData(prev => ({ ...prev, urgency_text: e.target.value }))}
+                        placeholder="Within 3 hours, a consultation form will be available..."
+                        rows={2}
+                      />
+                    </div>
+
+                    {/* Action Option */}
+                    <div className="space-y-2">
+                      <Label className="text-sm">User Action Before Form Shows</Label>
+                      <Select
+                        value={formData.urgency_action}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, urgency_action: value }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="email">Leave email to get notified</SelectItem>
+                          <SelectItem value="comeback">Come back later</SelectItem>
+                          <SelectItem value="message">Just show message (no input)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <div className="space-y-2">
                 <Label htmlFor="status">Status</Label>
