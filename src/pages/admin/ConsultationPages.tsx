@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, ExternalLink, Copy, Sparkles, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, ExternalLink, Copy } from "lucide-react";
 
 interface ConsultationPage {
   id: string;
@@ -28,7 +28,6 @@ const ConsultationPages = () => {
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingPage, setEditingPage] = useState<ConsultationPage | null>(null);
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -75,35 +74,6 @@ const ConsultationPages = () => {
       name,
       slug: generateSlug(name),
     });
-  };
-
-  const generateImage = async () => {
-    if (!formData.name) {
-      toast.error("Please enter a name first");
-      return;
-    }
-
-    setIsGeneratingImage(true);
-    try {
-      const { invokeEdgeFunction } = await import("@/lib/invokeEdgeFunction");
-      const { data, error } = await invokeEdgeFunction<{ imageUrl?: string; error?: string }>(
-        "generate-blog-image",
-        { title: `Consultation: ${formData.name}` },
-      );
-      if (error) throw error;
-
-      if (data.imageUrl) {
-        setFormData(prev => ({ ...prev, image_url: data.imageUrl }));
-        toast.success("Image generated successfully!");
-      } else {
-        throw new Error(data.error || "Failed to generate image");
-      }
-    } catch (error) {
-      console.error("Error generating image:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to generate image");
-    } finally {
-      setIsGeneratingImage(false);
-    }
   };
 
   const resetForm = () => {
@@ -286,36 +256,12 @@ const ConsultationPages = () => {
               </div>
 
               <div className="space-y-2">
-                <Label>Image</Label>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={generateImage}
-                    disabled={isGeneratingImage || !formData.name}
-                    className="gap-2"
-                  >
-                    {isGeneratingImage ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Sparkles className="w-4 h-4" />
-                    )}
-                    Generate AI Image
-                  </Button>
-                </div>
+                <Label>Image URL (Optional)</Label>
                 <Input
                   value={formData.image_url}
                   onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                  placeholder="Or paste image URL here..."
-                  className="mt-2"
+                  placeholder="https://example.com/image.png"
                 />
-                {formData.image_url && (
-                  <img 
-                    src={formData.image_url} 
-                    alt="Preview" 
-                    className="w-full max-h-32 object-cover rounded-md mt-2"
-                  />
-                )}
               </div>
 
               <div className="space-y-2">
