@@ -1,11 +1,13 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2, ArrowLeft, Clock, Mail } from "lucide-react";
 import { trackClick } from "@/lib/tracking";
 import { trackInboundClick } from "@/lib/pixelTracking";
 import { generateRandomToken } from "@/lib/linkGenerator";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 interface Blog {
   id: string;
@@ -14,12 +16,18 @@ interface Blog {
   content: string | null;
   featured_image_url: string | null;
   total_words?: number;
+  urgency_enabled?: boolean;
+  urgency_hours?: number;
+  urgency_text?: string | null;
+  urgency_action?: string | null;
   [key: string]: any;
 }
 
 const BlogPage = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const [urgencyEmail, setUrgencyEmail] = useState("");
+  const [urgencySubmitted, setUrgencySubmitted] = useState(false);
 
   // Force legacy /blog/:slug pages to always be Black theme.
   useEffect(() => {
@@ -197,6 +205,58 @@ const BlogPage = () => {
                 prose-li:text-foreground/90 prose-li:mb-2"
               dangerouslySetInnerHTML={{ __html: firstPart }}
             />
+          )}
+
+          {/* Urgency Box - Purple box shown after first content section */}
+          {blog.urgency_enabled && (
+            <div className="my-10 p-6 rounded-xl bg-purple-600 text-white shadow-lg">
+              <div className="flex items-center gap-3 mb-4">
+                <Clock className="w-6 h-6" />
+                <h3 className="text-xl font-bold">
+                  {blog.urgency_hours} Hour{blog.urgency_hours !== 1 ? 's' : ''} Remaining
+                </h3>
+              </div>
+              <p className="text-purple-100 mb-4">
+                {blog.urgency_text || "Within 3 hours, a consultation form will be available. Please come back or leave your email to get notified."}
+              </p>
+              
+              {blog.urgency_action === 'email' && !urgencySubmitted && (
+                <div className="flex gap-2">
+                  <Input
+                    type="email"
+                    placeholder="Enter your email to get notified..."
+                    value={urgencyEmail}
+                    onChange={(e) => setUrgencyEmail(e.target.value)}
+                    className="bg-white/20 border-white/30 text-white placeholder:text-purple-200 flex-1"
+                  />
+                  <Button 
+                    onClick={() => {
+                      if (urgencyEmail) {
+                        setUrgencySubmitted(true);
+                        // Could save email to database here
+                      }
+                    }}
+                    className="bg-white text-purple-600 hover:bg-purple-100"
+                  >
+                    <Mail className="w-4 h-4 mr-2" />
+                    Notify Me
+                  </Button>
+                </div>
+              )}
+              
+              {blog.urgency_action === 'email' && urgencySubmitted && (
+                <div className="flex items-center gap-2 text-emerald-300">
+                  <span>✓</span>
+                  <span>Thank you! We'll notify you when the form is available.</span>
+                </div>
+              )}
+              
+              {blog.urgency_action === 'comeback' && (
+                <p className="text-purple-200 text-sm italic">
+                  Please bookmark this page and come back later.
+                </p>
+              )}
+            </div>
           )}
 
           {/* Related Searches - After 15% content */}
