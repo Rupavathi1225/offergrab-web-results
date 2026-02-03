@@ -180,8 +180,8 @@ const BlogPage = () => {
         </div>
       )}
 
-      <div className="container mx-auto px-4 py-8">
-        <article className="max-w-3xl mx-auto">
+      <div className="container mx-auto px-4 py-8 relative">
+        <article className="max-w-3xl mx-auto relative">
           {/* Title */}
           <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-8 font-display">
             {blog.title}
@@ -204,10 +204,10 @@ const BlogPage = () => {
             />
           )}
 
-          {/* Urgency Box - Right-aligned after first content section */}
+          {/* Urgency Box - Fixed to top-right corner on large screens, inline on mobile */}
           {blog.urgency_enabled && (
-            <div className="my-10 flex justify-end">
-              <div className="w-full md:w-2/3 lg:w-1/2">
+            <div className="my-10 lg:my-0 lg:absolute lg:top-32 lg:-right-80 xl:-right-96 lg:w-72 xl:w-80">
+              <div className="sticky lg:static top-24">
                 <UrgencyBox
                   blogSlug={blog.slug}
                   urgencyHours={blog.urgency_hours || 3}

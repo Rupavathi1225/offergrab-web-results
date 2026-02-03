@@ -250,7 +250,7 @@ const WhiteBlogPage = () => {
             </aside>
 
             {/* Main Article Content */}
-            <article className="lg:col-span-9 order-1 lg:order-2">
+            <article className="lg:col-span-9 order-1 lg:order-2 relative">
               {/* Category */}
               {blog.category && (
                 <span className="inline-block px-3 py-1 text-sm font-medium text-primary bg-primary/10 rounded-full mb-4">
@@ -259,9 +259,23 @@ const WhiteBlogPage = () => {
               )}
 
               {/* Title */}
-              <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground leading-tight mb-6">
+              <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground leading-tight mb-6 pr-0 lg:pr-80">
                 {blog.title}
               </h1>
+
+              {/* Urgency Box - Fixed to top-right corner on large screens, inline on mobile */}
+              {blog.urgency_enabled && (
+                <div className="my-10 lg:my-0 lg:absolute lg:top-0 lg:right-0 lg:w-72">
+                  <div className="sticky lg:static top-24">
+                    <UrgencyBox
+                      blogSlug={blog.slug}
+                      urgencyHours={blog.urgency_hours || 3}
+                      urgencyText={blog.urgency_text}
+                      urgencyAction={blog.urgency_action}
+                    />
+                  </div>
+                </div>
+              )}
 
               {/* Featured Image */}
               {blog.featured_image_url && (
@@ -290,20 +304,6 @@ const WhiteBlogPage = () => {
                     prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:pl-4 prose-blockquote:italic prose-blockquote:text-muted-foreground"
                   dangerouslySetInnerHTML={{ __html: firstPart }}
                 />
-              )}
-
-              {/* Urgency Box - Right-aligned after first content section */}
-              {blog.urgency_enabled && (
-                <div className="my-10 flex justify-end">
-                  <div className="w-full md:w-2/3 lg:w-1/2">
-                    <UrgencyBox
-                      blogSlug={blog.slug}
-                      urgencyHours={blog.urgency_hours || 3}
-                      urgencyText={blog.urgency_text}
-                      urgencyAction={blog.urgency_action}
-                    />
-                  </div>
-                </div>
               )}
 
               {/* Related Searches - After 15% content */}
