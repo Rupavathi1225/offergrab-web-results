@@ -14,6 +14,45 @@ export type Database = {
   }
   public: {
     Tables: {
+      blog_timers: {
+        Row: {
+          created_at: string | null
+          email: string | null
+          end_time: string
+          id: string
+          is_completed: boolean | null
+          is_submitted: boolean | null
+          page_url: string
+          session_id: string
+          start_time: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email?: string | null
+          end_time: string
+          id?: string
+          is_completed?: boolean | null
+          is_submitted?: boolean | null
+          page_url: string
+          session_id: string
+          start_time: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string | null
+          end_time?: string
+          id?: string
+          is_completed?: boolean | null
+          is_submitted?: boolean | null
+          page_url?: string
+          session_id?: string
+          start_time?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       blogs: {
         Row: {
           author: string | null

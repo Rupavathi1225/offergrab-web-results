@@ -13,7 +13,9 @@ import {
   MapPin,
   Search,
   Link,
-  Trash2
+  Trash2,
+  FileText,
+  Mail
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { countries, getCountryName } from "@/lib/countries";
@@ -66,6 +68,18 @@ interface LastDayStats {
   thankyouViews: number;
   landing2Views: number;
   fallbackRedirects: number;
+  consultationViews: number;
+  consultationClicks: number;
+}
+
+interface BlogTimerEmail {
+  id: string;
+  session_id: string;
+  page_url: string;
+  email: string | null;
+  start_time: string;
+  end_time: string;
+  is_submitted: boolean;
 }
 
 interface LastDayDetailClick {
@@ -108,10 +122,13 @@ const Analytics = () => {
     thankyouViews: 0,
     landing2Views: 0,
     fallbackRedirects: 0,
+    consultationViews: 0,
+    consultationClicks: 0,
   });
-  const [lastDayDetailOpen, setLastDayDetailOpen] = useState<'sessions' | 'page_views' | 'related_search' | 'web_result' | 'thankyou_view' | 'landing2_view' | 'fallback_redirect' | null>(null);
+  const [lastDayDetailOpen, setLastDayDetailOpen] = useState<'sessions' | 'page_views' | 'related_search' | 'web_result' | 'thankyou_view' | 'landing2_view' | 'fallback_redirect' | 'consultation_view' | 'consultation_click' | 'urgency_emails' | null>(null);
   const [lastDayDetailClicks, setLastDayDetailClicks] = useState<LastDayDetailClick[]>([]);
   const [lastDaySessions, setLastDaySessions] = useState<Session[]>([]);
+  const [blogTimerEmails, setBlogTimerEmails] = useState<BlogTimerEmail[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterCountry, setFilterCountry] = useState('all');
   const [filterSource, setFilterSource] = useState('all');
@@ -202,6 +219,8 @@ const Analytics = () => {
         thankyouViews: clicksLastDay.filter(c => c.click_type === 'thankyou_view').length,
         landing2Views: clicksLastDay.filter(c => c.click_type === 'landing2_view').length,
         fallbackRedirects: clicksLastDay.filter(c => c.click_type === 'fallback_redirect').length,
+        consultationViews: clicksLastDay.filter(c => c.click_type === 'consultation_view').length,
+        consultationClicks: clicksLastDay.filter(c => c.click_type === 'consultation_click').length,
       });
 
       setStats({
@@ -275,10 +294,21 @@ const Analytics = () => {
     return uniqueItems.size;
   };
 
-  const openLastDayDetail = (type: 'sessions' | 'page_views' | 'related_search' | 'web_result' | 'thankyou_view' | 'landing2_view' | 'fallback_redirect') => {
+  const openLastDayDetail = async (type: 'sessions' | 'page_views' | 'related_search' | 'web_result' | 'thankyou_view' | 'landing2_view' | 'fallback_redirect' | 'consultation_view' | 'consultation_click' | 'urgency_emails') => {
     const cutoffMs = Date.now() - 24 * 60 * 60 * 1000;
     
-    if (type === 'sessions' || type === 'page_views') {
+    if (type === 'urgency_emails') {
+      // Fetch blog timer emails
+      const { data: timerEmails } = await supabase
+        .from('blog_timers')
+        .select('*')
+        .eq('is_submitted', true)
+        .order('updated_at', { ascending: false });
+      
+      setBlogTimerEmails((timerEmails || []) as BlogTimerEmail[]);
+      setLastDaySessions([]);
+      setLastDayDetailClicks([]);
+    } else if (type === 'sessions' || type === 'page_views') {
       // For sessions/page_views, filter sessions
       const filtered = sessions.filter(s => {
         const t = new Date(type === 'sessions' ? s.first_seen : s.last_active).getTime();
@@ -286,6 +316,7 @@ const Analytics = () => {
       });
       setLastDaySessions(filtered);
       setLastDayDetailClicks([]);
+      setBlogTimerEmails([]);
     } else {
       // For click types, filter clicks
       const filtered = clicks.filter(c => {
@@ -294,6 +325,7 @@ const Analytics = () => {
       });
       setLastDayDetailClicks(filtered);
       setLastDaySessions([]);
+      setBlogTimerEmails([]);
     }
     setLastDayDetailOpen(type);
   };
@@ -307,6 +339,9 @@ const Analytics = () => {
       case 'thankyou_view': return 'Thank You Page Views';
       case 'landing2_view': return '/q (Landing2) Views';
       case 'fallback_redirect': return 'Fallback Redirects';
+      case 'consultation_view': return 'Consultation Page Views';
+      case 'consultation_click': return 'Consultation Page Clicks';
+      case 'urgency_emails': return 'Urgency Email Submissions';
       default: return 'Details';
     }
   };
@@ -356,7 +391,7 @@ const Analytics = () => {
           <span className="text-xs text-muted-foreground">Rolling window</span>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {/* New Sessions - Clickable */}
           <div 
             className="stat-card cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
@@ -411,22 +446,26 @@ const Analytics = () => {
             onClick={() => openLastDayDetail('thankyou_view')}
           >
             <div className="flex items-center justify-between w-full">
-              <MousePointer className="w-5 h-5 text-emerald-500 mb-2" />
+              <MousePointer className="w-5 h-5 text-primary mb-2" />
               <span className="text-xs text-muted-foreground hover:text-primary">more →</span>
             </div>
-            <p className="text-3xl font-display font-bold text-emerald-500 mb-1">{lastDayStats.thankyouViews}</p>
+            <p className="text-3xl font-display font-bold text-primary mb-1">{lastDayStats.thankyouViews}</p>
             <p className="text-muted-foreground text-sm">Thank You views</p>
           </div>
+        </div>
+        
+        {/* Second Row - More Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mt-4">
           {/* Landing2 Views - Clickable */}
           <div 
             className="stat-card cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
             onClick={() => openLastDayDetail('landing2_view')}
           >
             <div className="flex items-center justify-between w-full">
-              <Eye className="w-5 h-5 text-amber-500 mb-2" />
+              <Eye className="w-5 h-5 text-primary mb-2" />
               <span className="text-xs text-muted-foreground hover:text-primary">more →</span>
             </div>
-            <p className="text-3xl font-display font-bold text-amber-500 mb-1">{lastDayStats.landing2Views}</p>
+            <p className="text-3xl font-display font-bold text-primary mb-1">{lastDayStats.landing2Views}</p>
             <p className="text-muted-foreground text-sm">/q Views</p>
           </div>
           {/* Fallback Redirects - Clickable */}
@@ -435,11 +474,47 @@ const Analytics = () => {
             onClick={() => openLastDayDetail('fallback_redirect')}
           >
             <div className="flex items-center justify-between w-full">
-              <Link className="w-5 h-5 text-rose-500 mb-2" />
+              <Link className="w-5 h-5 text-primary mb-2" />
               <span className="text-xs text-muted-foreground hover:text-primary">more →</span>
             </div>
-            <p className="text-3xl font-display font-bold text-rose-500 mb-1">{lastDayStats.fallbackRedirects}</p>
+            <p className="text-3xl font-display font-bold text-primary mb-1">{lastDayStats.fallbackRedirects}</p>
             <p className="text-muted-foreground text-sm">Fallback redirects</p>
+          </div>
+          {/* Consultation Views - Clickable */}
+          <div 
+            className="stat-card cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+            onClick={() => openLastDayDetail('consultation_view')}
+          >
+            <div className="flex items-center justify-between w-full">
+              <FileText className="w-5 h-5 text-primary mb-2" />
+              <span className="text-xs text-muted-foreground hover:text-primary">more →</span>
+            </div>
+            <p className="text-3xl font-display font-bold text-primary mb-1">{lastDayStats.consultationViews}</p>
+            <p className="text-muted-foreground text-sm">Consultation views</p>
+          </div>
+          {/* Consultation Clicks - Clickable */}
+          <div 
+            className="stat-card cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+            onClick={() => openLastDayDetail('consultation_click')}
+          >
+            <div className="flex items-center justify-between w-full">
+              <MousePointer className="w-5 h-5 text-primary mb-2" />
+              <span className="text-xs text-muted-foreground hover:text-primary">more →</span>
+            </div>
+            <p className="text-3xl font-display font-bold text-primary mb-1">{lastDayStats.consultationClicks}</p>
+            <p className="text-muted-foreground text-sm">Consultation clicks</p>
+          </div>
+          {/* Urgency Emails - Clickable */}
+          <div 
+            className="stat-card cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
+            onClick={() => openLastDayDetail('urgency_emails')}
+          >
+            <div className="flex items-center justify-between w-full">
+              <Mail className="w-5 h-5 text-primary mb-2" />
+              <span className="text-xs text-muted-foreground hover:text-primary">more →</span>
+            </div>
+            <p className="text-3xl font-display font-bold text-primary mb-1">View</p>
+            <p className="text-muted-foreground text-sm">Urgency Emails</p>
           </div>
         </div>
       </div>
@@ -827,6 +902,147 @@ const Analytics = () => {
                                 <span className="badge bg-emerald-500/20 text-emerald-500 text-[10px] px-2 py-0.5 rounded">First</span>
                               ) : (
                                 <span className="text-emerald-500">Unique</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      });
+                    })()
+                  )}
+                </tbody>
+              </table>
+            ) : lastDayDetailOpen === 'urgency_emails' ? (
+              /* Urgency Emails Table */
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Submitted At</th>
+                    <th>Session ID</th>
+                    <th>Page URL</th>
+                    <th>Email</th>
+                    <th>Timer Duration</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {blogTimerEmails.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="text-center text-muted-foreground py-8">
+                        No email submissions yet
+                      </td>
+                    </tr>
+                  ) : (
+                    blogTimerEmails.map((timer) => (
+                      <tr key={timer.id}>
+                        <td className="text-xs">{new Date(timer.start_time).toLocaleString()}</td>
+                        <td className="font-mono text-xs">{timer.session_id.substring(0, 16)}...</td>
+                        <td className="text-xs text-primary">{timer.page_url}</td>
+                        <td className="text-xs font-medium">{timer.email || '-'}</td>
+                        <td className="text-xs text-muted-foreground">
+                          {Math.round((new Date(timer.end_time).getTime() - new Date(timer.start_time).getTime()) / (1000 * 60 * 60))}h
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            ) : lastDayDetailOpen === 'consultation_view' || lastDayDetailOpen === 'consultation_click' ? (
+              /* Consultation Table with enhanced details */
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Session ID</th>
+                    <th>Country</th>
+                    <th>Source</th>
+                    <th>Device</th>
+                    <th>IP Address</th>
+                    <th>Page Path</th>
+                    <th>Destination</th>
+                    <th>Session Clicks</th>
+                    <th>Duplicate?</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lastDayDetailClicks.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="text-center text-muted-foreground py-8">
+                        No consultation {lastDayDetailOpen === 'consultation_view' ? 'views' : 'clicks'} in the last 24 hours
+                      </td>
+                    </tr>
+                  ) : (
+                    (() => {
+                      // Group by session_id to detect duplicates
+                      const sessionClickCounts: Record<string, number> = {};
+                      const sessionFirstClick: Record<string, string> = {};
+                      
+                      lastDayDetailClicks.forEach((click) => {
+                        sessionClickCounts[click.session_id] = (sessionClickCounts[click.session_id] || 0) + 1;
+                        if (!sessionFirstClick[click.session_id] || new Date(click.clicked_at) < new Date(sessionFirstClick[click.session_id])) {
+                          sessionFirstClick[click.session_id] = click.clicked_at;
+                        }
+                      });
+                      
+                      return lastDayDetailClicks.map((click) => {
+                        const sessionData = sessions.find(s => s.session_id === click.session_id);
+                        const clickCount = sessionClickCounts[click.session_id];
+                        const isFirstClick = sessionFirstClick[click.session_id] === click.clicked_at;
+                        const isDuplicate = clickCount > 1 && !isFirstClick;
+                        
+                        return (
+                          <tr key={click.id} className={isDuplicate ? 'opacity-60' : ''}>
+                            <td className="text-xs whitespace-nowrap">{new Date(click.clicked_at).toLocaleString()}</td>
+                            <td className="font-mono text-xs">{click.session_id.substring(0, 16)}...</td>
+                            <td>
+                              {sessionData ? (
+                                <span className="badge-primary">{sessionData.country_code || 'XX'}</span>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                              <span className="text-xs text-muted-foreground ml-1">
+                                {sessionData?.country || ''}
+                              </span>
+                            </td>
+                            <td>
+                              {sessionData ? (
+                                <span className="badge-primary">{sessionData.source || 'direct'}</span>
+                              ) : (
+                                <span className="text-muted-foreground">-</span>
+                              )}
+                            </td>
+                            <td className="text-xs">
+                              {sessionData?.device || '-'}
+                            </td>
+                            <td className="font-mono text-xs">
+                              {sessionData?.ip_address ? (
+                                // Mask last octet for privacy
+                                sessionData.ip_address.replace(/\.\d+$/, '.***')
+                              ) : '-'}
+                            </td>
+                            <td className="text-xs text-muted-foreground">{click.page || '-'}</td>
+                            <td className="text-xs">
+                              {click.original_link ? (
+                                <a 
+                                  href={click.original_link} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="text-primary hover:underline truncate max-w-[150px] inline-block"
+                                >
+                                  {click.original_link.substring(0, 30)}...
+                                </a>
+                              ) : '-'}
+                            </td>
+                            <td className="text-xs">
+                              <span className={clickCount > 1 ? 'text-primary font-medium' : 'text-muted-foreground'}>
+                                {clickCount}x
+                              </span>
+                            </td>
+                            <td className="text-xs">
+                              {isDuplicate ? (
+                                <span className="badge bg-primary/20 text-primary text-[10px] px-2 py-0.5 rounded">Duplicate</span>
+                              ) : isFirstClick && clickCount > 1 ? (
+                                <span className="badge bg-primary/20 text-primary text-[10px] px-2 py-0.5 rounded">First</span>
+                              ) : (
+                                <span className="text-primary">Unique</span>
                               )}
                             </td>
                           </tr>
