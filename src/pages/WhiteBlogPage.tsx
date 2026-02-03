@@ -259,13 +259,13 @@ const WhiteBlogPage = () => {
               )}
 
               {/* Title */}
-              <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground leading-tight mb-6 pr-0 lg:pr-80">
+              <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-foreground leading-tight mb-6">
                 {blog.title}
               </h1>
 
-              {/* Urgency Box - Fixed to top-right corner on large screens, inline on mobile */}
+              {/* Urgency Box - Positioned to fit within the grid layout */}
               {blog.urgency_enabled && (
-                <div className="my-10 lg:my-0 lg:absolute lg:top-0 lg:right-0 lg:w-72">
+                <div className="my-10 lg:my-0 lg:absolute lg:top-0 lg:left-full lg:ml-6 xl:ml-8 lg:w-64 xl:w-72">
                   <div className="sticky lg:static top-24">
                     <UrgencyBox
                       blogSlug={blog.slug}

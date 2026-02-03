@@ -204,9 +204,9 @@ const BlogPage = () => {
             />
           )}
 
-          {/* Urgency Box - Fixed to top-right corner on large screens, inline on mobile */}
+          {/* Urgency Box - Responsive positioning */}
           {blog.urgency_enabled && (
-            <div className="my-10 lg:my-0 lg:absolute lg:top-32 lg:-right-80 xl:-right-96 lg:w-72 xl:w-80">
+            <div className="my-10 lg:my-0 lg:absolute lg:top-0 lg:left-full lg:ml-8 xl:ml-12 2xl:ml-16 w-full lg:w-72 xl:w-80">
               <div className="sticky lg:static top-24">
                 <UrgencyBox
                   blogSlug={blog.slug}
