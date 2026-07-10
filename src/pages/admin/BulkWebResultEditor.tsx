@@ -980,7 +980,7 @@ const BulkWebResultEditor = () => {
         
         const { error: updateError } = await supabase
           .from('web_results')
-          .update(updateData)
+          .update(updateData as any)
           .eq('id', row.webResultId);
         
         if (updateError) {
