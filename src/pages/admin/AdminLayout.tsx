@@ -9,10 +9,14 @@ import { useThemeSettings } from "@/contexts/ThemeContext";
 
 const tabs = [
   { label: 'Landing Content', path: '/adm/landing' },
+  { label: 'Articles', path: '/adm/articles' },
   { label: 'Search Buttons', path: '/adm/searches' },
   { label: 'Web Results', path: '/adm/results' },
   { label: 'Pre-Landings', path: '/adm/prelandings' },
   { label: 'Blogs', path: '/adm/blogs' },
+  { label: 'Comments', path: '/adm/comments' },
+  { label: 'Subscribers', path: '/adm/subscribers' },
+  { label: 'Site Settings', path: '/adm/site-settings' },
   { label: 'Analytics', path: '/adm/analytics' },
   { label: 'Bulk Editor', path: '/adm/bulk-web-result-editor' },
   { label: 'Fallback URLs', path: '/adm/fallback-urls' },
