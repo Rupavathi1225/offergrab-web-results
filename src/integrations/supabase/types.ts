@@ -51,8 +51,11 @@ export type Database = {
           body_html: string | null
           category: string | null
           created_at: string
+          feature_on_homepage: boolean
           hero_image: string | null
           id: string
+          is_active: boolean
+          is_step: boolean
           is_trending: boolean
           layout_slot: Database["public"]["Enums"]["article_slot"]
           lead: string | null
@@ -62,8 +65,14 @@ export type Database = {
           read_minutes: number | null
           slug: string
           sort_order: number
+          step_position: number | null
           title: string
+          total_words: number | null
           updated_at: string
+          urgency_action: string | null
+          urgency_enabled: boolean
+          urgency_hours: number | null
+          urgency_text: string | null
           view_count: number
         }
         Insert: {
@@ -73,8 +82,11 @@ export type Database = {
           body_html?: string | null
           category?: string | null
           created_at?: string
+          feature_on_homepage?: boolean
           hero_image?: string | null
           id?: string
+          is_active?: boolean
+          is_step?: boolean
           is_trending?: boolean
           layout_slot?: Database["public"]["Enums"]["article_slot"]
           lead?: string | null
@@ -84,8 +96,14 @@ export type Database = {
           read_minutes?: number | null
           slug: string
           sort_order?: number
+          step_position?: number | null
           title: string
+          total_words?: number | null
           updated_at?: string
+          urgency_action?: string | null
+          urgency_enabled?: boolean
+          urgency_hours?: number | null
+          urgency_text?: string | null
           view_count?: number
         }
         Update: {
@@ -95,8 +113,11 @@ export type Database = {
           body_html?: string | null
           category?: string | null
           created_at?: string
+          feature_on_homepage?: boolean
           hero_image?: string | null
           id?: string
+          is_active?: boolean
+          is_step?: boolean
           is_trending?: boolean
           layout_slot?: Database["public"]["Enums"]["article_slot"]
           lead?: string | null
@@ -106,8 +127,14 @@ export type Database = {
           read_minutes?: number | null
           slug?: string
           sort_order?: number
+          step_position?: number | null
           title?: string
+          total_words?: number | null
           updated_at?: string
+          urgency_action?: string | null
+          urgency_enabled?: boolean
+          urgency_hours?: number | null
+          urgency_text?: string | null
           view_count?: number
         }
         Relationships: []
@@ -158,11 +185,17 @@ export type Database = {
           content: string | null
           created_at: string
           excerpt: string | null
+          feature_on_homepage: boolean
           featured_image_url: string | null
           id: string
           is_active: boolean
+          is_step: boolean
+          is_trending: boolean
+          like_count: number
+          published_at: string
           slug: string
           status: string
+          step_position: number | null
           title: string
           total_words: number | null
           updated_at: string
@@ -170,6 +203,7 @@ export type Database = {
           urgency_enabled: boolean | null
           urgency_hours: number | null
           urgency_text: string | null
+          view_count: number
         }
         Insert: {
           author?: string | null
@@ -177,11 +211,17 @@ export type Database = {
           content?: string | null
           created_at?: string
           excerpt?: string | null
+          feature_on_homepage?: boolean
           featured_image_url?: string | null
           id?: string
           is_active?: boolean
+          is_step?: boolean
+          is_trending?: boolean
+          like_count?: number
+          published_at?: string
           slug: string
           status?: string
+          step_position?: number | null
           title: string
           total_words?: number | null
           updated_at?: string
@@ -189,6 +229,7 @@ export type Database = {
           urgency_enabled?: boolean | null
           urgency_hours?: number | null
           urgency_text?: string | null
+          view_count?: number
         }
         Update: {
           author?: string | null
@@ -196,11 +237,17 @@ export type Database = {
           content?: string | null
           created_at?: string
           excerpt?: string | null
+          feature_on_homepage?: boolean
           featured_image_url?: string | null
           id?: string
           is_active?: boolean
+          is_step?: boolean
+          is_trending?: boolean
+          like_count?: number
+          published_at?: string
           slug?: string
           status?: string
+          step_position?: number | null
           title?: string
           total_words?: number | null
           updated_at?: string
@@ -208,6 +255,7 @@ export type Database = {
           urgency_enabled?: boolean | null
           urgency_hours?: number | null
           urgency_text?: string | null
+          view_count?: number
         }
         Relationships: []
       }
@@ -603,6 +651,7 @@ export type Database = {
       }
       related_searches: {
         Row: {
+          article_id: string | null
           blog_id: string | null
           created_at: string
           id: string
@@ -613,6 +662,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          article_id?: string | null
           blog_id?: string | null
           created_at?: string
           id?: string
@@ -623,6 +673,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          article_id?: string | null
           blog_id?: string | null
           created_at?: string
           id?: string
@@ -633,6 +684,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "related_searches_article_id_fkey"
+            columns: ["article_id"]
+            isOneToOne: false
+            referencedRelation: "articles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "related_searches_blog_id_fkey"
             columns: ["blog_id"]
@@ -923,6 +981,7 @@ export type Database = {
         Returns: boolean
       }
       increment_article_views: { Args: { _slug: string }; Returns: undefined }
+      increment_blog_views: { Args: { _slug: string }; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "user"

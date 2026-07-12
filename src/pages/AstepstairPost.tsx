@@ -115,10 +115,7 @@ export default function AstepstairPost() {
 
   useEffect(() => {
     if (!slug || !article) return;
-    const key = `viewed_${slug}`;
-    if (!sessionStorage.getItem(key)) {
-      supabase.rpc("increment_article_views", { _slug: slug }).then(() => sessionStorage.setItem(key, "1"));
-    }
+    supabase.rpc("increment_article_views", { _slug: slug });
   }, [slug, article]);
 
   if (isLoading) return <AstepstairLayout><div className="as-wrap" style={{ padding: 80, textAlign: "center" }}>Loading…</div></AstepstairLayout>;

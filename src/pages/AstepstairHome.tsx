@@ -1,14 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import AstepstairLayout, { useSiteSettings, SOCIAL_ICONS } from "@/components/astepstair/Layout";
 
-function useArticles(slot: string, limit = 10) {
+function usePublishedArticles() {
   return useQuery({
-    queryKey: ["articles", slot],
+    queryKey: ["articles-home"],
     queryFn: async () => {
-      const { data } = await supabase.from("articles").select("*").eq("layout_slot", slot as any).eq("published", true).order("sort_order").limit(limit);
+      const { data } = await supabase
+        .from("articles")
+        .select("*")
+        .eq("published", true)
+        .eq("is_active", true)
+        .order("published_at", { ascending: false });
       return data || [];
     },
   });
@@ -18,7 +23,13 @@ function useTrending() {
   return useQuery({
     queryKey: ["trending"],
     queryFn: async () => {
-      const { data } = await supabase.from("articles").select("id,slug,title").eq("published", true).order("view_count", { ascending: false }).limit(4);
+      const { data } = await supabase
+        .from("articles")
+        .select("id,slug,title")
+        .eq("published", true)
+        .eq("is_active", true)
+        .order("view_count", { ascending: false })
+        .limit(4);
       return data || [];
     },
   });
@@ -80,71 +91,83 @@ function TaxCalculator() {
 
 export default function AstepstairHome() {
   const navigate = useNavigate();
-  const { data: hero } = useArticles("hero", 1);
-  const { data: steps } = useArticles("step", 4);
-  const { data: mBig } = useArticles("mosaic_big", 1);
-  const { data: mSide } = useArticles("mosaic_side", 2);
-  const { data: latest } = useArticles("latest", 4);
-  const { data: mini } = useArticles("mini", 8);
+  const { data: articles = [] } = usePublishedArticles();
   const { data: trending } = useTrending();
   const { data: settings } = useSiteSettings();
   const social = (settings?.social_urls as any) || {};
 
   const go = (slug: string) => navigate(`/post/${slug}`);
 
-  const heroPost = hero?.[0];
-  const bigPost = mBig?.[0];
+  // Automatic placement — only articles with feature_on_homepage=true fill Hero + Mosaic
+  const featured = articles.filter((a: any) => a.feature_on_homepage);
+
+  const heroPost = featured[0];
+  const bigPost = featured[1];
+  const mSide = featured.slice(2, 4);
+  const latest = articles.slice(0, 6);
+  const mini = articles.slice(4, 8);
+
+  // Steps: manually pinned articles by step_position (1-4)
+  const stepArticles = articles.filter((a: any) => a.is_step && a.step_position);
+  const steps = [1, 2, 3, 4].map(pos => stepArticles.find((a: any) => a.step_position === pos));
 
   return (
     <AstepstairLayout>
       {/* HERO */}
-      <section className="as-hero">
-        <div className="as-wrap as-hero-grid">
-          <div>
-            <span className="as-eyebrow">{heroPost?.category ? `${heroPost.category} · ${new Date(heroPost.published_at).getFullYear()}` : "Cover Story"}</span>
-            <h1 dangerouslySetInnerHTML={{ __html: heroPost?.title?.replace(/quietly flipped/i, "<em>quietly flipped</em>") || "" }} />
-            {heroPost?.lead && <p>{heroPost.lead}</p>}
-            <div className="meta">By {heroPost?.author_name || "Editorial Team"} · {heroPost?.read_minutes || 5} min read · {heroPost && new Date(heroPost.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
-          </div>
-          {heroPost && (
+      {heroPost && (
+        <section className="as-hero">
+          <div className="as-wrap as-hero-grid">
+            <div>
+              <span className="as-eyebrow">{heroPost.category ? `${heroPost.category} · ${new Date(heroPost.published_at).getFullYear()}` : "Cover Story"}</span>
+              <h1>{heroPost.title}</h1>
+              {heroPost.lead && <p>{heroPost.lead}</p>}
+              <div className="meta">By {heroPost.author_name || "Editorial Team"} · {heroPost.read_minutes || 5} min read · {new Date(heroPost.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
+            </div>
             <a className="as-hero-img" onClick={() => go(heroPost.slug)} style={{ cursor: "pointer" }}>
               <img src={heroPost.hero_image} alt={heroPost.title} />
               <span className="tag">{heroPost.category?.toUpperCase()}</span>
             </a>
-          )}
-        </div>
-      </section>
+          </div>
+        </section>
+      )}
 
-      {/* STEPS */}
-      <section className="as-steps-sec">
-        <div className="as-wrap">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 12 }}>
-            <div>
-              <span className="as-eyebrow">Start Here</span>
-              <h2 style={{ fontFamily: "'Fraunces',serif", fontSize: 30, fontWeight: 600, marginTop: 8 }}>Four steps up your money game</h2>
+      {/* STEPS (manual only) */}
+      {steps.some(Boolean) && (
+        <section className="as-steps-sec">
+          <div className="as-wrap">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 12 }}>
+              <div>
+                <span className="as-eyebrow">Start Here</span>
+                <h2 style={{ fontFamily: "'Fraunces',serif", fontSize: 30, fontWeight: 600, marginTop: 8, color: "var(--ivory)" }}>Four steps up your money game</h2>
+              </div>
+              <div style={{ display: "flex", gap: 14, fontSize: 18 }}>
+                {["twitter", "linkedin", "whatsapp"].map(k => <a key={k} href={social[k] || "#"} style={{ color: "#9DB0C4" }}><i className={SOCIAL_ICONS[k]} /></a>)}
+              </div>
             </div>
-            <div style={{ display: "flex", gap: 14, fontSize: 18 }}>
-              {["twitter", "linkedin", "whatsapp"].map(k => <a key={k} href={social[k] || "#"} style={{ color: "#9DB0C4" }}><i className={SOCIAL_ICONS[k]} /></a>)}
+            <div className="as-stair">
+              {steps.map((s: any, i) => s ? (
+                <a key={s.id} className="as-step" onClick={() => go(s.slug)}>
+                  <span className="n">{i + 1}</span>
+                  <h3>{s.title}</h3>
+                  <p>{s.lead}</p>
+                  <span className="cat">{s.category}</span>
+                </a>
+              ) : (
+                <div key={i} className="as-step" style={{ opacity: 0.3 }}>
+                  <span className="n">{i + 1}</span>
+                  <h3>Coming soon</h3>
+                </div>
+              ))}
             </div>
           </div>
-          <div className="as-stair">
-            {(steps || []).slice(0, 4).map((s, i) => (
-              <a key={s.id} className="as-step" onClick={() => go(s.slug)}>
-                <span className="n">{i + 1}</span>
-                <h3>{s.title}</h3>
-                <p>{s.lead}</p>
-                <span className="cat">{s.category}</span>
-              </a>
-            ))}
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* FEATURED MOSAIC */}
-      <div className="as-wrap">
-        <div className="as-lhead"><h2>Featured<span className="dot">.</span></h2><a>All stories →</a></div>
-        <div className="as-mosaic">
-          {bigPost && (
+      {bigPost && (
+        <div className="as-wrap">
+          <div className="as-lhead"><h2>Featured<span className="dot">.</span></h2><a>All stories →</a></div>
+          <div className="as-mosaic">
             <a className="as-fcard as-m-big" onClick={() => go(bigPost.slug)}>
               <div className="as-fthumb"><img src={bigPost.hero_image} alt="" /></div>
               <div className="as-fbody">
@@ -154,15 +177,15 @@ export default function AstepstairHome() {
                 <span className="as-fmeta">{new Date(bigPost.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {bigPost.read_minutes} min read</span>
               </div>
             </a>
-          )}
-          {(mSide || []).map(s => (
-            <a key={s.id} className="as-fcard as-m-side" onClick={() => go(s.slug)}>
-              <div className="as-fthumb"><img src={s.hero_image} alt="" /></div>
-              <div className="as-fbody"><span className="as-fcat">{s.category}</span><h3>{s.title}</h3></div>
-            </a>
-          ))}
+            {mSide.map((s: any) => (
+              <a key={s.id} className="as-fcard as-m-side" onClick={() => go(s.slug)}>
+                <div className="as-fthumb"><img src={s.hero_image} alt="" /></div>
+                <div className="as-fbody"><span className="as-fcat">{s.category}</span><h3>{s.title}</h3></div>
+              </a>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <TaxCalculator />
 
@@ -171,8 +194,8 @@ export default function AstepstairHome() {
         <div className="as-lhead"><h2>Latest<span className="dot">.</span></h2><a>View all →</a></div>
         <div className="as-latest">
           <div className="as-llist">
-            {(latest || []).map(l => (
-              <a key={l.id} className="as-row" onClick={() => go(l.slug)}>
+            {latest.map((l: any) => (
+              <a key={l.id} className="as-row" onClick={() => go(l.slug)} style={{ cursor: "pointer" }}>
                 <div className="as-rthumb"><img src={l.hero_image} alt="" /></div>
                 <div>
                   <span className="as-fcat">{l.category}</span>
@@ -193,8 +216,8 @@ export default function AstepstairHome() {
             <div className="as-rbox">
               <h4>Trending <b>Now</b></h4>
               <div className="as-trend">
-                {(trending || []).map((t, i) => (
-                  <a key={t.id} onClick={() => go(t.slug)}><span className="tn">{i + 1}</span><h5>{t.title}</h5></a>
+                {(trending || []).map((t: any, i) => (
+                  <a key={t.id} onClick={() => go(t.slug)} style={{ cursor: "pointer" }}><span className="tn">{i + 1}</span><h5>{t.title}</h5></a>
                 ))}
               </div>
             </div>
@@ -215,18 +238,20 @@ export default function AstepstairHome() {
       <NewsletterBand />
 
       {/* MINI GRID */}
-      <div className="as-wrap" style={{ paddingTop: 52 }}>
-        <div className="as-lhead" style={{ paddingTop: 0 }}><h2>More to explore<span className="dot">.</span></h2><a>Archive →</a></div>
-        <div className="as-mgrid">
-          {(mini || []).map(m => (
-            <a key={m.id} className="as-mini" onClick={() => go(m.slug)}>
-              <span className="as-fcat">{m.category}</span>
-              <h4>{m.title}</h4>
-              <span className="as-fmeta">{new Date(m.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
-            </a>
-          ))}
+      {mini.length > 0 && (
+        <div className="as-wrap" style={{ paddingTop: 52, paddingBottom: 20 }}>
+          <div className="as-lhead" style={{ paddingTop: 0 }}><h2>More to explore<span className="dot">.</span></h2><a>Archive →</a></div>
+          <div className="as-mgrid">
+            {mini.map((m: any) => (
+              <a key={m.id} className="as-mini" onClick={() => go(m.slug)} style={{ cursor: "pointer" }}>
+                <span className="as-fcat">{m.category}</span>
+                <h4>{m.title}</h4>
+                <span className="as-fmeta">{new Date(m.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
+              </a>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </AstepstairLayout>
   );
 }
