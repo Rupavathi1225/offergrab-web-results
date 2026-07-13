@@ -114,7 +114,8 @@ export default function AstepstairHome() {
   const { data: settings } = useSiteSettings();
   const social = (settings?.social_urls as any) || {};
 
-  const go = (slug: string) => navigate(`/post/${slug}`);
+  const go = (item: any) => navigate(item._kind === "blog" ? `/blog/${item.slug}` : `/post/${item.slug}`);
+  const goSlug = (item: any) => go(item);
 
   // Automatic placement — only articles with feature_on_homepage=true fill Hero + Mosaic
   const featured = articles.filter((a: any) => a.feature_on_homepage);
