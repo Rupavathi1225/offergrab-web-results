@@ -142,7 +142,7 @@ export default function AstepstairHome() {
               {heroPost.lead && <p>{heroPost.lead}</p>}
               <div className="meta">By {heroPost.author_name || "Editorial Team"} · {heroPost.read_minutes || 5} min read · {new Date(heroPost.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
             </div>
-            <a className="as-hero-img" onClick={() => go(heroPost.slug)} style={{ cursor: "pointer" }}>
+            <a className="as-hero-img" onClick={() => go(heroPost)} style={{ cursor: "pointer" }}>
               <img src={heroPost.hero_image} alt={heroPost.title} />
               <span className="tag">{heroPost.category?.toUpperCase()}</span>
             </a>
@@ -165,7 +165,7 @@ export default function AstepstairHome() {
             </div>
             <div className="as-stair">
               {steps.map((s: any, i) => s ? (
-                <a key={s.id} className="as-step" onClick={() => go(s.slug)}>
+                <a key={s.id} className="as-step" onClick={() => go(s)}>
                   <span className="n">{i + 1}</span>
                   <h3>{s.title}</h3>
                   <p>{s.lead}</p>
@@ -187,7 +187,7 @@ export default function AstepstairHome() {
         <div className="as-wrap">
           <div className="as-lhead"><h2>Featured<span className="dot">.</span></h2><a>All stories →</a></div>
           <div className="as-mosaic">
-            <a className="as-fcard as-m-big" onClick={() => go(bigPost.slug)}>
+            <a className="as-fcard as-m-big" onClick={() => go(bigPost)}>
               <div className="as-fthumb"><img src={bigPost.hero_image} alt="" /></div>
               <div className="as-fbody">
                 <span className="as-fcat">{bigPost.category}</span>
@@ -197,7 +197,7 @@ export default function AstepstairHome() {
               </div>
             </a>
             {mSide.map((s: any) => (
-              <a key={s.id} className="as-fcard as-m-side" onClick={() => go(s.slug)}>
+              <a key={s.id} className="as-fcard as-m-side" onClick={() => go(s)}>
                 <div className="as-fthumb"><img src={s.hero_image} alt="" /></div>
                 <div className="as-fbody"><span className="as-fcat">{s.category}</span><h3>{s.title}</h3></div>
               </a>
@@ -214,7 +214,7 @@ export default function AstepstairHome() {
         <div className="as-latest">
           <div className="as-llist">
             {latest.map((l: any) => (
-              <a key={l.id} className="as-row" onClick={() => go(l.slug)} style={{ cursor: "pointer" }}>
+              <a key={l.id} className="as-row" onClick={() => go(l)} style={{ cursor: "pointer" }}>
                 <div className="as-rthumb"><img src={l.hero_image} alt="" /></div>
                 <div>
                   <span className="as-fcat">{l.category}</span>
@@ -236,7 +236,7 @@ export default function AstepstairHome() {
               <h4>Trending <b>Now</b></h4>
               <div className="as-trend">
                 {(trending || []).map((t: any, i) => (
-                  <a key={t.id} onClick={() => go(t.slug)} style={{ cursor: "pointer" }}><span className="tn">{i + 1}</span><h5>{t.title}</h5></a>
+                  <a key={t.id} onClick={() => go(t)} style={{ cursor: "pointer" }}><span className="tn">{i + 1}</span><h5>{t.title}</h5></a>
                 ))}
               </div>
             </div>
@@ -262,7 +262,7 @@ export default function AstepstairHome() {
           <div className="as-lhead" style={{ paddingTop: 0 }}><h2>More to explore<span className="dot">.</span></h2><a>Archive →</a></div>
           <div className="as-mgrid">
             {mini.map((m: any) => (
-              <a key={m.id} className="as-mini" onClick={() => go(m.slug)} style={{ cursor: "pointer" }}>
+              <a key={m.id} className="as-mini" onClick={() => go(m)} style={{ cursor: "pointer" }}>
                 <span className="as-fcat">{m.category}</span>
                 <h4>{m.title}</h4>
                 <span className="as-fmeta">{new Date(m.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
