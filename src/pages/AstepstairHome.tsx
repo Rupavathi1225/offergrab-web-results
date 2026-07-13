@@ -4,33 +4,51 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import AstepstairLayout, { useSiteSettings, SOCIAL_ICONS } from "@/components/astepstair/Layout";
 
+type FeedItem = {
+  id: string; slug: string; title: string; lead: string | null; category: string | null;
+  hero_image: string | null; author_name: string | null; read_minutes: number;
+  published_at: string; view_count: number; is_step: boolean; step_position: number | null;
+  feature_on_homepage: boolean; _kind: "article" | "blog";
+};
+
 function usePublishedArticles() {
   return useQuery({
-    queryKey: ["articles-home"],
+    queryKey: ["home-feed"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("articles")
-        .select("*")
-        .eq("published", true)
-        .eq("is_active", true)
-        .order("published_at", { ascending: false });
-      return data || [];
+      const [{ data: arts }, { data: blogs }] = await Promise.all([
+        supabase.from("articles").select("*").eq("published", true).eq("is_active", true),
+        supabase.from("blogs").select("*").eq("status", "published").eq("is_active", true),
+      ]);
+      const A: FeedItem[] = (arts || []).map((a: any) => ({
+        id: a.id, slug: a.slug, title: a.title, lead: a.lead, category: a.category,
+        hero_image: a.hero_image, author_name: a.author_name, read_minutes: a.read_minutes || 5,
+        published_at: a.published_at, view_count: a.view_count || 0,
+        is_step: !!a.is_step, step_position: a.step_position,
+        feature_on_homepage: a.feature_on_homepage !== false, _kind: "article",
+      }));
+      const B: FeedItem[] = (blogs || []).map((b: any) => ({
+        id: b.id, slug: b.slug, title: b.title, lead: b.excerpt, category: b.category,
+        hero_image: b.featured_image_url, author_name: b.author, read_minutes: 5,
+        published_at: b.published_at || b.created_at, view_count: b.view_count || 0,
+        is_step: !!b.is_step, step_position: b.step_position,
+        feature_on_homepage: b.feature_on_homepage !== false, _kind: "blog",
+      }));
+      return [...A, ...B].sort((x, y) => +new Date(y.published_at) - +new Date(x.published_at));
     },
   });
 }
 
 function useTrending() {
   return useQuery({
-    queryKey: ["trending"],
+    queryKey: ["home-trending"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("articles")
-        .select("id,slug,title")
-        .eq("published", true)
-        .eq("is_active", true)
-        .order("view_count", { ascending: false })
-        .limit(4);
-      return data || [];
+      const [{ data: arts }, { data: blogs }] = await Promise.all([
+        supabase.from("articles").select("id,slug,title,view_count").eq("published", true).eq("is_active", true),
+        supabase.from("blogs").select("id,slug,title,view_count").eq("status", "published").eq("is_active", true),
+      ]);
+      const A = (arts || []).map((a: any) => ({ ...a, _kind: "article" as const }));
+      const B = (blogs || []).map((b: any) => ({ ...b, _kind: "blog" as const }));
+      return [...A, ...B].sort((x, y) => (y.view_count || 0) - (x.view_count || 0)).slice(0, 4);
     },
   });
 }
@@ -96,7 +114,7 @@ export default function AstepstairHome() {
   const { data: settings } = useSiteSettings();
   const social = (settings?.social_urls as any) || {};
 
-  const go = (slug: string) => navigate(`/post/${slug}`);
+  const go = (item: any) => navigate(item?._kind === "blog" ? `/blog/${item.slug}` : `/post/${item.slug}`);
 
   // Automatic placement — only articles with feature_on_homepage=true fill Hero + Mosaic
   const featured = articles.filter((a: any) => a.feature_on_homepage);
@@ -123,7 +141,7 @@ export default function AstepstairHome() {
               {heroPost.lead && <p>{heroPost.lead}</p>}
               <div className="meta">By {heroPost.author_name || "Editorial Team"} · {heroPost.read_minutes || 5} min read · {new Date(heroPost.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</div>
             </div>
-            <a className="as-hero-img" onClick={() => go(heroPost.slug)} style={{ cursor: "pointer" }}>
+            <a className="as-hero-img" onClick={() => go(heroPost)} style={{ cursor: "pointer" }}>
               <img src={heroPost.hero_image} alt={heroPost.title} />
               <span className="tag">{heroPost.category?.toUpperCase()}</span>
             </a>
@@ -146,7 +164,7 @@ export default function AstepstairHome() {
             </div>
             <div className="as-stair">
               {steps.map((s: any, i) => s ? (
-                <a key={s.id} className="as-step" onClick={() => go(s.slug)}>
+                <a key={s.id} className="as-step" onClick={() => go(s)}>
                   <span className="n">{i + 1}</span>
                   <h3>{s.title}</h3>
                   <p>{s.lead}</p>
@@ -168,7 +186,7 @@ export default function AstepstairHome() {
         <div className="as-wrap">
           <div className="as-lhead"><h2>Featured<span className="dot">.</span></h2><a>All stories →</a></div>
           <div className="as-mosaic">
-            <a className="as-fcard as-m-big" onClick={() => go(bigPost.slug)}>
+            <a className="as-fcard as-m-big" onClick={() => go(bigPost)}>
               <div className="as-fthumb"><img src={bigPost.hero_image} alt="" /></div>
               <div className="as-fbody">
                 <span className="as-fcat">{bigPost.category}</span>
@@ -178,7 +196,7 @@ export default function AstepstairHome() {
               </div>
             </a>
             {mSide.map((s: any) => (
-              <a key={s.id} className="as-fcard as-m-side" onClick={() => go(s.slug)}>
+              <a key={s.id} className="as-fcard as-m-side" onClick={() => go(s)}>
                 <div className="as-fthumb"><img src={s.hero_image} alt="" /></div>
                 <div className="as-fbody"><span className="as-fcat">{s.category}</span><h3>{s.title}</h3></div>
               </a>
@@ -195,7 +213,7 @@ export default function AstepstairHome() {
         <div className="as-latest">
           <div className="as-llist">
             {latest.map((l: any) => (
-              <a key={l.id} className="as-row" onClick={() => go(l.slug)} style={{ cursor: "pointer" }}>
+              <a key={l.id} className="as-row" onClick={() => go(l)} style={{ cursor: "pointer" }}>
                 <div className="as-rthumb"><img src={l.hero_image} alt="" /></div>
                 <div>
                   <span className="as-fcat">{l.category}</span>
@@ -217,7 +235,7 @@ export default function AstepstairHome() {
               <h4>Trending <b>Now</b></h4>
               <div className="as-trend">
                 {(trending || []).map((t: any, i) => (
-                  <a key={t.id} onClick={() => go(t.slug)} style={{ cursor: "pointer" }}><span className="tn">{i + 1}</span><h5>{t.title}</h5></a>
+                  <a key={t.id} onClick={() => go(t)} style={{ cursor: "pointer" }}><span className="tn">{i + 1}</span><h5>{t.title}</h5></a>
                 ))}
               </div>
             </div>
@@ -243,7 +261,7 @@ export default function AstepstairHome() {
           <div className="as-lhead" style={{ paddingTop: 0 }}><h2>More to explore<span className="dot">.</span></h2><a>Archive →</a></div>
           <div className="as-mgrid">
             {mini.map((m: any) => (
-              <a key={m.id} className="as-mini" onClick={() => go(m.slug)} style={{ cursor: "pointer" }}>
+              <a key={m.id} className="as-mini" onClick={() => go(m)} style={{ cursor: "pointer" }}>
                 <span className="as-fcat">{m.category}</span>
                 <h4>{m.title}</h4>
                 <span className="as-fmeta">{new Date(m.published_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>
