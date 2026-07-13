@@ -4,33 +4,51 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import AstepstairLayout, { useSiteSettings, SOCIAL_ICONS } from "@/components/astepstair/Layout";
 
+type FeedItem = {
+  id: string; slug: string; title: string; lead: string | null; category: string | null;
+  hero_image: string | null; author_name: string | null; read_minutes: number;
+  published_at: string; view_count: number; is_step: boolean; step_position: number | null;
+  feature_on_homepage: boolean; _kind: "article" | "blog";
+};
+
 function usePublishedArticles() {
   return useQuery({
-    queryKey: ["articles-home"],
+    queryKey: ["home-feed"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("articles")
-        .select("*")
-        .eq("published", true)
-        .eq("is_active", true)
-        .order("published_at", { ascending: false });
-      return data || [];
+      const [{ data: arts }, { data: blogs }] = await Promise.all([
+        supabase.from("articles").select("*").eq("published", true).eq("is_active", true),
+        supabase.from("blogs").select("*").eq("status", "published").eq("is_active", true),
+      ]);
+      const A: FeedItem[] = (arts || []).map((a: any) => ({
+        id: a.id, slug: a.slug, title: a.title, lead: a.lead, category: a.category,
+        hero_image: a.hero_image, author_name: a.author_name, read_minutes: a.read_minutes || 5,
+        published_at: a.published_at, view_count: a.view_count || 0,
+        is_step: !!a.is_step, step_position: a.step_position,
+        feature_on_homepage: a.feature_on_homepage !== false, _kind: "article",
+      }));
+      const B: FeedItem[] = (blogs || []).map((b: any) => ({
+        id: b.id, slug: b.slug, title: b.title, lead: b.excerpt, category: b.category,
+        hero_image: b.featured_image_url, author_name: b.author, read_minutes: 5,
+        published_at: b.published_at || b.created_at, view_count: b.view_count || 0,
+        is_step: !!b.is_step, step_position: b.step_position,
+        feature_on_homepage: b.feature_on_homepage !== false, _kind: "blog",
+      }));
+      return [...A, ...B].sort((x, y) => +new Date(y.published_at) - +new Date(x.published_at));
     },
   });
 }
 
 function useTrending() {
   return useQuery({
-    queryKey: ["trending"],
+    queryKey: ["home-trending"],
     queryFn: async () => {
-      const { data } = await supabase
-        .from("articles")
-        .select("id,slug,title")
-        .eq("published", true)
-        .eq("is_active", true)
-        .order("view_count", { ascending: false })
-        .limit(4);
-      return data || [];
+      const [{ data: arts }, { data: blogs }] = await Promise.all([
+        supabase.from("articles").select("id,slug,title,view_count").eq("published", true).eq("is_active", true),
+        supabase.from("blogs").select("id,slug,title,view_count").eq("status", "published").eq("is_active", true),
+      ]);
+      const A = (arts || []).map((a: any) => ({ ...a, _kind: "article" as const }));
+      const B = (blogs || []).map((b: any) => ({ ...b, _kind: "blog" as const }));
+      return [...A, ...B].sort((x, y) => (y.view_count || 0) - (x.view_count || 0)).slice(0, 4);
     },
   });
 }
